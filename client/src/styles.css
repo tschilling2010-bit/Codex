@@ -1,0 +1,12 @@
+body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f2f4f8; }
+.app { padding: 16px; }
+.grid { display: grid; grid-template-columns: 440px 1fr; gap: 16px; align-items: start; }
+.panel { background: white; border-radius: 10px; padding: 12px; box-shadow: 0 2px 8px #0001; }
+textarea { width: 100%; font-size: 14px; margin-top: 6px; }
+.controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+label { font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+input, select, button { padding: 6px; }
+.examples { display: flex; gap: 6px; margin: 8px 0; }
+.previewWrap { overflow: auto; }
+.page { position: relative; background: #fff; box-shadow: 0 3px 14px #0002; margin-bottom: 16px; }
+.export { margin-top: 10px; width: 100%; font-weight: bold; }
