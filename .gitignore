@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node (not used, but safety)
+node_modules/
+
+# HefterPro runtime storage — keep the empty folder structure.
+backend/storage/profiles/*
+backend/storage/projects/*
+backend/storage/exports/*
+backend/storage/uploads/*
+backend/storage/templates/*
+backend/storage/settings.json
+!backend/storage/**/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db

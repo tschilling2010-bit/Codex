@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Einstellungen — HefterPro</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
+      <nav class="nav-links">
+        <a href="/">Start</a>
+        <a href="/dashboard.html">Dashboard</a>
+        <a href="/handwriting.html">Handschrift</a>
+        <a href="/hefter.html">Hefterblatt</a>
+        <a href="/downloads.html">Downloads</a>
+        <a href="/settings.html">Einstellungen</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container narrow" style="padding-top:40px; padding-bottom:64px">
+    <div class="stack-lg">
+      <div>
+        <span class="eyebrow">Einstellungen</span>
+        <h2 style="margin-top:10px">Voreinstellungen anpassen</h2>
+        <p class="muted">Werden automatisch gespeichert und für neue Projekte verwendet.</p>
+      </div>
+
+      <section class="card stack">
+        <div class="field-row">
+          <div>
+            <label class="field" for="default-profile">Standardschrift</label>
+            <select id="default-profile" class="select"></select>
+          </div>
+          <div>
+            <label class="field" for="default-sheet">Blatt-Typ</label>
+            <select id="default-sheet" class="select">
+              <option value="liniert">Liniert</option>
+              <option value="kariert">Kariert</option>
+              <option value="blanko">Blanko</option>
+            </select>
+          </div>
+          <div>
+            <label class="field" for="default-format">Exportformat</label>
+            <select id="default-format" class="select">
+              <option value="pdf">PDF</option>
+              <option value="png">PNG</option>
+              <option value="jpg">JPG</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label class="field" for="margin">Rand (mm)</label>
+            <input id="margin" class="input" type="number" min="5" max="40" step="1" />
+          </div>
+          <div>
+            <label class="field" for="line">Zeilenhöhe (mm)</label>
+            <input id="line" class="input" type="number" min="5" max="20" step="0.5" />
+          </div>
+          <div>
+            <label class="field" for="glyph">Buchstabenhöhe (mm)</label>
+            <input id="glyph" class="input" type="number" min="3" max="12" step="0.5" />
+          </div>
+          <div>
+            <label class="field" for="ink">Tintenfarbe</label>
+            <input id="ink" class="input" type="color" />
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="btn btn-primary" id="save">Speichern</button>
+          <span id="status" class="status"></span>
+        </div>
+      </section>
+
+      <section class="card stack">
+        <div>
+          <h3 style="margin:0">Handschrift-Profile</h3>
+          <p class="muted" style="margin:6px 0 0">Verwalte deine gespeicherten Profile.</p>
+        </div>
+        <div id="profiles"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site"><div class="container">HefterPro</div></footer>
+  <script src="/js/common.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/settings.js"></script>
+</body>
+</html>
