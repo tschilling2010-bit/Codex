@@ -8,14 +8,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist ".venv" (
-    echo Erstelle virtuelle Umgebung...
-    python -m venv .venv
+if exist ".venv" (
+    echo Loesche alte virtuelle Umgebung...
+    rmdir /s /q .venv
 )
+echo Erstelle virtuelle Umgebung...
+python -m venv .venv
 
 call .venv\Scripts\activate.bat
 pip install --upgrade pip -q
-pip install -r requirements.txt -q
+pip install --prefer-binary -r requirements.txt -q
+if errorlevel 1 (
+    echo Fehler beim Installieren. Versuche alternativen Weg...
+    pip install --prefer-binary fastapi uvicorn[standard] python-multipart Pillow reportlab pypdf pydantic -q
+)
 
 set HEFTERPRO_STORAGE=%CD%\backend\storage
 if not exist "%HEFTERPRO_STORAGE%" mkdir "%HEFTERPRO_STORAGE%"
