@@ -71,7 +71,9 @@ app.mount(
 # Static frontend.
 _FRONTEND = Path(config.FRONTEND_DIR)
 if _FRONTEND.exists():
-    app.mount("/assets", StaticFiles(directory=str(_FRONTEND / "assets")), name="assets")
+    _assets = _FRONTEND / "assets"
+    _assets.mkdir(exist_ok=True)
+    app.mount("/assets", StaticFiles(directory=str(_assets)), name="assets")
     app.mount("/css", StaticFiles(directory=str(_FRONTEND / "css")), name="css")
     app.mount("/js", StaticFiles(directory=str(_FRONTEND / "js")), name="js")
 
