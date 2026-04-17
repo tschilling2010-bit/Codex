@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hefterblatt-Erstellung — HefterPro</title>
+  <title>Hefterblatt erstellen — HefterPro</title>
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -11,31 +11,29 @@
     <div class="container nav-inner">
       <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
       <nav class="nav-links">
-        <a href="/">Start</a>
-        <a href="/dashboard.html">Dashboard</a>
+        <a href="/">Dashboard</a>
         <a href="/handwriting.html">Handschrift</a>
         <a href="/hefter.html">Hefterblatt</a>
         <a href="/downloads.html">Downloads</a>
-        <a href="/settings.html">Einstellungen</a>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding-top:40px; padding-bottom:64px">
     <div class="stack-lg">
-      <div>
+      <div class="page-header">
         <span class="eyebrow">Funktion 2</span>
-        <h2 style="margin-top:10px">Hefterblatt automatisch erstellen</h2>
-        <p class="muted">Unterlagen hochladen — HefterPro baut ein strukturiertes Blatt daraus.</p>
+        <h2>Hefterblatt erstellen</h2>
+        <p>Lade Unterlagen hoch oder gib Text ein — HefterPro baut ein strukturiertes Blatt daraus.</p>
       </div>
 
       <div class="grid cols-2">
         <section class="card stack">
           <div>
-            <label class="field">Dateien</label>
+            <label class="field">Dateien (optional)</label>
             <div class="dropzone" id="drop">
               <strong>Dateien hier ablegen</strong>
-              <span class="muted">Bilder, PDFs oder Textdateien — auch mehrere zusammen.</span>
+              <span class="muted">Bilder, PDFs oder Textdateien</span>
               <input type="file" id="files" multiple hidden />
               <div class="file-list" id="file-list"></div>
             </div>
@@ -43,13 +41,13 @@
 
           <div>
             <label class="field" for="topic">Thema (optional)</label>
-            <input id="topic" class="input" placeholder="z. B. Photosynthese" />
+            <input id="topic" class="input" placeholder="z.B. Photosynthese, Zweiter Weltkrieg, Bruchrechnung…" />
           </div>
 
           <div>
-            <label class="field" for="extra">Zusätzlicher Text (optional)</label>
-            <textarea id="extra" class="textarea" style="min-height:140px"
-              placeholder="Eigene Notizen oder Ergänzungen, die ins Hefterblatt einfließen sollen."></textarea>
+            <label class="field" for="extra">Text / Notizen</label>
+            <textarea id="extra" class="textarea" style="min-height:160px"
+              placeholder="Eigene Notizen, Stichpunkte oder Text, der ins Hefterblatt einfließen soll."></textarea>
           </div>
 
           <div class="toolbar">
@@ -63,7 +61,7 @@
         </section>
 
         <section class="stack">
-          <h3 style="margin:0">Vorschau</h3>
+          <h3 style="margin:0; font-size:18px">Vorschau</h3>
           <div id="preview" class="preview-wrap">
             <div class="empty-state">Noch kein Hefterblatt erzeugt.</div>
           </div>
@@ -72,7 +70,7 @@
     </div>
   </main>
 
-  <footer class="site"><div class="container">HefterPro</div></footer>
+  <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
   <script src="/js/common.js"></script>
   <script src="/js/api.js"></script>

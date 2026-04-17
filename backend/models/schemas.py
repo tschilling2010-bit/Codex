@@ -12,13 +12,10 @@ ExportFormat = Literal["pdf", "png", "jpg"]
 
 class RenderRequest(BaseModel):
     text: str = Field(..., description="Der zu rendernde Text.")
-    profile_id: str = Field("default", description="Handschrift-Profil-ID.")
+    profile_id: str = Field("hefterpro-natur", description="Handschrift-Profil-ID.")
     sheet_type: SheetType = "liniert"
-    margin_mm: float = 20
-    line_height_mm: float = 9
-    glyph_height_mm: float = 5.5
-    ink_color: str = "#1a2a6c"
-    jitter: float = Field(1.0, ge=0.0, le=2.0, description="Stärke der natürlichen Abweichungen.")
+    ink_color: str = "#16306b"
+    jitter: float = Field(0.6, ge=0.0, le=2.0)
 
 
 class RenderResponse(BaseModel):
@@ -42,16 +39,14 @@ class ExportResponse(BaseModel):
 class ProfileInfo(BaseModel):
     id: str
     name: str
-    source: Literal["default", "user"]
-    glyph_count: int
-    created_at: Optional[float] = None
+    source: str = "default"
+    glyph_count: int = 0
 
 
 class HefterProcessRequest(BaseModel):
     project_id: Optional[str] = None
     additional_text: str = ""
     topic_hint: str = ""
-    profile_id: str = "default"
 
 
 class HefterSection(BaseModel):
@@ -80,13 +75,3 @@ class ProjectInfo(BaseModel):
     created_at: float
     pages: int
     exports: List[str] = []
-
-
-class AppSettings(BaseModel):
-    default_profile_id: str = "default"
-    default_sheet_type: SheetType = "liniert"
-    default_export_format: ExportFormat = "pdf"
-    margin_mm: float = 20
-    line_height_mm: float = 9
-    glyph_height_mm: float = 5.5
-    ink_color: str = "#1a2a6c"

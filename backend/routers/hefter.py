@@ -4,9 +4,10 @@ from __future__ import annotations
 import logging
 import uuid
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from PIL import Image
 
 from .. import config
 from ..models.schemas import (
@@ -16,7 +17,6 @@ from ..models.schemas import (
     HefterProcessResponse,
 )
 from ..services import export, file_processing, hefter_generator, projects
-from ..services.glyph_engine import GlyphEngine
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -26,11 +26,6 @@ router = APIRouter()
 async def hefter_upload(
     files: List[UploadFile] = File(default=[]),
 ) -> dict:
-    """Speichert hochgeladene Dateien und gibt einen Upload-Token zurück.
-
-    Der Token ist eine einfache ID für den gerade laufenden Upload — er wird
-    beim nachfolgenden ``/process``-Aufruf referenziert.
-    """
     token = uuid.uuid4().hex[:12]
     target = config.UPLOADS_DIR / token
     target.mkdir(parents=True, exist_ok=True)
@@ -49,7 +44,6 @@ def hefter_process(
     upload_id: str = Form(""),
     additional_text: str = Form(""),
     topic_hint: str = Form(""),
-    profile_id: str = Form("default"),
 ) -> HefterProcessResponse:
     paths: List[Path] = []
     if upload_id:
@@ -63,9 +57,7 @@ def hefter_process(
         content, additional_text=additional_text, topic_hint=topic_hint
     )
 
-    # Hefter in Druckschrift rendern (Handschrift-Engine optional pro Block).
     options = hefter_generator.HefterRenderOptions(
-        profile_id=profile_id,
         accent="#1a2a6c",
         sheet_type="blanko",
     )
@@ -74,7 +66,6 @@ def hefter_process(
     project = projects.new_project("hefter", doc.title)
     preview_urls = projects.save_pages(project, pages)
 
-    # Dokument als JSON zusätzlich ablegen, damit Preview/Re-Export möglich ist.
     meta_path = config.PROJECTS_DIR / project.id / "document.json"
     meta_path.write_text(doc.model_dump_json(indent=2))
 
@@ -89,10 +80,6 @@ def hefter_preview(project_id: str) -> HefterDocument:
     if not doc_path.exists():
         raise HTTPException(status_code=404, detail="Hefter-Dokument nicht gefunden.")
     return HefterDocument.model_validate_json(doc_path.read_text())
-
-
-# Export-Endpunkte teilen sich dieselbe Logik wie Handwriting.
-from PIL import Image  # noqa: E402
 
 
 def _load_pages(project_id: str) -> List[Image.Image]:

@@ -11,22 +11,20 @@
     <div class="container nav-inner">
       <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
       <nav class="nav-links">
-        <a href="/">Start</a>
-        <a href="/dashboard.html">Dashboard</a>
+        <a href="/">Dashboard</a>
         <a href="/handwriting.html">Handschrift</a>
         <a href="/hefter.html">Hefterblatt</a>
         <a href="/downloads.html">Downloads</a>
-        <a href="/settings.html">Einstellungen</a>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding-top:40px; padding-bottom:64px">
     <div class="stack-lg">
-      <div>
+      <div class="page-header">
         <span class="eyebrow">Funktion 1</span>
-        <h2 style="margin-top:10px">Text zu Handschrift</h2>
-        <p class="muted">Sauber, realistisch, handgeschriebene Druckschrift — mit natürlichen Abweichungen.</p>
+        <h2>Text zu Handschrift</h2>
+        <p>Natürlich wirkende Handschrift — sofort bereit, kein Template nötig.</p>
       </div>
 
       <div class="grid cols-2">
@@ -38,7 +36,7 @@
 
           <div class="field-row">
             <div>
-              <label class="field" for="profile">Handschrift-Profil</label>
+              <label class="field" for="profile">Handschrift-Stil</label>
               <select id="profile" class="select"></select>
             </div>
             <div>
@@ -51,7 +49,7 @@
             </div>
             <div>
               <label class="field" for="ink">Tinte</label>
-              <input id="ink" class="input" type="color" value="#1a2a6c" />
+              <input id="ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
             </div>
           </div>
 
@@ -66,53 +64,16 @@
         </section>
 
         <section class="stack">
-          <h3 style="margin:0">Live-Vorschau</h3>
+          <h3 style="margin:0; font-size:18px">Live-Vorschau</h3>
           <div id="preview" class="preview-wrap">
-            <div class="empty-state">Noch keine Vorschau. Text eingeben und „Rendern“ klicken.</div>
+            <div class="empty-state">Noch keine Vorschau. Text eingeben und „Rendern" klicken.</div>
           </div>
         </section>
       </div>
-
-      <section class="card stack">
-        <div>
-          <h3 style="margin:0">Eigene Handschrift erstellen</h3>
-          <p class="muted">In drei Schritten zu deinem persönlichen Profil.</p>
-        </div>
-        <ol class="stack-sm" style="padding-left:20px; color:var(--text-muted)">
-          <li>Template erzeugen und ausdrucken.</li>
-          <li>Jedes Feld mit dem angegebenen Zeichen in Druckschrift ausfüllen.</li>
-          <li>Seiten abfotografieren oder scannen und hier hochladen.</li>
-        </ol>
-        <div class="field-row">
-          <div>
-            <label class="field" for="profile-name">Profilname</label>
-            <input id="profile-name" class="input" placeholder="z. B. Meine Handschrift" />
-          </div>
-          <div style="display:flex; align-items:flex-end">
-            <button class="btn btn-ghost" id="btn-make-template">Template erzeugen</button>
-          </div>
-        </div>
-
-        <div id="template-info" class="muted" style="font-size:14px"></div>
-
-        <div>
-          <label class="field">Ausgefülltes Template hochladen</label>
-          <div class="dropzone" id="template-drop">
-            <strong>Dateien hier ablegen</strong>
-            <span class="muted">oder klicken, um Bilder auszuwählen (PNG/JPG)</span>
-            <input type="file" id="template-files" multiple accept="image/*" hidden />
-            <div class="file-list" id="template-list"></div>
-          </div>
-        </div>
-        <div class="toolbar">
-          <button class="btn btn-primary" id="btn-upload-template" disabled>Profil erstellen</button>
-          <span id="template-status" class="status"></span>
-        </div>
-      </section>
     </div>
   </main>
 
-  <footer class="site"><div class="container">HefterPro</div></footer>
+  <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
   <script src="/js/common.js"></script>
   <script src="/js/api.js"></script>

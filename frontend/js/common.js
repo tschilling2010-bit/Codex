@@ -1,4 +1,4 @@
-// Shared UI helpers.
+// Shared UI helpers
 function $(sel, root = document) { return root.querySelector(sel); }
 function $$(sel, root = document) { return [...root.querySelectorAll(sel)]; }
 
@@ -13,16 +13,12 @@ function showSpinner(btn, label = "Lädt…") {
   const original = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<span class="spinner"></span> ${label}`;
-  return () => {
-    btn.disabled = false;
-    btn.innerHTML = original;
-  };
+  return () => { btn.disabled = false; btn.innerHTML = original; };
 }
 
 function formatDate(ts) {
   if (!ts) return "—";
-  const d = new Date(ts * 1000);
-  return d.toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(ts * 1000).toLocaleString("de-DE", { dateStyle: "medium", timeStyle: "short" });
 }
 
 function fmtBytes(n) {
@@ -33,11 +29,17 @@ function fmtBytes(n) {
   return `${n.toFixed(n < 10 ? 1 : 0)} ${units[i]}`;
 }
 
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
 function highlightNav() {
-  const here = location.pathname.replace(/\.html$/, "").replace(/\/$/, "");
+  const path = location.pathname;
   $$(".nav-links a").forEach(a => {
-    const target = a.getAttribute("href").replace(/\.html$/, "").replace(/\/$/, "");
-    if ((here === "" && target === "") || (target && here.endsWith(target))) {
+    const href = a.getAttribute("href");
+    if ((path === "/" && href === "/") || (href !== "/" && path.startsWith(href))) {
       a.classList.add("active");
     }
   });

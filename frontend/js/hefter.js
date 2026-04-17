@@ -1,5 +1,5 @@
 (function () {
-  const state = { uploadId: null, files: [], projectId: null };
+  const state = { files: [], projectId: null };
   const els = {
     drop: $("#drop"),
     files: $("#files"),
@@ -31,8 +31,13 @@
   }
 
   els.btnProcess.addEventListener("click", async () => {
+    const text = els.extra.value.trim();
+    if (!state.files.length && !text) {
+      setStatus(els.status, "Bitte Dateien hochladen oder Text eingeben.", "err");
+      return;
+    }
     const reset = showSpinner(els.btnProcess, "Erstelle…");
-    setStatus(els.status, "Dateien werden analysiert…");
+    setStatus(els.status, "Hefterblatt wird erstellt…");
     try {
       let uploadId = "";
       if (state.files.length) {
@@ -47,7 +52,7 @@
       state.projectId = res.project_id;
       renderPreview(res.preview_urls);
       [els.btnPdf, els.btnPng, els.btnJpg].forEach(b => b.disabled = false);
-      setStatus(els.status, `Fertig · ${res.preview_urls.length} Seite(n) · Thema: ${res.document.title}`, "ok");
+      setStatus(els.status, `Fertig · ${res.preview_urls.length} Seite(n) · ${res.document.title}`, "ok");
     } catch (e) {
       setStatus(els.status, "Fehler: " + e.message, "err");
     } finally { reset(); }
@@ -72,11 +77,8 @@
       setStatus(els.status, "Export fehlgeschlagen: " + e.message, "err");
     } finally { reset(); }
   }
+
   els.btnPdf.addEventListener("click", () => exportFormat("pdf"));
   els.btnPng.addEventListener("click", () => exportFormat("png"));
   els.btnJpg.addEventListener("click", () => exportFormat("jpg"));
-
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  }
 })();

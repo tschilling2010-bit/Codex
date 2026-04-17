@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — HefterPro</title>
+  <title>HefterPro — Dashboard</title>
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -11,42 +11,40 @@
     <div class="container nav-inner">
       <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
       <nav class="nav-links">
-        <a href="/">Start</a>
-        <a href="/dashboard.html">Dashboard</a>
+        <a href="/">Dashboard</a>
         <a href="/handwriting.html">Handschrift</a>
         <a href="/hefter.html">Hefterblatt</a>
         <a href="/downloads.html">Downloads</a>
-        <a href="/settings.html">Einstellungen</a>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding-top:48px; padding-bottom:64px">
     <div class="stack-lg">
-      <div>
+      <div class="page-header">
         <span class="eyebrow">Dashboard</span>
-        <h2 style="margin-top:10px">Willkommen zurück.</h2>
-        <p class="muted">Wähle eine Funktion oder setze ein bestehendes Projekt fort.</p>
+        <h2>Willkommen bei HefterPro</h2>
+        <p>Wähle eine Funktion oder setze ein bestehendes Projekt fort.</p>
       </div>
 
       <div class="grid cols-2">
         <a class="card interactive" href="/handwriting.html">
           <span class="eyebrow">Funktion 1</span>
-          <h3 style="margin-top:14px">Text zu Handschrift</h3>
-          <p>Text eintippen, Blatt wählen, fertiges PDF herunterladen. Optional eigene Handschrift trainieren.</p>
+          <h3 style="margin-top:16px">Text zu Handschrift</h3>
+          <p>Tippe deinen Text ein, wähle ein Blatt und lade das Ergebnis als PDF, PNG oder JPG herunter. Sieht aus wie echte Handschrift.</p>
         </a>
         <a class="card interactive" href="/hefter.html">
           <span class="eyebrow">Funktion 2</span>
-          <h3 style="margin-top:14px">Hefterblatt erstellen</h3>
-          <p>Bilder, PDFs oder Text hochladen — HefterPro strukturiert automatisch ein lernfreundliches Blatt.</p>
+          <h3 style="margin-top:16px">Hefterblatt erstellen</h3>
+          <p>Lade Bilder, PDFs oder Text hoch — HefterPro erstellt automatisch ein strukturiertes, lernfreundliches Hefterblatt.</p>
         </a>
       </div>
 
       <div class="card">
         <div class="toolbar" style="margin-bottom:16px">
-          <h3 style="margin:0">Letzte Projekte</h3>
+          <h3 style="margin:0; font-size:18px">Letzte Projekte</h3>
           <div class="toolbar-spacer"></div>
-          <a class="btn btn-soft" href="/downloads.html">Alle Downloads</a>
+          <a class="btn btn-soft" href="/downloads.html">Alle anzeigen</a>
         </div>
         <div id="projects"></div>
       </div>
