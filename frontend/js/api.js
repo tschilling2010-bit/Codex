@@ -26,11 +26,27 @@ const API = (() => {
     health: () => request("/api/health"),
 
     listProfiles: () => request("/api/handwriting/profile/list"),
+    deleteProfile: (id) => request(`/api/handwriting/profile/${id}`, { method: "DELETE" }),
     render: (payload) => request("/api/handwriting/render", { method: "POST", body: payload }),
     exportHandwriting: (projectId, format) =>
       request(format === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image",
         { method: "POST", body: { project_id: projectId, format } }),
 
+    // Template
+    createTemplate: (name) => {
+      const fd = new FormData();
+      if (name) fd.append("name", name);
+      return request("/api/handwriting/template/create", { method: "POST", form: fd });
+    },
+    uploadTemplate: (profileId, name, files) => {
+      const fd = new FormData();
+      fd.append("profile_id", profileId);
+      fd.append("name", name);
+      for (const f of files) fd.append("files", f);
+      return request("/api/handwriting/template/upload", { method: "POST", form: fd });
+    },
+
+    // Hefter
     hefterUpload: (files) => {
       const fd = new FormData();
       for (const f of files) fd.append("files", f);

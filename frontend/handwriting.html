@@ -24,7 +24,7 @@
       <div class="page-header">
         <span class="eyebrow">Funktion 1</span>
         <h2>Text zu Handschrift</h2>
-        <p>Natürlich wirkende Handschrift — sofort bereit, kein Template nötig.</p>
+        <p>Sofort nutzbar mit eingebauten Stilen — oder erstelle deine eigene Handschrift per Template.</p>
       </div>
 
       <div class="grid cols-2">
@@ -56,9 +56,9 @@
           <div class="toolbar">
             <button class="btn btn-primary" id="btn-render">Rendern</button>
             <div class="toolbar-spacer"></div>
-            <button class="btn btn-soft" data-format="pdf" id="btn-pdf" disabled>PDF</button>
-            <button class="btn btn-soft" data-format="png" id="btn-png" disabled>PNG</button>
-            <button class="btn btn-soft" data-format="jpg" id="btn-jpg" disabled>JPG</button>
+            <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
+            <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
+            <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
           </div>
           <div id="status" class="status">Bereit.</div>
         </section>
@@ -69,6 +69,59 @@
             <div class="empty-state">Noch keine Vorschau. Text eingeben und „Rendern" klicken.</div>
           </div>
         </section>
+      </div>
+
+      <!-- Template Section -->
+      <div class="card stack">
+        <div>
+          <span class="eyebrow">Eigene Handschrift</span>
+          <h3 style="margin-top:12px; font-size:20px">Deine Handschrift digitalisieren</h3>
+          <p class="muted" style="margin-top:6px">Wie bei Calligraphr: Template ausdrucken, ausfüllen, hochladen — fertig ist dein persönliches Profil.</p>
+        </div>
+
+        <div style="display:grid; grid-template-columns: auto 1fr; gap:20px; align-items:start; padding:16px 0">
+          <div style="background:var(--accent-soft); color:var(--accent); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px">1</div>
+          <div>
+            <strong>Template erzeugen & ausdrucken</strong>
+            <p class="muted" style="margin:4px 0 8px; font-size:14px">Enthält Felder für jeden Buchstaben, Zahl und Sonderzeichen.</p>
+            <div class="field-row" style="max-width:500px">
+              <div>
+                <label class="field" for="profile-name">Profilname</label>
+                <input id="profile-name" class="input" placeholder="z.B. Meine Handschrift" />
+              </div>
+              <div style="display:flex; align-items:flex-end">
+                <button class="btn btn-ghost" id="btn-make-template">Template erzeugen</button>
+              </div>
+            </div>
+            <div id="template-info" class="muted" style="font-size:14px; margin-top:8px"></div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: auto 1fr; gap:20px; align-items:start">
+          <div style="background:var(--accent-soft); color:var(--accent); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px">2</div>
+          <div>
+            <strong>Ausgefülltes Template hochladen</strong>
+            <p class="muted" style="margin:4px 0 8px; font-size:14px">Fotografiere oder scanne die ausgefüllten Seiten (PNG/JPG).</p>
+            <div class="dropzone" id="template-drop" style="padding:24px 16px">
+              <strong>Bilder hier ablegen</strong>
+              <span class="muted">oder klicken zum Auswählen</span>
+              <input type="file" id="template-files" multiple accept="image/*" hidden />
+              <div class="file-list" id="template-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: auto 1fr; gap:20px; align-items:start">
+          <div style="background:var(--accent-soft); color:var(--accent); width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px">3</div>
+          <div>
+            <strong>Profil erstellen</strong>
+            <p class="muted" style="margin:4px 0 8px; font-size:14px">Die Buchstaben werden automatisch extrahiert und als Profil gespeichert.</p>
+            <div class="toolbar">
+              <button class="btn btn-primary" id="btn-upload-template" disabled>Profil erstellen</button>
+              <span id="template-status" class="status"></span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </main>

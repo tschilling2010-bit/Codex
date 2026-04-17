@@ -1,5 +1,5 @@
 (function () {
-  const state = { profileId: "hefterpro-natur", projectId: null };
+  const state = { profileId: "hefterpro-natur", projectId: null, templateProfileId: null, templateFiles: [] };
 
   const els = {
     text: $("#text"),
@@ -12,18 +12,35 @@
     btnJpg: $("#btn-jpg"),
     preview: $("#preview"),
     status: $("#status"),
+    profileName: $("#profile-name"),
+    btnMakeTemplate: $("#btn-make-template"),
+    templateInfo: $("#template-info"),
+    templateDrop: $("#template-drop"),
+    templateFiles: $("#template-files"),
+    templateList: $("#template-list"),
+    btnUploadTemplate: $("#btn-upload-template"),
+    templateStatus: $("#template-status"),
   };
 
+  // ---------- Init ----------
   (async function init() {
+    await loadProfiles();
+  })();
+
+  async function loadProfiles(preferred) {
     const profiles = await API.listProfiles();
     els.profile.innerHTML = profiles.map(p =>
-      `<option value="${p.id}">${escapeHtml(p.name)}</option>`
+      `<option value="${p.id}">${escapeHtml(p.name)}${p.source === "user" ? " ✦" : ""}</option>`
     ).join("");
+    if (preferred && profiles.some(p => p.id === preferred)) {
+      els.profile.value = preferred;
+    }
     state.profileId = els.profile.value;
-  })();
+  }
 
   els.profile.addEventListener("change", () => { state.profileId = els.profile.value; });
 
+  // ---------- Rendering ----------
   els.btnRender.addEventListener("click", async () => {
     const text = els.text.value;
     if (!text.trim()) { setStatus(els.status, "Bitte zuerst Text eingeben.", "err"); return; }
@@ -72,4 +89,53 @@
   els.btnPdf.addEventListener("click", () => exportFormat("pdf"));
   els.btnPng.addEventListener("click", () => exportFormat("png"));
   els.btnJpg.addEventListener("click", () => exportFormat("jpg"));
+
+  // ---------- Template erzeugen ----------
+  els.btnMakeTemplate.addEventListener("click", async () => {
+    const reset = showSpinner(els.btnMakeTemplate, "Erzeuge…");
+    try {
+      const res = await API.createTemplate(els.profileName.value.trim());
+      state.templateProfileId = res.profile_id;
+      els.templateInfo.innerHTML =
+        `Template für <strong>${escapeHtml(res.name)}</strong> erzeugt. ` +
+        `<a href="${res.template_url}" target="_blank" style="font-weight:600">Template herunterladen (PDF)</a> · ` +
+        `${res.meta.pages} Seite(n), ${res.meta.cells.length} Zeichen-Felder.`;
+      els.btnUploadTemplate.disabled = state.templateFiles.length === 0;
+    } catch (e) {
+      setStatus(els.templateStatus, "Fehler: " + e.message, "err");
+    } finally { reset(); }
+  });
+
+  // ---------- Template Upload ----------
+  els.templateDrop.addEventListener("click", () => els.templateFiles.click());
+  els.templateDrop.addEventListener("dragover", (e) => { e.preventDefault(); els.templateDrop.classList.add("dragover"); });
+  els.templateDrop.addEventListener("dragleave", () => els.templateDrop.classList.remove("dragover"));
+  els.templateDrop.addEventListener("drop", (e) => {
+    e.preventDefault(); els.templateDrop.classList.remove("dragover");
+    handleTemplateFiles(e.dataTransfer.files);
+  });
+  els.templateFiles.addEventListener("change", () => handleTemplateFiles(els.templateFiles.files));
+
+  function handleTemplateFiles(files) {
+    state.templateFiles = [...files];
+    els.templateList.innerHTML = state.templateFiles.map(f =>
+      `<div>• ${escapeHtml(f.name)} <span class="muted">(${fmtBytes(f.size)})</span></div>`
+    ).join("");
+    els.btnUploadTemplate.disabled = !state.templateProfileId || state.templateFiles.length === 0;
+  }
+
+  els.btnUploadTemplate.addEventListener("click", async () => {
+    if (!state.templateProfileId || !state.templateFiles.length) return;
+    const reset = showSpinner(els.btnUploadTemplate, "Extrahiere Buchstaben…");
+    setStatus(els.templateStatus, "Buchstaben werden aus dem Template extrahiert…");
+    try {
+      const name = els.profileName.value.trim() || "Eigene Handschrift";
+      const res = await API.uploadTemplate(state.templateProfileId, name, state.templateFiles);
+      setStatus(els.templateStatus,
+        `Profil erstellt · ${res.glyph_count} Buchstaben aus ${res.char_count} Zeichen extrahiert.`, "ok");
+      await loadProfiles(state.templateProfileId);
+    } catch (e) {
+      setStatus(els.templateStatus, "Fehler: " + e.message, "err");
+    } finally { reset(); }
+  });
 })();

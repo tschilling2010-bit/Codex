@@ -1,10 +1,13 @@
-"""API: Handschrift-Rendering & Profile."""
+"""API: Handschrift-Rendering, Profile & Template."""
 from __future__ import annotations
 
+import io
+import json
 import logging
-from typing import List
+import uuid
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from PIL import Image
 
 from .. import config
@@ -17,6 +20,7 @@ from ..models.schemas import (
 )
 from ..services import export, fonts, projects
 from ..services.rendering import RenderOptions, render_text
+from ..services.template_service import generate_template, process_uploaded_template
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -25,6 +29,65 @@ router = APIRouter()
 @router.get("/profile/list", response_model=List[ProfileInfo])
 def profile_list() -> List[ProfileInfo]:
     return [ProfileInfo(**p) for p in fonts.list_profiles()]
+
+
+@router.delete("/profile/{profile_id}")
+def profile_delete(profile_id: str) -> dict:
+    if not fonts.delete_user_profile(profile_id):
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden oder geschützt.")
+    return {"deleted": profile_id}
+
+
+# ---------------------------------------------------------------------------
+# Template
+# ---------------------------------------------------------------------------
+
+
+@router.post("/template/create")
+def template_create(name: Optional[str] = Form(None)) -> dict:
+    profile_id = uuid.uuid4().hex[:10]
+    display_name = (name or f"Eigene Handschrift {profile_id[:4]}").strip()
+
+    template_pdf = config.TEMPLATES_DIR / f"{profile_id}.pdf"
+    meta = generate_template(template_pdf)
+
+    return {
+        "profile_id": profile_id,
+        "name": display_name,
+        "template_url": f"/files/templates/{template_pdf.name}",
+        "meta": meta,
+    }
+
+
+@router.post("/template/upload")
+async def template_upload(
+    profile_id: str = Form(...),
+    name: str = Form("Eigene Handschrift"),
+    files: List[UploadFile] = File(...),
+) -> dict:
+    meta_path = config.TEMPLATES_DIR / f"{profile_id}.json"
+    if not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Unbekanntes Template. Bitte zuerst Template erzeugen.")
+
+    meta = json.loads(meta_path.read_text())
+
+    images: List[Image.Image] = []
+    for f in files:
+        data = await f.read()
+        try:
+            img = Image.open(io.BytesIO(data))
+            img.load()
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Bild nicht lesbar: {exc}")
+        images.append(img.convert("RGB"))
+
+    result = process_uploaded_template(images, meta, profile_id, name)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------------------------
 
 
 @router.post("/render", response_model=RenderResponse)
@@ -44,6 +107,11 @@ def render(req: RenderRequest) -> RenderResponse:
     return RenderResponse(
         project_id=project.id, pages=len(pages), preview_urls=preview_urls
     )
+
+
+# ---------------------------------------------------------------------------
+# Export
+# ---------------------------------------------------------------------------
 
 
 def _load_pages(project_id: str) -> List[Image.Image]:
