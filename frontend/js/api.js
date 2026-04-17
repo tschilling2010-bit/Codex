@@ -32,7 +32,6 @@ const API = (() => {
       request(format === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image",
         { method: "POST", body: { project_id: projectId, format } }),
 
-    // Template
     createTemplate: (name) => {
       const fd = new FormData();
       if (name) fd.append("name", name);
@@ -46,7 +45,6 @@ const API = (() => {
       return request("/api/handwriting/template/upload", { method: "POST", form: fd });
     },
 
-    // Hefter
     hefterUpload: (files) => {
       const fd = new FormData();
       for (const f of files) fd.append("files", f);

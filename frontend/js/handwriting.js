@@ -22,7 +22,6 @@
     templateStatus: $("#template-status"),
   };
 
-  // ---------- Init ----------
   (async function init() {
     await loadProfiles();
   })();
@@ -30,7 +29,7 @@
   async function loadProfiles(preferred) {
     const profiles = await API.listProfiles();
     els.profile.innerHTML = profiles.map(p =>
-      `<option value="${p.id}">${escapeHtml(p.name)}${p.source === "user" ? " ✦" : ""}</option>`
+      `<option value="${p.id}">${escapeHtml(p.name)}${p.source === "user" ? " *" : ""}</option>`
     ).join("");
     if (preferred && profiles.some(p => p.id === preferred)) {
       els.profile.value = preferred;
@@ -44,8 +43,8 @@
   els.btnRender.addEventListener("click", async () => {
     const text = els.text.value;
     if (!text.trim()) { setStatus(els.status, "Bitte zuerst Text eingeben.", "err"); return; }
-    const reset = showSpinner(els.btnRender, "Rendere…");
-    setStatus(els.status, "Handschrift wird erzeugt…");
+    const reset = showSpinner(els.btnRender, "Rendere...");
+    setStatus(els.status, "Handschrift wird erzeugt...");
     try {
       const res = await API.render({
         text,
@@ -57,7 +56,7 @@
       state.projectId = res.project_id;
       renderPreview(res.preview_urls);
       [els.btnPdf, els.btnPng, els.btnJpg].forEach(b => b.disabled = false);
-      setStatus(els.status, `Fertig · ${res.pages} Seite(n).`, "ok");
+      setStatus(els.status, `Fertig - ${res.pages} Seite(n).`, "ok");
     } catch (e) {
       setStatus(els.status, "Fehler: " + e.message, "err");
     } finally { reset(); }
@@ -92,14 +91,21 @@
 
   // ---------- Template erzeugen ----------
   els.btnMakeTemplate.addEventListener("click", async () => {
-    const reset = showSpinner(els.btnMakeTemplate, "Erzeuge…");
+    const reset = showSpinner(els.btnMakeTemplate, "Erzeuge...");
     try {
       const res = await API.createTemplate(els.profileName.value.trim());
       state.templateProfileId = res.profile_id;
+
+      // Build download links for each page
+      const links = res.page_urls.map((url, i) =>
+        `<a href="${url}" target="_blank" style="font-weight:600">Seite ${i + 1}</a>`
+      ).join(" &middot; ");
+
       els.templateInfo.innerHTML =
-        `Template für <strong>${escapeHtml(res.name)}</strong> erzeugt. ` +
-        `<a href="${res.template_url}" target="_blank" style="font-weight:600">Template herunterladen (PDF)</a> · ` +
-        `${res.meta.pages} Seite(n), ${res.meta.cells.length} Zeichen-Felder.`;
+        `Template fuer <strong>${escapeHtml(res.name)}</strong> erzeugt (${res.pages} Seiten, ${res.cells} Zeichen).<br>` +
+        `Download: ${links}<br>` +
+        `<span style="font-size:13px">Jede Seite herunterladen, ausdrucken und ausfuellen.</span>`;
+
       els.btnUploadTemplate.disabled = state.templateFiles.length === 0;
     } catch (e) {
       setStatus(els.templateStatus, "Fehler: " + e.message, "err");
@@ -119,21 +125,25 @@
   function handleTemplateFiles(files) {
     state.templateFiles = [...files];
     els.templateList.innerHTML = state.templateFiles.map(f =>
-      `<div>• ${escapeHtml(f.name)} <span class="muted">(${fmtBytes(f.size)})</span></div>`
+      `<div>- ${escapeHtml(f.name)} <span class="muted">(${fmtBytes(f.size)})</span></div>`
     ).join("");
     els.btnUploadTemplate.disabled = !state.templateProfileId || state.templateFiles.length === 0;
   }
 
   els.btnUploadTemplate.addEventListener("click", async () => {
     if (!state.templateProfileId || !state.templateFiles.length) return;
-    const reset = showSpinner(els.btnUploadTemplate, "Extrahiere Buchstaben…");
-    setStatus(els.templateStatus, "Buchstaben werden aus dem Template extrahiert…");
+    const reset = showSpinner(els.btnUploadTemplate, "Extrahiere Buchstaben...");
+    setStatus(els.templateStatus, "Buchstaben werden extrahiert...");
     try {
       const name = els.profileName.value.trim() || "Eigene Handschrift";
       const res = await API.uploadTemplate(state.templateProfileId, name, state.templateFiles);
-      setStatus(els.templateStatus,
-        `Profil erstellt · ${res.glyph_count} Buchstaben aus ${res.char_count} Zeichen extrahiert.`, "ok");
-      await loadProfiles(state.templateProfileId);
+      if (res.glyph_count === 0) {
+        setStatus(els.templateStatus, "Keine Buchstaben erkannt. Bitte deutlicher schreiben und erneut scannen.", "err");
+      } else {
+        setStatus(els.templateStatus,
+          `Profil erstellt! ${res.glyph_count} Buchstaben extrahiert.`, "ok");
+        await loadProfiles(state.templateProfileId);
+      }
     } catch (e) {
       setStatus(els.templateStatus, "Fehler: " + e.message, "err");
     } finally { reset(); }

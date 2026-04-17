@@ -1,19 +1,19 @@
 """Template-Erzeugung und -Auswertung für eigene Handschriften.
 
-Erzeugt ein druckbares Rasterblatt (PDF/PNG): jede Zelle zeigt ein Zeichen
-als Hinweis und einen Bereich, in den der Nutzer das Zeichen einträgt.
-Nach dem Scan werden die Zellen geometrisch ausgeschnitten und als
-transparente Glyph-PNGs gespeichert.
+Erzeugt druckbare Template-Seiten als PNG-Bilder. Jede Zelle zeigt ein
+Zeichen als Hinweis und einen Schreibbereich. Nach dem Scan werden die
+Zellen ausgeschnitten und als transparente Glyph-PNGs gespeichert.
 """
 from __future__ import annotations
 
 import json
 import logging
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 
 from .. import config
 from .charset import template_cells
@@ -55,33 +55,29 @@ def _layout() -> Tuple[int, int]:
     return cols, rows
 
 
-def generate_template(output_path: Path) -> Dict:
-    cols, rows = _layout()
+def _render_pages(cells, cols, rows) -> Tuple[List[Image.Image], List[CellBox]]:
     per_page = cols * rows
-    cells = template_cells()
-
-    pages: List[Image.Image] = []
-    boxes: List[CellBox] = []
+    total_pages = (len(cells) + per_page - 1) // per_page
 
     title_font = _hint_font(config.mm_to_px(5))
     hint_font = _hint_font(config.mm_to_px(3.5))
     small_font = _hint_font(config.mm_to_px(2.5))
 
-    total_pages = (len(cells) + per_page - 1) // per_page
+    pages: List[Image.Image] = []
+    boxes: List[CellBox] = []
 
     for page_idx in range(total_pages):
         img = Image.new("RGB", (PAGE_W, PAGE_H), "white")
         draw = ImageDraw.Draw(img)
 
-        # Header
         draw.text(
             (MARGIN, MARGIN // 2),
-            "HefterPro · Handschrift-Template",
+            "HefterPro - Handschrift-Template",
             font=title_font, fill=(30, 30, 40),
         )
         draw.text(
             (MARGIN, MARGIN // 2 + config.mm_to_px(6)),
-            f"Seite {page_idx + 1}/{total_pages} — Jede Zelle mit dem angezeigten Zeichen ausfüllen",
+            f"Seite {page_idx + 1}/{total_pages} - Jede Zelle mit dem Zeichen ausfuellen",
             font=small_font, fill=(100, 100, 110),
         )
 
@@ -95,19 +91,16 @@ def generate_template(output_path: Path) -> Dict:
             x = MARGIN + col * CELL_W
             y = y0 + row * CELL_H
 
-            # Hint area (grey background with character label)
             draw.rectangle([x, y, x + CELL_W - 1, y + HINT_H], fill=(240, 240, 245))
             label = ch if len(ch) == 1 and ch.isprintable() else f"U+{ord(ch):04X}"
             if variant > 0:
                 label += f" ({variant + 1})"
             draw.text((x + 4, y + 2), label, font=hint_font, fill=(80, 80, 100))
 
-            # Writing area (white with border)
             draw.rectangle(
                 [x, y + HINT_H, x + CELL_W - 1, y + CELL_H - 1],
                 outline=(180, 185, 200), width=1,
             )
-            # Light baseline guide
             baseline_y = y + HINT_H + int(WRITE_H * 0.72)
             draw.line(
                 [(x + 3, baseline_y), (x + CELL_W - 4, baseline_y)],
@@ -119,33 +112,44 @@ def generate_template(output_path: Path) -> Dict:
                 x=x, y=y + HINT_H, w=CELL_W - 1, h=WRITE_H,
             ))
 
-        # Corner markers for alignment
-        mark_size = config.mm_to_px(3)
-        for cx, cy in [(MARGIN, y0 - 4), (PAGE_W - MARGIN, y0 - 4),
-                        (MARGIN, PAGE_H - MARGIN), (PAGE_W - MARGIN, PAGE_H - MARGIN)]:
-            draw.rectangle([cx - 2, cy - 2, cx + 2, cy + 2], fill="black")
-            draw.line([(cx - mark_size, cy), (cx + mark_size, cy)], fill="black", width=1)
-            draw.line([(cx, cy - mark_size), (cx, cy + mark_size)], fill="black", width=1)
-
         pages.append(img)
 
-    # Save as multi-page PDF
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    pages[0].save(
-        output_path, save_all=True, append_images=pages[1:],
-        resolution=config.PAGE_DPI,
-    )
+    return pages, boxes
 
-    # Save metadata
+
+def generate_template(profile_id: str) -> Dict:
+    """Generates template pages as PNGs and returns metadata."""
+    cols, rows = _layout()
+    cells = template_cells()
+    pages, boxes = _render_pages(cells, cols, rows)
+
+    template_dir = config.TEMPLATES_DIR / profile_id
+    template_dir.mkdir(parents=True, exist_ok=True)
+
+    page_urls = []
+    for i, page in enumerate(pages):
+        path = template_dir / f"page-{i + 1}.png"
+        page.save(path, "PNG")
+        page_urls.append(f"/files/templates/{profile_id}/page-{i + 1}.png")
+
     meta = {
+        "profile_id": profile_id,
         "page_size": [PAGE_W, PAGE_H],
         "dpi": config.PAGE_DPI,
         "cells": [b.__dict__ for b in boxes],
-        "pages": total_pages,
+        "pages": len(pages),
+        "page_urls": page_urls,
     }
-    meta_path = output_path.with_suffix(".json")
+    meta_path = template_dir / "meta.json"
     meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
     return meta
+
+
+def load_template_meta(profile_id: str) -> Optional[Dict]:
+    meta_path = config.TEMPLATES_DIR / profile_id / "meta.json"
+    if not meta_path.exists():
+        return None
+    return json.loads(meta_path.read_text())
 
 
 # ---------------------------------------------------------------------------
@@ -174,7 +178,7 @@ def _find_ink_bbox(cell: Image.Image, threshold: int = 170) -> Tuple[int, int, i
             min(w - 1, maxx + pad), min(h - 1, maxy + pad))
 
 
-def _cell_to_glyph(cell: Image.Image) -> Image.Image | None:
+def _cell_to_glyph(cell: Image.Image) -> Optional[Image.Image]:
     bbox = _find_ink_bbox(cell)
     if bbox == (0, 0, 0, 0):
         return None
@@ -194,18 +198,21 @@ def _cell_to_glyph(cell: Image.Image) -> Image.Image | None:
 
 def process_uploaded_template(
     images: List[Image.Image],
-    template_meta: Dict,
     profile_id: str,
     profile_name: str,
 ) -> Dict:
     """Extracts handwritten glyphs from scanned template pages."""
+    meta = load_template_meta(profile_id)
+    if meta is None:
+        raise ValueError(f"Template-Metadaten für {profile_id} nicht gefunden.")
+
     profile_dir = config.PROFILES_DIR / profile_id
     glyph_dir = profile_dir / "glyphs"
     glyph_dir.mkdir(parents=True, exist_ok=True)
 
-    template_w, template_h = template_meta["page_size"]
+    template_w, template_h = meta["page_size"]
     cells_by_page: Dict[int, list] = {}
-    for c in template_meta["cells"]:
+    for c in meta["cells"]:
         cells_by_page.setdefault(c["page"], []).append(c)
 
     stored = 0
@@ -228,12 +235,9 @@ def process_uploaded_template(
             glyph_path = char_dir / f"{c['variant']}.png"
             glyph.save(glyph_path, "PNG")
             stored += 1
+            char_map.setdefault(c["char"], []).append(str(glyph_path.name))
 
-            char_map.setdefault(c["char"], []).append(str(glyph_path.relative_to(profile_dir)))
-
-    # Save profile metadata
-    import time
-    meta = {
+    profile_meta = {
         "id": profile_id,
         "name": profile_name,
         "source": "user",
@@ -242,7 +246,7 @@ def process_uploaded_template(
         "char_count": len(char_map),
     }
     meta_path = profile_dir / "meta.json"
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2))
+    meta_path.write_text(json.dumps(profile_meta, ensure_ascii=False, indent=2))
 
-    log.info("Profil %s: %d Glyphen für %d Zeichen extrahiert.", profile_id, stored, len(char_map))
+    log.info("Profil %s: %d Glyphen fuer %d Zeichen.", profile_id, stored, len(char_map))
     return {"profile_id": profile_id, "glyph_count": stored, "char_count": len(char_map)}

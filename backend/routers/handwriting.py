@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import json
 import logging
 import uuid
 from typing import List, Optional
@@ -20,7 +19,7 @@ from ..models.schemas import (
 )
 from ..services import export, fonts, projects
 from ..services.rendering import RenderOptions, render_text
-from ..services.template_service import generate_template, process_uploaded_template
+from ..services import template_service
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -48,14 +47,14 @@ def template_create(name: Optional[str] = Form(None)) -> dict:
     profile_id = uuid.uuid4().hex[:10]
     display_name = (name or f"Eigene Handschrift {profile_id[:4]}").strip()
 
-    template_pdf = config.TEMPLATES_DIR / f"{profile_id}.pdf"
-    meta = generate_template(template_pdf)
+    meta = template_service.generate_template(profile_id)
 
     return {
         "profile_id": profile_id,
         "name": display_name,
-        "template_url": f"/files/templates/{template_pdf.name}",
-        "meta": meta,
+        "page_urls": meta["page_urls"],
+        "pages": meta["pages"],
+        "cells": len(meta["cells"]),
     }
 
 
@@ -65,11 +64,12 @@ async def template_upload(
     name: str = Form("Eigene Handschrift"),
     files: List[UploadFile] = File(...),
 ) -> dict:
-    meta_path = config.TEMPLATES_DIR / f"{profile_id}.json"
-    if not meta_path.exists():
-        raise HTTPException(status_code=404, detail="Unbekanntes Template. Bitte zuerst Template erzeugen.")
-
-    meta = json.loads(meta_path.read_text())
+    meta = template_service.load_template_meta(profile_id)
+    if meta is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Template nicht gefunden. Bitte zuerst ein Template erzeugen.",
+        )
 
     images: List[Image.Image] = []
     for f in files:
@@ -81,7 +81,10 @@ async def template_upload(
             raise HTTPException(status_code=400, detail=f"Bild nicht lesbar: {exc}")
         images.append(img.convert("RGB"))
 
-    result = process_uploaded_template(images, meta, profile_id, name)
+    if not images:
+        raise HTTPException(status_code=400, detail="Keine Bilder hochgeladen.")
+
+    result = template_service.process_uploaded_template(images, profile_id, name)
     return result
 
 
