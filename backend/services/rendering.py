@@ -191,15 +191,19 @@ class GlyphRenderer:
                     continue
 
                 glyphs = []
-                word_w = 0
                 for ch in word:
                     g = self._get_glyph(ch)
-                    if g is None:
-                        glyphs.append(None)
-                        word_w += int(self.glyph_height * 0.4)
-                    else:
+                    if g is not None:
                         glyphs.append(g)
-                        word_w += g.size[0]
+
+                if not glyphs:
+                    continue
+
+                word_w = 0
+                for i_g, g in enumerate(glyphs):
+                    word_w += g.size[0]
+                    if i_g < len(glyphs) - 1:
+                        word_w += int(g.size[0] * -0.08)
 
                 space = 0 if first_word_on_line else self._space_width()
 
@@ -213,13 +217,10 @@ class GlyphRenderer:
                 x += space
 
                 for g in glyphs:
-                    if g is None:
-                        x += int(self.glyph_height * 0.4)
-                        continue
                     dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                     paste_y = baseline - self.glyph_height + line_dy + dy
                     pages[-1].paste(g, (x, paste_y), g)
-                    kerning = self.rng.randint(-5, -2)
+                    kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
                     x += g.size[0] + kerning
 
                 first_word_on_line = False
