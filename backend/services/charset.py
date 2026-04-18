@@ -15,10 +15,11 @@ GERMAN = list("äöüÄÖÜß")
 PUNCT = [".", ",", ":", ";", "?", "!", "-",
          "(", ")", "\"", "'"]
 MATH = ["+", "=", "/", "%", "&", "@"]
+BULLETS = ["•", "·", "→", "–"]
 
 
 def all_characters() -> List[str]:
-    return UPPERCASE + LOWERCASE + DIGITS + GERMAN + PUNCT + MATH
+    return UPPERCASE + LOWERCASE + DIGITS + GERMAN + PUNCT + MATH + BULLETS
 
 
 # Eine Variante pro Zeichen.
