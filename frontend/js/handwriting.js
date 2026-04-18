@@ -6,6 +6,10 @@
     profile: $("#profile"),
     sheet: $("#sheet"),
     ink: $("#ink"),
+    size: $("#size"),
+    sizeVal: $("#size-val"),
+    thickness: $("#thickness"),
+    thicknessVal: $("#thickness-val"),
     btnRender: $("#btn-render"),
     btnPdf: $("#btn-pdf"),
     btnPng: $("#btn-png"),
@@ -39,6 +43,10 @@
 
   els.profile.addEventListener("change", () => { state.profileId = els.profile.value; });
 
+  function fmtSlider(v) { return Number(v).toFixed(2).replace(/0$/, "") + "×"; }
+  els.size.addEventListener("input", () => { els.sizeVal.textContent = fmtSlider(els.size.value); });
+  els.thickness.addEventListener("input", () => { els.thicknessVal.textContent = fmtSlider(els.thickness.value); });
+
   // ---------- Rendering ----------
   els.btnRender.addEventListener("click", async () => {
     const text = els.text.value;
@@ -52,6 +60,8 @@
         sheet_type: els.sheet.value,
         ink_color: els.ink.value,
         jitter: 0.6,
+        size_scale: parseFloat(els.size.value),
+        thickness: parseFloat(els.thickness.value),
       });
       state.projectId = res.project_id;
       renderPreview(res.preview_urls);

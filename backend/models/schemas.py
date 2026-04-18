@@ -16,6 +16,8 @@ class RenderRequest(BaseModel):
     sheet_type: SheetType = "liniert"
     ink_color: str = "#16306b"
     jitter: float = Field(0.6, ge=0.0, le=2.0)
+    size_scale: float = Field(1.0, ge=0.5, le=2.0, description="Schriftgröße (1.0 = normal).")
+    thickness: float = Field(1.0, ge=0.5, le=2.5, description="Strichstärke (1.0 = normal).")
 
 
 class RenderResponse(BaseModel):

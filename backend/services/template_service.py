@@ -343,8 +343,34 @@ def _otsu(hist: List[int]) -> int:
     return thr
 
 
+TARGET_STROKE_PX = 7  # approximate stroke width after normalisation
+
+
+def _estimate_stroke_width(mask: Image.Image) -> float:
+    """Estimate average stroke width: 2 * area / perimeter-ish measure."""
+    px = mask.load()
+    w, h = mask.size
+    ink = 0
+    edge = 0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y]:
+                ink += 1
+                # Count edge pixels (has at least one non-ink neighbour)
+                if (x == 0 or not px[x - 1, y] or
+                    x == w - 1 or not px[x + 1, y] or
+                    y == 0 or not px[x, y - 1] or
+                    y == h - 1 or not px[x, y + 1]):
+                    edge += 1
+    if edge == 0:
+        return 0.0
+    # For a long stroke, ink ≈ length * width and edge ≈ 2 * length
+    # ⇒ width ≈ 2 * ink / edge
+    return 2.0 * ink / edge
+
+
 def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
-    """Isolate written ink as a clean transparent RGBA image."""
+    """Isolate written ink as a clean, uniform-weight transparent RGBA image."""
     gray = cell.convert("L")
     w, h = gray.size
 
@@ -353,54 +379,48 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
 
     blurred = inner.filter(ImageFilter.GaussianBlur(radius=0.6))
     thr = _otsu(blurred.histogram())
-    # Cap threshold so light guide lines / paper grain never count as ink
     thr = min(thr, 175)
 
-    iw, ih = inner.size
-    px = blurred.load()
+    # Binary mask: 255 where ink, 0 where paper
+    binary = blurred.point(lambda v: 255 if v < thr else 0).convert("L")
 
-    minx = iw; miny = ih; maxx = 0; maxy = 0
-    found = False
-    for y in range(ih):
-        for x in range(iw):
-            if px[x, y] < thr:
-                if x < minx: minx = x
-                if y < miny: miny = y
-                if x > maxx: maxx = x
-                if y > maxy: maxy = y
-                found = True
-
-    if not found:
+    bbox = binary.getbbox()
+    if bbox is None:
         return None
 
-    ink_w = maxx - minx + 1
-    ink_h = maxy - miny + 1
+    iw, ih = inner.size
+    minx, miny, maxx, maxy = bbox
+    ink_w = maxx - minx
+    ink_h = maxy - miny
     if ink_w * ink_h < 80:
         return None
 
-    pad = max(2, min(ink_w, ink_h) // 10)
+    pad = max(3, min(ink_w, ink_h) // 10)
     minx = max(0, minx - pad); miny = max(0, miny - pad)
-    maxx = min(iw - 1, maxx + pad); maxy = min(ih - 1, maxy + pad)
+    maxx = min(iw, maxx + pad); maxy = min(ih, maxy + pad)
 
-    cropped = inner.crop((minx, miny, maxx + 1, maxy + 1))
-    cw, ch = cropped.size
+    cropped_bin = binary.crop((minx, miny, maxx, maxy))
 
-    rgba = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
-    src = cropped.load()
-    dst = rgba.load()
-    cutoff = thr
-    for y in range(ch):
-        for x in range(cw):
-            v = src[x, y]
-            if v >= cutoff:
-                continue
-            ratio = (cutoff - v) / max(cutoff, 1)
-            alpha = int(min(255, ratio * 320))
-            if alpha < 20:
-                continue
-            dst[x, y] = (0, 0, 0, alpha)
+    # Estimate current stroke width and normalise to target.
+    current = _estimate_stroke_width(cropped_bin)
+    if current > 0.5:
+        delta = TARGET_STROKE_PX - current
+        if delta > 0.5:
+            # Stroke is thin → dilate
+            size = max(3, int(round(delta)) * 2 + 1)
+            cropped_bin = cropped_bin.filter(ImageFilter.MaxFilter(size))
+        elif delta < -0.5:
+            # Stroke is thick → erode
+            size = max(3, int(round(-delta)) * 2 + 1)
+            cropped_bin = cropped_bin.filter(ImageFilter.MinFilter(size))
 
-    return rgba.filter(ImageFilter.GaussianBlur(radius=0.4))
+    # Soft anti-aliased alpha from the binary mask
+    alpha = cropped_bin.filter(ImageFilter.GaussianBlur(radius=1.1))
+
+    rgba = Image.new("RGBA", alpha.size, (0, 0, 0, 0))
+    solid = Image.new("RGBA", alpha.size, (0, 0, 0, 255))
+    rgba.paste(solid, (0, 0), alpha)
+    return rgba
 
 
 def _normalise(glyph: Image.Image, target_h: int = 140) -> Image.Image:

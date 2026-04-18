@@ -102,6 +102,8 @@ def render(req: RenderRequest) -> RenderResponse:
         sheet_type=req.sheet_type,
         ink_color=req.ink_color,
         jitter=req.jitter,
+        size_scale=req.size_scale,
+        thickness=req.thickness,
     )
     pages = render_text(req.text, profile_id=req.profile_id, options=options)
     title = req.text.strip().split("\n")[0][:40] or "Handschrift"
