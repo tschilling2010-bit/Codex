@@ -343,34 +343,70 @@ def _otsu(hist: List[int]) -> int:
     return thr
 
 
-TARGET_STROKE_PX = 7  # approximate stroke width after normalisation
+TARGET_GLYPH_H = 140   # stored glyph height in px (before render-time scaling)
+TARGET_STROKE_PX = 5   # disk radius for uniform stroke redraw
 
 
-def _estimate_stroke_width(mask: Image.Image) -> float:
-    """Estimate average stroke width: 2 * area / perimeter-ish measure."""
-    px = mask.load()
-    w, h = mask.size
-    ink = 0
-    edge = 0
-    for y in range(h):
-        for x in range(w):
-            if px[x, y]:
-                ink += 1
-                # Count edge pixels (has at least one non-ink neighbour)
-                if (x == 0 or not px[x - 1, y] or
-                    x == w - 1 or not px[x + 1, y] or
-                    y == 0 or not px[x, y - 1] or
-                    y == h - 1 or not px[x, y + 1]):
-                    edge += 1
-    if edge == 0:
-        return 0.0
-    # For a long stroke, ink ≈ length * width and edge ≈ 2 * length
-    # ⇒ width ≈ 2 * ink / edge
-    return 2.0 * ink / edge
+def _zhang_suen(binary):
+    """Zhang-Suen thinning. Input/output: numpy bool array."""
+    import numpy as np
+    skel = binary.copy()
+    while True:
+        removed = False
+        for sub in (0, 1):
+            P = skel
+            # 8-neighbours (P2..P9 in the paper, starting north, clockwise)
+            P2 = np.roll(P,  1, axis=0)
+            P3 = np.roll(np.roll(P,  1, axis=0), -1, axis=1)
+            P4 = np.roll(P, -1, axis=1)
+            P5 = np.roll(np.roll(P, -1, axis=0), -1, axis=1)
+            P6 = np.roll(P, -1, axis=0)
+            P7 = np.roll(np.roll(P, -1, axis=0),  1, axis=1)
+            P8 = np.roll(P,  1, axis=1)
+            P9 = np.roll(np.roll(P,  1, axis=0),  1, axis=1)
+
+            B = (P2.astype(np.int8) + P3 + P4 + P5 + P6 + P7 + P8 + P9)
+            seq = np.stack([P2, P3, P4, P5, P6, P7, P8, P9, P2], axis=-1)
+            trans = ((~seq[..., :-1]) & seq[..., 1:]).sum(axis=-1)
+
+            common = P & (B >= 2) & (B <= 6) & (trans == 1)
+            if sub == 0:
+                cond = common & ~(P2 & P4 & P6) & ~(P4 & P6 & P8)
+            else:
+                cond = common & ~(P2 & P4 & P8) & ~(P2 & P6 & P8)
+
+            if cond.any():
+                skel = skel & ~cond
+                removed = True
+        if not removed:
+            break
+    return skel
+
+
+def _dilate_disk(mask, radius: int):
+    """Dilate a boolean mask by a disk of the given radius."""
+    import numpy as np
+    r = max(1, int(radius))
+    size = 2 * r + 1
+    yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
+    disk = xx * xx + yy * yy <= r * r
+
+    h, w = mask.shape
+    out = np.zeros_like(mask)
+    ys, xs = np.nonzero(mask)
+    for y, x in zip(ys, xs):
+        y0 = max(0, y - r); y1 = min(h, y + r + 1)
+        x0 = max(0, x - r); x1 = min(w, x + r + 1)
+        dy0 = y0 - (y - r); dy1 = dy0 + (y1 - y0)
+        dx0 = x0 - (x - r); dx1 = dx0 + (x1 - x0)
+        out[y0:y1, x0:x1] |= disk[dy0:dy1, dx0:dx1]
+    return out
 
 
 def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
-    """Isolate written ink as a clean, uniform-weight transparent RGBA image."""
+    """Isolate written ink and redraw it with a uniform stroke thickness."""
+    import numpy as np
+
     gray = cell.convert("L")
     w, h = gray.size
 
@@ -381,45 +417,51 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     thr = _otsu(blurred.histogram())
     thr = min(thr, 175)
 
-    # Binary mask: 255 where ink, 0 where paper
-    binary = blurred.point(lambda v: 255 if v < thr else 0).convert("L")
-
-    bbox = binary.getbbox()
+    binary_img = blurred.point(lambda v: 255 if v < thr else 0).convert("L")
+    bbox = binary_img.getbbox()
     if bbox is None:
         return None
 
     iw, ih = inner.size
     minx, miny, maxx, maxy = bbox
-    ink_w = maxx - minx
-    ink_h = maxy - miny
-    if ink_w * ink_h < 80:
+    if (maxx - minx) * (maxy - miny) < 80:
         return None
 
-    pad = max(3, min(ink_w, ink_h) // 10)
+    pad = max(6, min(maxx - minx, maxy - miny) // 10)
     minx = max(0, minx - pad); miny = max(0, miny - pad)
     maxx = min(iw, maxx + pad); maxy = min(ih, maxy + pad)
 
-    cropped_bin = binary.crop((minx, miny, maxx, maxy))
+    cropped = binary_img.crop((minx, miny, maxx, maxy))
 
-    # Estimate current stroke width and normalise to target.
-    current = _estimate_stroke_width(cropped_bin)
-    if current > 0.5:
-        delta = TARGET_STROKE_PX - current
-        if delta > 0.5:
-            # Stroke is thin → dilate
-            size = max(3, int(round(delta)) * 2 + 1)
-            cropped_bin = cropped_bin.filter(ImageFilter.MaxFilter(size))
-        elif delta < -0.5:
-            # Stroke is thick → erode
-            size = max(3, int(round(-delta)) * 2 + 1)
-            cropped_bin = cropped_bin.filter(ImageFilter.MinFilter(size))
+    # Scale to a fixed height BEFORE skeletonising, so every letter ends
+    # up with exactly the same stroke thickness on the final canvas.
+    cw, ch = cropped.size
+    if ch <= 0:
+        return None
+    scale = TARGET_GLYPH_H / ch
+    new_w = max(4, int(round(cw * scale)))
+    resized = cropped.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
+    arr = np.array(resized, dtype=np.uint8) > 127
 
-    # Soft anti-aliased alpha from the binary mask
-    alpha = cropped_bin.filter(ImageFilter.GaussianBlur(radius=1.1))
+    # Close small gaps so thinning produces continuous skeletons
+    closed = arr | (
+        np.roll(arr,  1, axis=0) & np.roll(arr, -1, axis=0) &
+        np.roll(arr,  1, axis=1) & np.roll(arr, -1, axis=1)
+    )
 
-    rgba = Image.new("RGBA", alpha.size, (0, 0, 0, 0))
-    solid = Image.new("RGBA", alpha.size, (0, 0, 0, 255))
-    rgba.paste(solid, (0, 0), alpha)
+    skeleton = _zhang_suen(closed)
+    if not skeleton.any():
+        return None
+
+    # Redraw skeleton with uniform thickness
+    uniform = _dilate_disk(skeleton, TARGET_STROKE_PX)
+
+    alpha_img = Image.fromarray((uniform * 255).astype("uint8"), "L")
+    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=1.0))
+
+    rgba = Image.new("RGBA", alpha_img.size, (0, 0, 0, 0))
+    solid = Image.new("RGBA", alpha_img.size, (0, 0, 0, 255))
+    rgba.paste(solid, (0, 0), alpha_img)
     return rgba
 
 
@@ -465,7 +507,6 @@ def process_uploaded_template(
             glyph = _extract_ink(sub)
             if glyph is None:
                 continue
-            glyph = _normalise(glyph)
 
             hex_code = f"{ord(c['char']):06x}"
             char_dir = glyph_dir / hex_code
