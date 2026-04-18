@@ -1,8 +1,6 @@
 """Schrift-Verwaltung für HefterPro.
 
-Unterstützt zwei Profiltypen:
-- Eingebaute TTF-Profile (Standard-Handschriften)
-- Eigene Glyph-Profile (vom Nutzer per Template erstellt)
+Nur noch eigene Glyph-Profile (vom Nutzer per Template erstellt).
 """
 from __future__ import annotations
 
@@ -13,35 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PIL import Image, ImageFont
+from PIL import Image
 
 from .. import config
 
 log = logging.getLogger(__name__)
-
-FONTS_DIR = config.BASE_DIR / "fonts"
-
-
-@dataclass
-class FontProfile:
-    id: str
-    name: str
-    font_files: List[str]
-    source: str = "default"
-
-    def load_fonts(self, size: int) -> List[ImageFont.FreeTypeFont]:
-        fonts: List[ImageFont.FreeTypeFont] = []
-        for name in self.font_files:
-            path = FONTS_DIR / name
-            if not path.exists():
-                continue
-            try:
-                fonts.append(ImageFont.truetype(str(path), size))
-            except Exception as exc:
-                log.warning("Font %s nicht ladbar: %s", name, exc)
-        if not fonts:
-            fonts.append(ImageFont.load_default())
-        return fonts
 
 
 @dataclass
@@ -79,34 +53,6 @@ class GlyphProfile:
         return rng.choice(variants)
 
 
-DEFAULT_PROFILES: Dict[str, FontProfile] = {
-    "hefterpro-natur": FontProfile(
-        id="hefterpro-natur",
-        name="HefterPro Natur (Standard)",
-        font_files=["PatrickHand-Regular.ttf", "ArchitectsDaughter-Regular.ttf"],
-    ),
-    "hefterpro-locker": FontProfile(
-        id="hefterpro-locker",
-        name="HefterPro Locker",
-        font_files=["JustAnotherHand-Regular.ttf", "ArchitectsDaughter-Regular.ttf"],
-    ),
-    "hefterpro-rund": FontProfile(
-        id="hefterpro-rund",
-        name="HefterPro Rund",
-        font_files=["Kalam-Regular.ttf", "PatrickHand-Regular.ttf"],
-    ),
-    "hefterpro-klar": FontProfile(
-        id="hefterpro-klar",
-        name="HefterPro Klar",
-        font_files=["PatrickHand-Regular.ttf"],
-    ),
-}
-
-
-def get_profile(profile_id: str) -> Optional[FontProfile]:
-    return DEFAULT_PROFILES.get(profile_id)
-
-
 def get_glyph_profile(profile_id: str) -> Optional[GlyphProfile]:
     meta_path = config.PROFILES_DIR / profile_id / "meta.json"
     if not meta_path.exists():
@@ -128,12 +74,6 @@ def is_glyph_profile(profile_id: str) -> bool:
 
 def list_profiles() -> List[Dict]:
     profiles: List[Dict] = []
-    for p in DEFAULT_PROFILES.values():
-        profiles.append({
-            "id": p.id, "name": p.name,
-            "source": "default", "glyph_count": len(p.font_files),
-        })
-    # User-created glyph profiles
     if config.PROFILES_DIR.exists():
         for folder in sorted(config.PROFILES_DIR.iterdir()):
             meta_path = folder / "meta.json"
@@ -153,8 +93,6 @@ def list_profiles() -> List[Dict]:
 
 
 def delete_user_profile(profile_id: str) -> bool:
-    if profile_id in DEFAULT_PROFILES:
-        return False
     folder = config.PROFILES_DIR / profile_id
     if not folder.exists():
         return False

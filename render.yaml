@@ -9,4 +9,8 @@ services:
       - key: PYTHON_VERSION
         value: "3.11.9"
       - key: HEFTERPRO_STORAGE
-        value: /tmp/hefterpro-storage
+        value: /var/data/hefterpro
+    disk:
+      name: hefterpro-data
+      mountPath: /var/data/hefterpro
+      sizeGB: 1

@@ -97,6 +97,11 @@ async def template_upload(
 def render(req: RenderRequest) -> RenderResponse:
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Text darf nicht leer sein.")
+    if not fonts.is_glyph_profile(req.profile_id):
+        raise HTTPException(
+            status_code=400,
+            detail="Bitte zuerst ein Handschrift-Profil erstellen (Template ausfüllen & hochladen).",
+        )
     options = RenderOptions(
         profile_id=req.profile_id,
         sheet_type=req.sheet_type,
