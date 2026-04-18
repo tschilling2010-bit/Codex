@@ -132,8 +132,8 @@ class GlyphRenderer:
         return glyph
 
     def _space_width(self) -> int:
-        base = int(self.glyph_height * 0.55)
-        return base + self.rng.randint(-1, 3)
+        base = int(self.glyph_height * 0.75)
+        return base + self.rng.randint(-2, 4)
 
     def _new_page(self) -> Image.Image:
         return make_sheet_background(self.options.sheet_type)
@@ -205,6 +205,7 @@ class GlyphRenderer:
 
                 if x + space + word_w > self.page_w - self.margin_right:
                     advance()
+                    x = x_start
                     line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
                     space = 0
                     first_word_on_line = True
@@ -218,7 +219,7 @@ class GlyphRenderer:
                     dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                     paste_y = baseline - self.glyph_height + line_dy + dy
                     pages[-1].paste(g, (x, paste_y), g)
-                    kerning = max(-1, int(self.rng.uniform(-0.3, 0.5) * self.jitter))
+                    kerning = self.rng.randint(-5, -2)
                     x += g.size[0] + kerning
 
                 first_word_on_line = False
