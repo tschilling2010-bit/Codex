@@ -25,76 +25,81 @@
       <div class="page-header">
         <span class="eyebrow">Funktion 1</span>
         <h2>Text zu Handschrift</h2>
-        <p>Profil auswählen oder erstellen, Template-Paare ausfüllen — und Text in deiner eigenen Handschrift rendern.</p>
+        <p>Profil anlegen, Template-Paare ausdrucken und ausfüllen, hochladen — fertig.</p>
       </div>
 
       <!-- ===================================================== -->
-      <!-- Schriftprofil-Manager                                  -->
+      <!-- Schritt 1: Profil                                      -->
       <!-- ===================================================== -->
       <section class="card stack">
         <div class="field-row" style="align-items:flex-end">
           <div style="flex:1">
-            <label class="field" for="profile">Aktives Schriftprofil</label>
+            <label class="field" for="profile">Schriftprofil</label>
             <select id="profile" class="select"></select>
           </div>
-          <button class="btn btn-ghost" id="btn-profile-new">+ Neues Profil</button>
+          <button class="btn btn-ghost" id="btn-profile-new">+ Neu</button>
           <button class="btn btn-soft" id="btn-profile-delete" disabled>Löschen</button>
         </div>
 
-        <div id="profile-panel" class="stack" style="display:none">
-          <div class="field-row">
-            <div style="flex:1">
-              <label class="field" for="profile-name">Name</label>
-              <input id="profile-name" class="input" />
-            </div>
-            <div style="display:flex; align-items:flex-end">
-              <button class="btn btn-soft" id="btn-profile-rename">Speichern</button>
+        <div id="profile-panel" style="display:none">
+          <!-- Schritt 2: Template-Paare -->
+          <div class="stack" style="margin-top:16px">
+            <div>
+              <label class="field">Template-Paare (bis zu 4)</label>
+              <p class="muted" style="font-size:14px; margin:4px 0 10px">
+                Jedes Paar = 2 Seiten mit allen Buchstaben. Mehr Paare = mehr Varianten je Buchstabe.
+              </p>
+              <div id="pairs-list" class="stack"></div>
+              <div class="toolbar" style="margin-top:12px">
+                <button class="btn btn-primary" id="btn-pair-add">+ Neues Template-Paar</button>
+                <span id="pair-status" class="status"></span>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label class="field">Profil-Einstellungen (werden gespeichert)</label>
-            <div class="field-row">
-              <div>
-                <label class="field" for="s-size">Größe: <span id="s-size-val">1.0×</span></label>
-                <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+          <!-- Erweiterte Einstellungen -->
+          <details style="margin-top:18px">
+            <summary style="cursor:pointer; font-weight:600">Erweiterte Einstellungen</summary>
+            <div class="stack" style="margin-top:14px">
+              <div class="field-row">
+                <div style="flex:1">
+                  <label class="field" for="profile-name">Profilname</label>
+                  <input id="profile-name" class="input" />
+                </div>
+                <div style="display:flex; align-items:flex-end">
+                  <button class="btn btn-soft" id="btn-profile-rename">Speichern</button>
+                </div>
               </div>
-              <div>
-                <label class="field" for="s-thickness">Strichstärke: <span id="s-thickness-val">1.0×</span></label>
-                <input id="s-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
+              <div class="field-row">
+                <div>
+                  <label class="field" for="s-size">Größe: <span id="s-size-val">1.0×</span></label>
+                  <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+                </div>
+                <div>
+                  <label class="field" for="s-thickness">Strichstärke: <span id="s-thickness-val">1.0×</span></label>
+                  <input id="s-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
+                </div>
+                <div>
+                  <label class="field" for="s-sheet">Blatt</label>
+                  <select id="s-sheet" class="select">
+                    <option value="liniert">Liniert</option>
+                    <option value="kariert">Kariert</option>
+                    <option value="blanko">Blanko</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="field" for="s-ink">Tinte</label>
+                  <input id="s-ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
+                </div>
               </div>
-              <div>
-                <label class="field" for="s-sheet">Blatt-Typ</label>
-                <select id="s-sheet" class="select">
-                  <option value="liniert">Liniert</option>
-                  <option value="kariert">Kariert</option>
-                  <option value="blanko">Blanko</option>
-                </select>
-              </div>
-              <div>
-                <label class="field" for="s-ink">Tinte</label>
-                <input id="s-ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
-              </div>
+              <div id="settings-status" class="status"></div>
             </div>
-            <div id="settings-status" class="status" style="margin-top:8px"></div>
-          </div>
-
-          <div>
-            <label class="field">Template-Paare (max. 4)</label>
-            <p class="muted" style="font-size:14px; margin:4px 0 12px">
-              Jedes Paar sind 2 Seiten mit allen Buchstaben. Mehrere Paare = mehrere Varianten je Buchstabe → natürlichere Handschrift.
-            </p>
-            <div id="pairs-list" class="stack"></div>
-            <div class="toolbar" style="margin-top:12px">
-              <button class="btn btn-primary" id="btn-pair-add">+ Neues Template-Paar</button>
-              <span id="pair-status" class="status"></span>
-            </div>
-          </div>
+          </details>
         </div>
       </section>
 
       <!-- ===================================================== -->
-      <!-- Text rendern                                           -->
+      <!-- Schritt 3: Text rendern                                -->
       <!-- ===================================================== -->
       <div class="grid cols-2">
         <section class="card stack">
@@ -103,24 +108,8 @@
             <textarea id="text" class="textarea" placeholder="Gib hier den Text ein, der in Handschrift umgewandelt werden soll…"></textarea>
           </div>
 
-          <p class="muted" style="font-size:13px; margin:0">
-            Beim Rendern werden die Einstellungen des Profils verwendet. Unten kannst du sie für diesen Render kurzfristig überschreiben.
-          </p>
-
-          <div class="field-row">
-            <div>
-              <label class="field" for="o-size">Größe: <span id="o-size-val">Profil</span></label>
-              <input id="o-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
-            </div>
-            <div>
-              <label class="field" for="o-thickness">Strichstärke: <span id="o-thickness-val">Profil</span></label>
-              <input id="o-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
-            </div>
-          </div>
-
           <div class="toolbar">
             <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
-            <button class="btn btn-soft" id="btn-reset-override">Profil-Werte</button>
             <div class="toolbar-spacer"></div>
             <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
             <button class="btn btn-soft" id="btn-png" disabled>PNG</button>

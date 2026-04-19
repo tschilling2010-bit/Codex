@@ -7,6 +7,7 @@
     profile: null,
     projectId: null,
     pairFiles: {},
+    pairPreviews: {},
   };
 
   const els = {
@@ -32,18 +33,13 @@
     newName: $("#new-profile-name"),
 
     text: $("#text"),
-    oSize: $("#o-size"), oSizeVal: $("#o-size-val"),
-    oThickness: $("#o-thickness"), oThicknessVal: $("#o-thickness-val"),
     btnRender: $("#btn-render"),
-    btnResetOverride: $("#btn-reset-override"),
     btnPdf: $("#btn-pdf"),
     btnPng: $("#btn-png"),
     btnJpg: $("#btn-jpg"),
     preview: $("#preview"),
     status: $("#status"),
   };
-
-  const overrides = { size: null, thickness: null };
 
   (async function init() {
     bindUI();
@@ -66,7 +62,7 @@
       els.panel.style.display = "none";
       els.btnRender.disabled = true;
       els.btnProfileDelete.disabled = true;
-      setStatus(els.status, 'Kein Profil vorhanden. Klick auf "+ Neues Profil", um loszulegen.', "err");
+      setStatus(els.status, 'Kein Profil vorhanden. Klick auf "+ Neu", um loszulegen.', "err");
       return;
     }
 
@@ -112,7 +108,7 @@
     const canRender = state.profile && state.profile.glyph_count > 0;
     els.btnRender.disabled = !canRender;
     if (!canRender) {
-      setStatus(els.status, "Profil hat noch keine Glyphen. Fülle mindestens ein Template-Paar aus.", "err");
+      setStatus(els.status, "Noch keine Glyphen. Fülle mindestens ein Template-Paar aus und lade es hoch.", "err");
     } else {
       setStatus(els.status, "Bereit.");
     }
@@ -125,7 +121,9 @@
 
     const items = [];
     for (let i = 0; i < MAX_PAIRS; i++) {
-      items.push(pairCardHTML(i, byIndex.get(i)));
+      if (byIndex.has(i) || i === 0 || byIndex.has(i - 1)) {
+        items.push(pairCardHTML(i, byIndex.get(i)));
+      }
     }
     els.pairsList.innerHTML = items.join("");
 
@@ -133,27 +131,17 @@
       const idx = parseInt(card.dataset.pair, 10);
       const btnCreate = $(".btn-pair-create", card);
       const btnUpload = $(".btn-pair-upload", card);
-      const inpFiles = $(".pair-files", card);
-      const dropZone = $(".pair-drop", card);
+      const inpPage1 = $(".pair-page1", card);
+      const inpPage2 = $(".pair-page2", card);
 
       if (btnCreate) {
         btnCreate.addEventListener("click", () => onCreatePair(idx, btnCreate));
       }
-      if (inpFiles) {
-        inpFiles.addEventListener("change", () => onPairFilesSelected(idx, inpFiles.files, card));
+      if (inpPage1) {
+        inpPage1.addEventListener("change", () => onPageSelected(idx, 1, inpPage1.files[0], card));
       }
-      if (dropZone) {
-        dropZone.addEventListener("click", () => inpFiles.click());
-        dropZone.addEventListener("dragover", e => {
-          e.preventDefault();
-          dropZone.classList.add("dragover");
-        });
-        dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
-        dropZone.addEventListener("drop", e => {
-          e.preventDefault();
-          dropZone.classList.remove("dragover");
-          onPairFilesSelected(idx, e.dataTransfer.files, card);
-        });
+      if (inpPage2) {
+        inpPage2.addEventListener("change", () => onPageSelected(idx, 2, inpPage2.files[0], card));
       }
       if (btnUpload) {
         btnUpload.addEventListener("click", () => onUploadPair(idx, btnUpload, card));
@@ -178,20 +166,40 @@
         <div class="toolbar">
           <button class="btn btn-soft btn-pair-create">Template erzeugen</button>
         </div>`;
-    } else if (!pair.uploaded_at) {
-      status = '<span class="muted">Template erzeugt — warte auf Upload</span>';
-      body = `
-        ${pairLinksHTML(pairUrls(idx))}
-        ${pairUploadZoneHTML()}
-      `;
     } else {
-      status = `<span style="color:#2a7">✓ fertig · ${pair.glyph_count} Glyphen</span>`;
+      const urls = pairUrls(idx);
+      const uploadedLabel = pair.uploaded_at
+        ? `<span style="color:#2a7">✓ ${pair.glyph_count} Glyphen extrahiert</span>`
+        : '<span class="muted">Template erzeugt — warte auf Upload</span>';
+      status = uploadedLabel;
+
+      const previewUrl = state.pairPreviews[idx]
+        || (pair.uploaded_at ? `/files/templates/${state.profile.id}/pair-${idx}/glyph-preview.png?t=${pair.uploaded_at}` : null);
+
       body = `
-        ${pairLinksHTML(pairUrls(idx))}
-        <details style="margin-top:8px">
-          <summary style="cursor:pointer; font-size:14px">Paar neu hochladen (überschreibt)</summary>
-          ${pairUploadZoneHTML()}
-        </details>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:14px; margin-bottom:10px">
+          ${urls.map((u, i) =>
+            `<a href="${u}" target="_blank" style="font-weight:600">Seite ${i + 1} ausdrucken</a>`
+          ).join("")}
+        </div>
+        <div class="field-row">
+          <div style="flex:1">
+            <label class="field">Seite 1 (gescannt/fotografiert)</label>
+            <input type="file" class="pair-page1" accept="image/*" />
+          </div>
+          <div style="flex:1">
+            <label class="field">Seite 2 (gescannt/fotografiert)</label>
+            <input type="file" class="pair-page2" accept="image/*" />
+          </div>
+        </div>
+        <div class="toolbar" style="margin-top:10px">
+          <button class="btn btn-primary btn-pair-upload" disabled>Buchstaben extrahieren</button>
+        </div>
+        ${previewUrl ? `
+          <div style="margin-top:12px">
+            <div class="muted" style="font-size:13px; margin-bottom:6px">Extrahierte Buchstaben — prüfe, ob sie wie deine Handschrift aussehen:</div>
+            <img src="${previewUrl}" alt="Glyphen-Übersicht" style="max-width:100%; border:1px solid var(--border); border-radius:8px" />
+          </div>` : ''}
       `;
     }
 
@@ -212,27 +220,6 @@
     );
   }
 
-  function pairLinksHTML(urls) {
-    return `<div style="font-size:14px">
-      Seiten: ${urls.map((u, i) =>
-        `<a href="${u}" target="_blank" style="font-weight:600; margin-right:12px">Seite ${i + 1}</a>`
-      ).join("")}
-    </div>`;
-  }
-
-  function pairUploadZoneHTML() {
-    return `
-      <div class="dropzone pair-drop" style="padding:16px; margin-top:10px">
-        <strong>Gescannte Seiten hier ablegen</strong>
-        <span class="muted">oder klicken zum Auswählen (2 Bilder)</span>
-        <input type="file" class="pair-files" multiple accept="image/*" hidden />
-        <div class="file-list pair-file-list"></div>
-      </div>
-      <div class="toolbar" style="margin-top:10px">
-        <button class="btn btn-primary btn-pair-upload" disabled>Buchstaben extrahieren</button>
-      </div>`;
-  }
-
   async function onCreatePair(idx, btn) {
     if (!state.activeId) return;
     const reset = showSpinner(btn, "Erzeuge…");
@@ -241,36 +228,36 @@
       await API.createPair(state.activeId, idx);
       state.profile = await API.getProfile(state.activeId);
       renderPairs();
-      setStatus(els.pairStatus, `Paar ${idx + 1} erzeugt. Bitte ausdrucken & ausfüllen.`, "ok");
+      setStatus(els.pairStatus, `Paar ${idx + 1} erzeugt. Beide Seiten ausdrucken, ausfüllen, hochladen.`, "ok");
     } catch (e) {
       setStatus(els.pairStatus, "Fehler: " + e.message, "err");
     } finally { reset(); }
   }
 
-  function onPairFilesSelected(idx, files, card) {
-    const arr = [...files];
-    state.pairFiles[idx] = arr;
-    const fileList = $(".pair-file-list", card);
+  function onPageSelected(idx, pageNum, file, card) {
+    state.pairFiles[idx] = state.pairFiles[idx] || {};
+    state.pairFiles[idx][pageNum] = file || null;
     const btnUpload = $(".btn-pair-upload", card);
-    fileList.innerHTML = arr.map(f =>
-      `<div>- ${escapeHtml(f.name)} <span class="muted">(${fmtBytes(f.size)})</span></div>`
-    ).join("");
-    btnUpload.disabled = arr.length === 0;
+    const both = state.pairFiles[idx][1] && state.pairFiles[idx][2];
+    btnUpload.disabled = !both;
   }
 
   async function onUploadPair(idx, btn, _card) {
-    const files = state.pairFiles[idx] || [];
-    if (!files.length) return;
+    const files = state.pairFiles[idx] || {};
+    if (!files[1] || !files[2]) return;
     const reset = showSpinner(btn, "Extrahiere…");
     setStatus(els.pairStatus, `Paar ${idx + 1}: Buchstaben werden extrahiert…`);
     try {
-      const updated = await API.uploadPair(state.activeId, idx, files);
-      state.profile = updated;
-      state.pairFiles[idx] = [];
+      const res = await API.uploadPair(state.activeId, idx, files[1], files[2]);
+      if (res.preview_url) {
+        state.pairPreviews[idx] = res.preview_url + "?t=" + Date.now();
+      }
+      state.profile = res.profile;
+      state.pairFiles[idx] = {};
       renderPairs();
       await reloadProfiles(state.activeId);
       setStatus(els.pairStatus,
-        `Paar ${idx + 1}: fertig. Profil hat jetzt ${updated.glyph_count} Glyphen.`, "ok");
+        `Paar ${idx + 1}: ${res.glyph_count} Buchstaben extrahiert. Profil hat jetzt ${state.profile.glyph_count} Glyphen.`, "ok");
     } catch (e) {
       setStatus(els.pairStatus, "Fehler: " + e.message, "err");
     } finally { reset(); }
@@ -279,6 +266,7 @@
   // ---------------- Event wiring ----------------
   function bindUI() {
     els.profile.addEventListener("change", async () => {
+      state.pairPreviews = {};
       await activateProfile(els.profile.value);
     });
 
@@ -353,28 +341,7 @@
         setStatus(els.pairStatus, "Alle 4 Paare sind belegt.", "err");
         return;
       }
-      const card = $(`.pair-card[data-pair="${free}"]`, els.pairsList);
-      const btn = card ? $(".btn-pair-create", card) : els.btnPairAdd;
-      onCreatePair(free, btn || els.btnPairAdd);
-    });
-
-    els.oSize.addEventListener("input", () => {
-      overrides.size = parseFloat(els.oSize.value);
-      els.oSizeVal.textContent = fmtScale(overrides.size);
-    });
-    els.oThickness.addEventListener("input", () => {
-      overrides.thickness = parseFloat(els.oThickness.value);
-      els.oThicknessVal.textContent = fmtScale(overrides.thickness);
-    });
-    els.btnResetOverride.addEventListener("click", () => {
-      overrides.size = null;
-      overrides.thickness = null;
-      if (state.profile) {
-        els.oSize.value = state.profile.settings.size_scale;
-        els.oThickness.value = state.profile.settings.thickness;
-      }
-      els.oSizeVal.textContent = "Profil";
-      els.oThicknessVal.textContent = "Profil";
+      onCreatePair(free, els.btnPairAdd);
     });
 
     els.btnRender.addEventListener("click", renderText);
@@ -422,11 +389,7 @@
     const reset = showSpinner(els.btnRender, "Rendere…");
     setStatus(els.status, "Handschrift wird erzeugt…");
     try {
-      const payload = { text, profile_id: state.activeId };
-      if (overrides.size !== null) payload.size_scale = overrides.size;
-      if (overrides.thickness !== null) payload.thickness = overrides.thickness;
-
-      const res = await API.render(payload);
+      const res = await API.render({ text, profile_id: state.activeId });
       state.projectId = res.project_id;
       renderPreview(res.preview_urls);
       [els.btnPdf, els.btnPng, els.btnJpg].forEach(b => b.disabled = false);

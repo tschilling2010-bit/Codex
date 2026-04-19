@@ -119,13 +119,13 @@ def pair_create(profile_id: str,
     }
 
 
-@router.post("/profile/{profile_id}/pair/{pair_index}/upload",
-             response_model=ProfileInfo)
+@router.post("/profile/{profile_id}/pair/{pair_index}/upload")
 async def pair_upload(
     profile_id: str,
     pair_index: int,
-    files: List[UploadFile] = File(...),
-) -> ProfileInfo:
+    page_1: UploadFile = File(...),
+    page_2: UploadFile = File(...),
+) -> dict:
     if fonts.get_profile(profile_id) is None:
         raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
     if template_service.load_pair_meta(profile_id, pair_index) is None:
@@ -135,7 +135,7 @@ async def pair_upload(
         )
 
     images: List[Image.Image] = []
-    for f in files:
+    for f in (page_1, page_2):
         data = await f.read()
         try:
             img = Image.open(io.BytesIO(data))
@@ -144,14 +144,16 @@ async def pair_upload(
             raise HTTPException(status_code=400, detail=f"Bild nicht lesbar: {exc}")
         images.append(img.convert("RGB"))
 
-    if not images:
-        raise HTTPException(status_code=400, detail="Keine Bilder hochgeladen.")
-
     result = template_service.process_uploaded_pair(images, profile_id, pair_index)
     meta = fonts.mark_pair_uploaded(profile_id, pair_index, result["glyph_count"])
     if meta is None:
         raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
-    return ProfileInfo(**meta)
+    return {
+        "profile": ProfileInfo(**meta).model_dump(),
+        "preview_url": result.get("preview_url"),
+        "char_count": result.get("char_count", 0),
+        "glyph_count": result.get("glyph_count", 0),
+    }
 
 
 # ---------------------------------------------------------------------------

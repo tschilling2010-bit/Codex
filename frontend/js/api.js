@@ -46,9 +46,10 @@ const API = (() => {
       return request(`/api/handwriting/profile/${profileId}/pair/create`,
         { method: "POST", form: fd });
     },
-    uploadPair: (profileId, pairIndex, files) => {
+    uploadPair: (profileId, pairIndex, page1, page2) => {
       const fd = new FormData();
-      for (const f of files) fd.append("files", f);
+      fd.append("page_1", page1);
+      fd.append("page_2", page2);
       return request(`/api/handwriting/profile/${profileId}/pair/${pairIndex}/upload`,
         { method: "POST", form: fd });
     },

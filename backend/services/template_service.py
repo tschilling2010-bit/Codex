@@ -288,7 +288,7 @@ def _align_scan(img: Image.Image, meta: Dict) -> Image.Image:
     gray = img.convert("L")
 
     s = meta.get("fiducial_size", FIDUCIAL_SIZE)
-    search = int(s * 2.4)
+    search = int(s * 2.6)
     expected = meta["fiducials"]
     targets = [(ex + s // 2, ey + s // 2) for ex, ey in expected]
 
@@ -306,23 +306,22 @@ def _align_scan(img: Image.Image, meta: Dict) -> Image.Image:
         import numpy as np
         from numpy.linalg import solve
 
-        tl_s, tr_s, bl_s = found[0], found[1], found[2]
-        tl_t, tr_t, bl_t = targets[0], targets[1], targets[2]
-
-        T = np.array([
-            [tl_t[0], tl_t[1], 1, 0, 0, 0],
-            [0, 0, 0, tl_t[0], tl_t[1], 1],
-            [tr_t[0], tr_t[1], 1, 0, 0, 0],
-            [0, 0, 0, tr_t[0], tr_t[1], 1],
-            [bl_t[0], bl_t[1], 1, 0, 0, 0],
-            [0, 0, 0, bl_t[0], bl_t[1], 1],
-        ], dtype=float)
-        b = np.array([tl_s[0], tl_s[1], tr_s[0], tr_s[1],
-                      bl_s[0], bl_s[1]], dtype=float)
-        coeffs = solve(T, b)
+        # 4-point perspective transform: solve for 8 coefficients
+        # x_src = (a*x + b*y + c) / (g*x + h*y + 1)
+        # y_src = (d*x + e*y + f) / (g*x + h*y + 1)
+        rows = []
+        rhs = []
+        for (tx, ty), (sx, sy) in zip(targets, found):
+            rows.append([tx, ty, 1, 0, 0, 0, -sx * tx, -sx * ty])
+            rhs.append(sx)
+            rows.append([0, 0, 0, tx, ty, 1, -sy * tx, -sy * ty])
+            rhs.append(sy)
+        A = np.array(rows, dtype=float)
+        b = np.array(rhs, dtype=float)
+        coeffs = solve(A, b)
         return img.transform(
             (tpl_w, tpl_h),
-            Image.AFFINE,
+            Image.PERSPECTIVE,
             tuple(coeffs.tolist()),
             resample=Image.BICUBIC,
             fillcolor=(255, 255, 255),
@@ -502,6 +501,7 @@ def process_uploaded_pair(
 
     stored = 0
     chars_seen = set()
+    extracted: List[Tuple[str, Image.Image]] = []
 
     for page_idx, img in enumerate(images):
         if page_idx not in cells_by_page:
@@ -521,6 +521,17 @@ def process_uploaded_pair(
             glyph.save(glyph_path, "PNG")
             stored += 1
             chars_seen.add(c["char"])
+            extracted.append((c["char"], glyph))
+
+    preview_url: Optional[str] = None
+    if extracted:
+        pair_dir = _pair_dir(profile_id, pair_index)
+        pair_dir.mkdir(parents=True, exist_ok=True)
+        preview_path = pair_dir / "glyph-preview.png"
+        _save_glyph_sheet(extracted, preview_path)
+        preview_url = (
+            f"/files/templates/{profile_id}/pair-{pair_index}/glyph-preview.png"
+        )
 
     log.info(
         "Profil %s Paar %d: %d Glyphen für %d Zeichen.",
@@ -531,4 +542,45 @@ def process_uploaded_pair(
         "pair_index": pair_index,
         "glyph_count": stored,
         "char_count": len(chars_seen),
+        "preview_url": preview_url,
     }
+
+
+def _save_glyph_sheet(items: List[Tuple[str, Image.Image]], out_path) -> None:
+    """Speichert eine Übersicht aller extrahierten Glyphen mit Labels."""
+    cols = 10
+    cell_w = 110
+    cell_h = 160
+    label_h = 28
+    rows = (len(items) + cols - 1) // cols
+    width = cols * cell_w + 20
+    height = rows * cell_h + 20
+    sheet = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(sheet)
+    font = _font(18)
+
+    for i, (char, glyph) in enumerate(items):
+        col = i % cols
+        row = i // cols
+        cx = 10 + col * cell_w
+        cy = 10 + row * cell_h
+
+        draw.rectangle(
+            [cx, cy, cx + cell_w - 4, cy + cell_h - 4],
+            outline=(220, 220, 230), width=1,
+        )
+        label = char if len(char) == 1 and char.isprintable() else f"U+{ord(char):04X}"
+        draw.text((cx + 6, cy + 4), label, font=font, fill=(60, 60, 80))
+
+        gw, gh = glyph.size
+        max_w = cell_w - 16
+        max_h = cell_h - label_h - 12
+        scale = min(max_w / gw, max_h / gh, 1.0)
+        nw = max(1, int(gw * scale))
+        nh = max(1, int(gh * scale))
+        resized = glyph.resize((nw, nh), Image.LANCZOS)
+        px = cx + (cell_w - nw) // 2
+        py = cy + label_h + (max_h - nh) // 2
+        sheet.paste(resized, (px, py), resized)
+
+    sheet.save(out_path, "PNG")
