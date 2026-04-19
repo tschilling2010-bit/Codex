@@ -79,8 +79,10 @@
   }
 
   async function activateProfile(id) {
+    const switched = state.activeId !== id;
     state.activeId = id;
     state.pairFiles = {};
+    if (switched) state.pairPreviews = {};
     try {
       state.profile = await API.getProfile(id);
     } catch (e) {
@@ -257,7 +259,7 @@
       renderPairs();
       await reloadProfiles(state.activeId);
       setStatus(els.pairStatus,
-        `Paar ${idx + 1}: ${res.glyph_count} Buchstaben extrahiert. Profil hat jetzt ${state.profile.glyph_count} Glyphen.`, "ok");
+        `Paar ${idx + 1}: ${res.glyph_count} Buchstaben extrahiert. Du kannst jetzt Text rendern!`, "ok");
     } catch (e) {
       setStatus(els.pairStatus, "Fehler: " + e.message, "err");
     } finally { reset(); }
