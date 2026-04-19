@@ -1,29 +1,27 @@
 """Template-Erzeugung und -Auswertung für eigene Handschriften.
 
+Ein Profil kann bis zu 4 Template-PAARE haben. Ein Paar besteht aus 2 Seiten
+(alle 90 Zeichen). Jedes Paar erzeugt eine eigene Variante pro Zeichen, sodass
+beim Rendern bis zu 4 verschiedene Varianten je Buchstabe zur Verfügung stehen.
+
 Layout im Stil von Calligraphr:
 - Vier schwarze Eckmarker (Fiducials) zur automatischen Ausrichtung
-- Kopfzeile mit Titel
+- Kopfzeile mit Titel & Paar-Nummer
 - 8-spaltiges Raster mit großzügigen Schreibzellen
 - Kleines Zeichen-Label in der linken oberen Ecke jeder Zelle
 - Feine horizontale Hilfslinien im Schreibbereich
-
-Gescannte Seiten werden anhand der Fiducials ausgerichtet, die Zellen
-präzise ausgeschnitten, Label und Hilfslinien entfernt, und der Tinteninhalt
-adaptiv (Otsu) geschwellt, eng zugeschnitten und als transparentes PNG
-gespeichert.
 """
 from __future__ import annotations
 
 import json
 import logging
-import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 from .. import config
-from .charset import template_cells
+from .charset import all_characters
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +56,8 @@ GUIDE_COLOR = (225, 228, 235)
 GRID_COLOR = (70, 70, 90)
 LABEL_COLOR = (40, 40, 55)
 
+MAX_PAIRS = 4
+
 
 @dataclass
 class CellBox:
@@ -80,7 +80,6 @@ def _font(size: int) -> ImageFont.ImageFont:
 
 
 def _draw_fiducial(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> None:
-    """Solid black square with a white inner ring and black core."""
     draw.rectangle([x, y, x + size, y + size], fill=(0, 0, 0))
     pad1 = size // 5
     draw.rectangle(
@@ -109,7 +108,13 @@ def _fiducial_positions() -> List[Tuple[int, int]]:
 # ---------------------------------------------------------------------------
 
 
-def _render_pages(cells) -> Tuple[List[Image.Image], List[CellBox]]:
+def _pair_cells(pair_index: int) -> List[Tuple[str, int]]:
+    return [(ch, pair_index) for ch in all_characters()]
+
+
+def _render_pages(cells: List[Tuple[str, int]],
+                  profile_name: str,
+                  pair_index: int) -> Tuple[List[Image.Image], List[CellBox]]:
     per_page = COLS * ROWS
     total_pages = max(1, (len(cells) + per_page - 1) // per_page)
 
@@ -129,14 +134,18 @@ def _render_pages(cells) -> Tuple[List[Image.Image], List[CellBox]]:
             _draw_fiducial(draw, fx, fy, FIDUCIAL_SIZE)
 
         header_y = MARGIN + config.mm_to_px(1)
+        title = profile_name or "HefterPro"
         draw.text(
             (PAGE_W // 2, header_y),
-            "HefterPro",
+            title,
             font=title_font, fill=(20, 20, 30), anchor="mt",
+        )
+        subtitle = (
+            f"Template-Paar {pair_index + 1} · Seite {page_idx + 1}/{total_pages}"
         )
         draw.text(
             (PAGE_W // 2, header_y + config.mm_to_px(7)),
-            f"Handschrift-Template · Seite {page_idx + 1}/{total_pages}",
+            subtitle,
             font=sub_font, fill=(110, 110, 120), anchor="mt",
         )
 
@@ -195,22 +204,37 @@ def _render_pages(cells) -> Tuple[List[Image.Image], List[CellBox]]:
     return pages, boxes
 
 
-def generate_template(profile_id: str) -> Dict:
-    """Erzeugt Template-Seiten als PNG und speichert Metadaten."""
-    cells = template_cells()
-    pages, boxes = _render_pages(cells)
+# ---------------------------------------------------------------------------
+# Pair management
+# ---------------------------------------------------------------------------
 
-    template_dir = config.TEMPLATES_DIR / profile_id
-    template_dir.mkdir(parents=True, exist_ok=True)
+
+def _pair_dir(profile_id: str, pair_index: int):
+    return config.TEMPLATES_DIR / profile_id / f"pair-{pair_index}"
+
+
+def generate_pair(profile_id: str, pair_index: int, profile_name: str) -> Dict:
+    """Erzeugt ein Template-Paar (2 Seiten) und speichert Meta + PNGs."""
+    if not (0 <= pair_index < MAX_PAIRS):
+        raise ValueError(f"pair_index muss zwischen 0 und {MAX_PAIRS - 1} liegen.")
+
+    cells = _pair_cells(pair_index)
+    pages, boxes = _render_pages(cells, profile_name, pair_index)
+
+    pair_dir = _pair_dir(profile_id, pair_index)
+    pair_dir.mkdir(parents=True, exist_ok=True)
 
     page_urls = []
     for i, page in enumerate(pages):
-        path = template_dir / f"page-{i + 1}.png"
+        path = pair_dir / f"page-{i + 1}.png"
         page.save(path, "PNG")
-        page_urls.append(f"/files/templates/{profile_id}/page-{i + 1}.png")
+        page_urls.append(
+            f"/files/templates/{profile_id}/pair-{pair_index}/page-{i + 1}.png"
+        )
 
     meta = {
         "profile_id": profile_id,
+        "pair_index": pair_index,
         "page_size": [PAGE_W, PAGE_H],
         "dpi": config.PAGE_DPI,
         "fiducial_size": FIDUCIAL_SIZE,
@@ -219,14 +243,14 @@ def generate_template(profile_id: str) -> Dict:
         "pages": len(pages),
         "page_urls": page_urls,
     }
-    (template_dir / "meta.json").write_text(
+    (pair_dir / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2)
     )
     return meta
 
 
-def load_template_meta(profile_id: str) -> Optional[Dict]:
-    meta_path = config.TEMPLATES_DIR / profile_id / "meta.json"
+def load_pair_meta(profile_id: str, pair_index: int) -> Optional[Dict]:
+    meta_path = _pair_dir(profile_id, pair_index) / "meta.json"
     if not meta_path.exists():
         return None
     return json.loads(meta_path.read_text())
@@ -239,7 +263,6 @@ def load_template_meta(profile_id: str) -> Optional[Dict]:
 
 def _find_fiducial(gray: Image.Image, rx: int, ry: int,
                    rw: int, rh: int) -> Tuple[int, int]:
-    """Locate the centroid of the darkest blob in a corner search box."""
     W, H = gray.size
     rx = max(0, rx); ry = max(0, ry)
     rw = min(W - rx, rw); rh = min(H - ry, rh)
@@ -260,7 +283,6 @@ def _find_fiducial(gray: Image.Image, rx: int, ry: int,
 
 
 def _align_scan(img: Image.Image, meta: Dict) -> Image.Image:
-    """Resize scan to template size and warp so fiducials land on target."""
     tpl_w, tpl_h = meta["page_size"]
     img = img.convert("RGB").resize((tpl_w, tpl_h), Image.LANCZOS)
     gray = img.convert("L")
@@ -287,8 +309,6 @@ def _align_scan(img: Image.Image, meta: Dict) -> Image.Image:
         tl_s, tr_s, bl_s = found[0], found[1], found[2]
         tl_t, tr_t, bl_t = targets[0], targets[1], targets[2]
 
-        # PIL AFFINE expects coefficients mapping output → input.
-        # Solve: source = A * target + b  (6 unknowns, 6 equations).
         T = np.array([
             [tl_t[0], tl_t[1], 1, 0, 0, 0],
             [0, 0, 0, tl_t[0], tl_t[1], 1],
@@ -343,19 +363,17 @@ def _otsu(hist: List[int]) -> int:
     return thr
 
 
-TARGET_GLYPH_H = 140   # stored glyph height in px (before render-time scaling)
-TARGET_STROKE_PX = 5   # disk radius for uniform stroke redraw
+TARGET_GLYPH_H = 140
+TARGET_STROKE_PX = 5
 
 
 def _zhang_suen(binary):
-    """Zhang-Suen thinning. Input/output: numpy bool array."""
     import numpy as np
     skel = binary.copy()
     while True:
         removed = False
         for sub in (0, 1):
             P = skel
-            # 8-neighbours (P2..P9 in the paper, starting north, clockwise)
             P2 = np.roll(P,  1, axis=0)
             P3 = np.roll(np.roll(P,  1, axis=0), -1, axis=1)
             P4 = np.roll(P, -1, axis=1)
@@ -384,10 +402,8 @@ def _zhang_suen(binary):
 
 
 def _dilate_disk(mask, radius: int):
-    """Dilate a boolean mask by a disk of the given radius."""
     import numpy as np
     r = max(1, int(radius))
-    size = 2 * r + 1
     yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
     disk = xx * xx + yy * yy <= r * r
 
@@ -404,7 +420,6 @@ def _dilate_disk(mask, radius: int):
 
 
 def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
-    """Isolate written ink and redraw it with a uniform stroke thickness."""
     import numpy as np
 
     gray = cell.convert("L")
@@ -433,8 +448,6 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
 
     cropped = binary_img.crop((minx, miny, maxx, maxy))
 
-    # Scale to a fixed height BEFORE skeletonising, so every letter ends
-    # up with exactly the same stroke thickness on the final canvas.
     cw, ch = cropped.size
     if ch <= 0:
         return None
@@ -443,7 +456,6 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     resized = cropped.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
     arr = np.array(resized, dtype=np.uint8) > 127
 
-    # Close small gaps so thinning produces continuous skeletons
     closed = arr | (
         np.roll(arr,  1, axis=0) & np.roll(arr, -1, axis=0) &
         np.roll(arr,  1, axis=1) & np.roll(arr, -1, axis=1)
@@ -453,7 +465,6 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     if not skeleton.any():
         return None
 
-    # Redraw skeleton with uniform thickness
     uniform = _dilate_disk(skeleton, TARGET_STROKE_PX)
 
     alpha_img = Image.fromarray((uniform * 255).astype("uint8"), "L")
@@ -465,26 +476,21 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     return rgba
 
 
-def _normalise(glyph: Image.Image, target_h: int = 140) -> Image.Image:
-    """Scale glyph so its height matches a consistent target."""
-    w, h = glyph.size
-    if h <= 0:
-        return glyph
-    scale = target_h / h
-    new_w = max(1, int(round(w * scale)))
-    new_h = max(1, int(round(h * scale)))
-    return glyph.resize((new_w, new_h), Image.LANCZOS)
-
-
-def process_uploaded_template(
+def process_uploaded_pair(
     images: List[Image.Image],
     profile_id: str,
-    profile_name: str,
+    pair_index: int,
 ) -> Dict:
-    """Extrahiert handgeschriebene Glyphen aus gescannten Template-Seiten."""
-    meta = load_template_meta(profile_id)
+    """Extrahiert Glyphen aus den gescannten Seiten eines Template-Paares.
+
+    Jedes Zeichen wird als Variante ``pair_index`` abgelegt, sodass bei
+    mehreren Paaren pro Profil mehrere Varianten zur Verfügung stehen.
+    """
+    meta = load_pair_meta(profile_id, pair_index)
     if meta is None:
-        raise ValueError(f"Template-Metadaten für {profile_id} nicht gefunden.")
+        raise ValueError(
+            f"Template-Paar {pair_index} für Profil {profile_id} nicht gefunden."
+        )
 
     profile_dir = config.PROFILES_DIR / profile_id
     glyph_dir = profile_dir / "glyphs"
@@ -495,7 +501,7 @@ def process_uploaded_template(
         cells_by_page.setdefault(c["page"], []).append(c)
 
     stored = 0
-    char_map: Dict[str, List[str]] = {}
+    chars_seen = set()
 
     for page_idx, img in enumerate(images):
         if page_idx not in cells_by_page:
@@ -511,26 +517,18 @@ def process_uploaded_template(
             hex_code = f"{ord(c['char']):06x}"
             char_dir = glyph_dir / hex_code
             char_dir.mkdir(exist_ok=True)
-            glyph_path = char_dir / f"{c['variant']}.png"
+            glyph_path = char_dir / f"{pair_index}.png"
             glyph.save(glyph_path, "PNG")
             stored += 1
-            char_map.setdefault(c["char"], []).append(str(glyph_path.name))
+            chars_seen.add(c["char"])
 
-    profile_meta = {
-        "id": profile_id,
-        "name": profile_name,
-        "source": "user",
-        "created_at": time.time(),
-        "glyph_count": stored,
-        "char_count": len(char_map),
-    }
-    (profile_dir / "meta.json").write_text(
-        json.dumps(profile_meta, ensure_ascii=False, indent=2)
+    log.info(
+        "Profil %s Paar %d: %d Glyphen für %d Zeichen.",
+        profile_id, pair_index, stored, len(chars_seen),
     )
-
-    log.info("Profil %s: %d Glyphen für %d Zeichen.", profile_id, stored, len(char_map))
     return {
         "profile_id": profile_id,
+        "pair_index": pair_index,
         "glyph_count": stored,
-        "char_count": len(char_map),
+        "char_count": len(chars_seen),
     }

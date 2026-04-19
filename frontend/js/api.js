@@ -1,4 +1,4 @@
-// HefterPro API wrapper v2
+// HefterPro API wrapper v3
 const API = (() => {
   async function request(path, { method = "GET", body, headers = {}, form } = {}) {
     const opts = { method, headers: { ...headers } };
@@ -25,26 +25,41 @@ const API = (() => {
   return {
     health: () => request("/api/health"),
 
+    // Profile
     listProfiles: () => request("/api/handwriting/profile/list"),
-    deleteProfile: (id) => request(`/api/handwriting/profile/${id}`, { method: "DELETE" }),
+    getProfile: (id) => request(`/api/handwriting/profile/${id}`),
+    createProfile: (name) =>
+      request("/api/handwriting/profile/create", { method: "POST", body: { name } }),
+    renameProfile: (id, name) =>
+      request(`/api/handwriting/profile/${id}/rename`, { method: "POST", body: { name } }),
+    updateProfileSettings: (id, settings) =>
+      request(`/api/handwriting/profile/${id}/settings`, { method: "POST", body: settings }),
+    deleteProfile: (id) =>
+      request(`/api/handwriting/profile/${id}`, { method: "DELETE" }),
+
+    // Pairs
+    createPair: (profileId, pairIndex) => {
+      const fd = new FormData();
+      if (pairIndex !== undefined && pairIndex !== null) {
+        fd.append("pair_index", String(pairIndex));
+      }
+      return request(`/api/handwriting/profile/${profileId}/pair/create`,
+        { method: "POST", form: fd });
+    },
+    uploadPair: (profileId, pairIndex, files) => {
+      const fd = new FormData();
+      for (const f of files) fd.append("files", f);
+      return request(`/api/handwriting/profile/${profileId}/pair/${pairIndex}/upload`,
+        { method: "POST", form: fd });
+    },
+
+    // Rendering
     render: (payload) => request("/api/handwriting/render", { method: "POST", body: payload }),
     exportHandwriting: (projectId, format) =>
       request(format === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image",
         { method: "POST", body: { project_id: projectId, format } }),
 
-    createTemplate: (name) => {
-      const fd = new FormData();
-      if (name) fd.append("name", name);
-      return request("/api/handwriting/template/create", { method: "POST", form: fd });
-    },
-    uploadTemplate: (profileId, name, files) => {
-      const fd = new FormData();
-      fd.append("profile_id", profileId);
-      fd.append("name", name);
-      for (const f of files) fd.append("files", f);
-      return request("/api/handwriting/template/upload", { method: "POST", form: fd });
-    },
-
+    // Hefter
     hefterUpload: (files) => {
       const fd = new FormData();
       for (const f of files) fd.append("files", f);

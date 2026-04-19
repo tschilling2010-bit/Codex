@@ -12,12 +12,12 @@ ExportFormat = Literal["pdf", "png", "jpg"]
 
 class RenderRequest(BaseModel):
     text: str = Field(..., description="Der zu rendernde Text.")
-    profile_id: str = Field("hefterpro-natur", description="Handschrift-Profil-ID.")
-    sheet_type: SheetType = "liniert"
-    ink_color: str = "#16306b"
-    jitter: float = Field(0.6, ge=0.0, le=2.0)
-    size_scale: float = Field(1.0, ge=0.5, le=2.0, description="Schriftgröße (1.0 = normal).")
-    thickness: float = Field(1.0, ge=0.5, le=2.5, description="Strichstärke (1.0 = normal).")
+    profile_id: str = Field(..., description="Handschrift-Profil-ID.")
+    sheet_type: Optional[SheetType] = None
+    ink_color: Optional[str] = None
+    jitter: Optional[float] = Field(None, ge=0.0, le=2.0)
+    size_scale: Optional[float] = Field(None, ge=0.5, le=2.0)
+    thickness: Optional[float] = Field(None, ge=0.5, le=2.5)
 
 
 class RenderResponse(BaseModel):
@@ -38,11 +38,45 @@ class ExportResponse(BaseModel):
     filename: str
 
 
+class ProfileSettings(BaseModel):
+    size_scale: float = 1.0
+    thickness: float = 1.0
+    ink_color: str = "#16306b"
+    sheet_type: SheetType = "liniert"
+    jitter: float = 0.6
+
+
+class PairInfo(BaseModel):
+    index: int
+    glyph_count: int = 0
+    created_at: Optional[float] = None
+    uploaded_at: Optional[float] = None
+
+
 class ProfileInfo(BaseModel):
     id: str
     name: str
-    source: str = "default"
+    source: str = "user"
     glyph_count: int = 0
+    created_at: Optional[float] = None
+    settings: ProfileSettings = ProfileSettings()
+    pairs: List[PairInfo] = []
+
+
+class ProfileCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+
+
+class ProfileRenameRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+
+
+class ProfileSettingsUpdate(BaseModel):
+    size_scale: Optional[float] = Field(None, ge=0.5, le=2.0)
+    thickness: Optional[float] = Field(None, ge=0.5, le=2.5)
+    ink_color: Optional[str] = None
+    sheet_type: Optional[SheetType] = None
+    jitter: Optional[float] = Field(None, ge=0.0, le=2.0)
 
 
 class HefterProcessRequest(BaseModel):

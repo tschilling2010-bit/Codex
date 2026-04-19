@@ -1,4 +1,4 @@
-"""API: Handschrift-Rendering, Profile & Template."""
+"""API: Handschrift-Rendering, Profile & Template-Paare."""
 from __future__ import annotations
 
 import io
@@ -13,16 +13,25 @@ from .. import config
 from ..models.schemas import (
     ExportRequest,
     ExportResponse,
+    ProfileCreateRequest,
     ProfileInfo,
+    ProfileRenameRequest,
+    ProfileSettingsUpdate,
     RenderRequest,
     RenderResponse,
 )
-from ..services import export, fonts, projects
+from ..services import export, fonts, projects, template_service
 from ..services.rendering import RenderOptions, render_text
-from ..services import template_service
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+MAX_PAIRS = fonts.MAX_PAIRS
+
+
+# ---------------------------------------------------------------------------
+# Profile
+# ---------------------------------------------------------------------------
 
 
 @router.get("/profile/list", response_model=List[ProfileInfo])
@@ -30,45 +39,99 @@ def profile_list() -> List[ProfileInfo]:
     return [ProfileInfo(**p) for p in fonts.list_profiles()]
 
 
+@router.post("/profile/create", response_model=ProfileInfo)
+def profile_create(req: ProfileCreateRequest) -> ProfileInfo:
+    profile_id = uuid.uuid4().hex[:10]
+    meta = fonts.create_profile(profile_id, req.name)
+    return ProfileInfo(**meta)
+
+
+@router.get("/profile/{profile_id}", response_model=ProfileInfo)
+def profile_get(profile_id: str) -> ProfileInfo:
+    meta = fonts.get_profile(profile_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    return ProfileInfo(**meta)
+
+
+@router.post("/profile/{profile_id}/rename", response_model=ProfileInfo)
+def profile_rename(profile_id: str, req: ProfileRenameRequest) -> ProfileInfo:
+    meta = fonts.rename_profile(profile_id, req.name)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    return ProfileInfo(**meta)
+
+
+@router.post("/profile/{profile_id}/settings", response_model=ProfileInfo)
+def profile_settings(profile_id: str,
+                     req: ProfileSettingsUpdate) -> ProfileInfo:
+    meta = fonts.update_settings(
+        profile_id,
+        req.model_dump(exclude_none=True),
+    )
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    return ProfileInfo(**meta)
+
+
 @router.delete("/profile/{profile_id}")
 def profile_delete(profile_id: str) -> dict:
     if not fonts.delete_user_profile(profile_id):
-        raise HTTPException(status_code=404, detail="Profil nicht gefunden oder geschützt.")
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
     return {"deleted": profile_id}
 
 
 # ---------------------------------------------------------------------------
-# Template
+# Template pairs
 # ---------------------------------------------------------------------------
 
 
-@router.post("/template/create")
-def template_create(name: Optional[str] = Form(None)) -> dict:
-    profile_id = uuid.uuid4().hex[:10]
-    display_name = (name or f"Eigene Handschrift {profile_id[:4]}").strip()
+@router.post("/profile/{profile_id}/pair/create")
+def pair_create(profile_id: str,
+                pair_index: Optional[int] = Form(None)) -> dict:
+    meta = fonts.get_profile(profile_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
 
-    meta = template_service.generate_template(profile_id)
+    if pair_index is None:
+        idx = fonts.next_free_pair_index(profile_id)
+        if idx is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Profil hat bereits {MAX_PAIRS} Paare.",
+            )
+    else:
+        if not (0 <= pair_index < MAX_PAIRS):
+            raise HTTPException(
+                status_code=400,
+                detail=f"pair_index muss zwischen 0 und {MAX_PAIRS - 1} liegen.",
+            )
+        idx = pair_index
 
+    tpl = template_service.generate_pair(profile_id, idx, meta["name"])
+    updated = fonts.register_pair(profile_id, idx)
     return {
         "profile_id": profile_id,
-        "name": display_name,
-        "page_urls": meta["page_urls"],
-        "pages": meta["pages"],
-        "cells": len(meta["cells"]),
+        "pair_index": idx,
+        "page_urls": tpl["page_urls"],
+        "pages": tpl["pages"],
+        "profile": updated,
     }
 
 
-@router.post("/template/upload")
-async def template_upload(
-    profile_id: str = Form(...),
-    name: str = Form("Eigene Handschrift"),
+@router.post("/profile/{profile_id}/pair/{pair_index}/upload",
+             response_model=ProfileInfo)
+async def pair_upload(
+    profile_id: str,
+    pair_index: int,
     files: List[UploadFile] = File(...),
-) -> dict:
-    meta = template_service.load_template_meta(profile_id)
-    if meta is None:
+) -> ProfileInfo:
+    if fonts.get_profile(profile_id) is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    if template_service.load_pair_meta(profile_id, pair_index) is None:
         raise HTTPException(
             status_code=404,
-            detail="Template nicht gefunden. Bitte zuerst ein Template erzeugen.",
+            detail="Template-Paar nicht gefunden. Bitte zuerst erzeugen.",
         )
 
     images: List[Image.Image] = []
@@ -84,8 +147,11 @@ async def template_upload(
     if not images:
         raise HTTPException(status_code=400, detail="Keine Bilder hochgeladen.")
 
-    result = template_service.process_uploaded_template(images, profile_id, name)
-    return result
+    result = template_service.process_uploaded_pair(images, profile_id, pair_index)
+    meta = fonts.mark_pair_uploaded(profile_id, pair_index, result["glyph_count"])
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    return ProfileInfo(**meta)
 
 
 # ---------------------------------------------------------------------------
@@ -97,18 +163,24 @@ async def template_upload(
 def render(req: RenderRequest) -> RenderResponse:
     if not req.text.strip():
         raise HTTPException(status_code=400, detail="Text darf nicht leer sein.")
-    if not fonts.is_glyph_profile(req.profile_id):
+
+    profile = fonts.get_profile(req.profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    if profile["glyph_count"] == 0:
         raise HTTPException(
             status_code=400,
-            detail="Bitte zuerst ein Handschrift-Profil erstellen (Template ausfüllen & hochladen).",
+            detail="Profil hat noch keine Glyphen. Bitte mindestens ein Template-Paar ausfüllen & hochladen.",
         )
+
+    settings = profile["settings"]
     options = RenderOptions(
         profile_id=req.profile_id,
-        sheet_type=req.sheet_type,
-        ink_color=req.ink_color,
-        jitter=req.jitter,
-        size_scale=req.size_scale,
-        thickness=req.thickness,
+        sheet_type=req.sheet_type or settings["sheet_type"],
+        ink_color=req.ink_color or settings["ink_color"],
+        jitter=req.jitter if req.jitter is not None else settings["jitter"],
+        size_scale=req.size_scale if req.size_scale is not None else settings["size_scale"],
+        thickness=req.thickness if req.thickness is not None else settings["thickness"],
     )
     pages = render_text(req.text, profile_id=req.profile_id, options=options)
     title = req.text.strip().split("\n")[0][:40] or "Handschrift"
