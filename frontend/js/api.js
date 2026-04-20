@@ -38,6 +38,8 @@ const API = (() => {
       request(`/api/handwriting/profile/${id}`, { method: "DELETE" }),
 
     // Pairs
+    pairPdfUrl: (profileId, pairIndex) =>
+      `/api/handwriting/profile/${profileId}/pair/${pairIndex}/pdf`,
     createPair: (profileId, pairIndex) => {
       const fd = new FormData();
       if (pairIndex !== undefined && pairIndex !== null) {

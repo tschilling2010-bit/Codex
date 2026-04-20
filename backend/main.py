@@ -78,11 +78,11 @@ if _FRONTEND.exists():
 
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_FRONTEND / "dashboard.html")
+        return FileResponse(_FRONTEND / "handwriting.html")
 
     @app.get("/{page}.html")
     def page(page: str) -> FileResponse:
         path = _FRONTEND / f"{page}.html"
         if path.exists():
             return FileResponse(path)
-        return FileResponse(_FRONTEND / "dashboard.html")
+        return FileResponse(_FRONTEND / "handwriting.html")

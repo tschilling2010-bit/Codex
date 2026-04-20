@@ -7,6 +7,7 @@ import uuid
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from PIL import Image
 
 from .. import config
@@ -117,6 +118,35 @@ def pair_create(profile_id: str,
         "pages": tpl["pages"],
         "profile": updated,
     }
+
+
+@router.get("/profile/{profile_id}/pair/{pair_index}/pdf")
+def pair_pdf(profile_id: str, pair_index: int) -> Response:
+    meta = fonts.get_profile(profile_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    pair_dir = config.TEMPLATES_DIR / profile_id / f"pair-{pair_index}"
+    if not pair_dir.exists():
+        raise HTTPException(status_code=404, detail="Template-Paar nicht gefunden.")
+    pages: List[Image.Image] = []
+    for i in (1, 2):
+        p = pair_dir / f"page-{i}.png"
+        if p.exists():
+            pages.append(Image.open(p).convert("RGB"))
+    if not pages:
+        raise HTTPException(status_code=404, detail="Keine Seiten gefunden.")
+    buf = io.BytesIO()
+    pages[0].save(
+        buf, save_all=True, append_images=pages[1:],
+        resolution=config.PAGE_DPI, format="PDF",
+    )
+    buf.seek(0)
+    filename = f"template-paar-{pair_index + 1}.pdf"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/profile/{profile_id}/pair/{pair_index}/upload")
