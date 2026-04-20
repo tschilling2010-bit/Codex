@@ -121,6 +121,7 @@ def _render_pages(cells: List[Tuple[str, int]],
     title_font = _font(config.mm_to_px(6))
     sub_font = _font(config.mm_to_px(3.2))
     label_font = _font(config.mm_to_px(3.8))
+    ghost_font = _font(int(WRITE_H * 0.65))
     footer_font = _font(config.mm_to_px(2.8))
 
     pages: List[Image.Image] = []
@@ -180,11 +181,23 @@ def _render_pages(cells: List[Tuple[str, int]],
             )
 
             write_top = cy + LABEL_H
-            for frac in (0.30, 0.55, 0.80):
+            baseline_frac = 0.80
+            for frac in (0.30, 0.55, baseline_frac):
                 gy = write_top + int(WRITE_H * frac)
                 draw.line(
                     [(cx + 4, gy), (cx + CELL_W - 4, gy)],
                     fill=GUIDE_COLOR, width=1,
+                )
+
+            ghost_label = ch if len(ch) == 1 and ch.isprintable() else ""
+            if ghost_label:
+                baseline_y = write_top + int(WRITE_H * baseline_frac)
+                draw.text(
+                    (cx + CELL_W // 2, baseline_y),
+                    ghost_label,
+                    font=ghost_font,
+                    fill=(230, 232, 238),
+                    anchor="ms",
                 )
 
             boxes.append(CellBox(

@@ -23,107 +23,112 @@
   <main class="container" style="padding-top:40px; padding-bottom:64px">
     <div class="stack-lg">
       <div class="page-header">
-        <span class="eyebrow">Funktion 1</span>
+        <span class="eyebrow">Handschrift</span>
         <h2>Text zu Handschrift</h2>
-        <p>Profil anlegen, Template-Paare ausdrucken und ausfüllen, hochladen — fertig.</p>
       </div>
 
-      <!-- ===================================================== -->
-      <!-- Schritt 1: Profil                                      -->
-      <!-- ===================================================== -->
-      <section class="card stack">
-        <div class="field-row" style="align-items:flex-end">
-          <div style="flex:1">
-            <label class="field" for="profile">Schriftprofil</label>
-            <select id="profile" class="select"></select>
-          </div>
-          <button class="btn btn-ghost" id="btn-profile-new">+ Neu</button>
-          <button class="btn btn-soft" id="btn-profile-delete" disabled>Löschen</button>
-        </div>
+      <!-- ===================== Tabs ===================== -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="create">Schrift erstellen</button>
+        <button class="tab-btn" data-tab="render">Text umwandeln</button>
+      </div>
 
-        <div id="profile-panel" style="display:none">
-          <!-- Schritt 2: Template-Paare -->
-          <div class="stack" style="margin-top:16px">
-            <div>
-              <label class="field">Template-Paare (bis zu 4)</label>
-              <p class="muted" style="font-size:14px; margin:4px 0 10px">
-                Jedes Paar = 2 Seiten mit allen Buchstaben. Mehr Paare = mehr Varianten je Buchstabe.
-              </p>
+      <!-- ===================== Tab 1: Schrift erstellen ===================== -->
+      <div class="tab-panel active" id="tab-create">
+        <div class="stack-lg">
+          <!-- Profil-Auswahl -->
+          <section class="card stack">
+            <div class="field-row" style="align-items:flex-end">
+              <div style="flex:1">
+                <label class="field" for="profile">Schriftprofil</label>
+                <select id="profile" class="select"></select>
+              </div>
+              <button class="btn btn-ghost" id="btn-profile-new">+ Neues Profil</button>
+              <button class="btn btn-soft" id="btn-profile-delete" disabled style="color:var(--err)">Löschen</button>
+            </div>
+            <div class="field-row" id="profile-name-row" style="display:none">
+              <div style="flex:1">
+                <label class="field" for="profile-name">Profilname</label>
+                <input id="profile-name" class="input" placeholder="Name des Profils" />
+              </div>
+            </div>
+            <div id="settings-status" class="status" style="display:none"></div>
+          </section>
+
+          <!-- Template-Paare -->
+          <section id="profile-panel" style="display:none">
+            <div class="stack">
+              <div style="display:flex; justify-content:space-between; align-items:center">
+                <div>
+                  <h3 style="margin:0; font-size:18px">Template-Paare</h3>
+                  <p class="muted" style="font-size:14px; margin-top:4px">
+                    Jedes Paar = 2 Seiten. Mehr Paare = natürlichere Schrift.
+                  </p>
+                </div>
+                <button class="btn btn-primary" id="btn-pair-add">+ Neues Paar</button>
+              </div>
+              <div id="pair-status" class="status" style="display:none"></div>
               <div id="pairs-list" class="stack"></div>
-              <div class="toolbar" style="margin-top:12px">
-                <button class="btn btn-primary" id="btn-pair-add">+ Neues Template-Paar</button>
-                <span id="pair-status" class="status"></span>
-              </div>
             </div>
-          </div>
 
-          <!-- Erweiterte Einstellungen -->
-          <details style="margin-top:18px">
-            <summary style="cursor:pointer; font-weight:600">Erweiterte Einstellungen</summary>
-            <div class="stack" style="margin-top:14px">
-              <div class="field-row">
-                <div style="flex:1">
-                  <label class="field" for="profile-name">Profilname</label>
-                  <input id="profile-name" class="input" />
-                </div>
-                <div style="display:flex; align-items:flex-end">
-                  <button class="btn btn-soft" id="btn-profile-rename">Speichern</button>
-                </div>
-              </div>
-              <div class="field-row">
-                <div>
-                  <label class="field" for="s-size">Größe: <span id="s-size-val">1.0×</span></label>
-                  <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
-                </div>
-                <div>
-                  <label class="field" for="s-thickness">Strichstärke: <span id="s-thickness-val">1.0×</span></label>
-                  <input id="s-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
-                </div>
-                <div>
-                  <label class="field" for="s-sheet">Blatt</label>
-                  <select id="s-sheet" class="select">
-                    <option value="liniert">Liniert</option>
-                    <option value="kariert">Kariert</option>
-                    <option value="blanko">Blanko</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="field" for="s-ink">Tinte</label>
-                  <input id="s-ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
+            <!-- Erweiterte Einstellungen -->
+            <details style="margin-top:24px">
+              <summary style="cursor:pointer; font-weight:600; font-size:15px">Erweiterte Einstellungen</summary>
+              <div class="card" style="margin-top:12px">
+                <div class="field-row">
+                  <div>
+                    <label class="field" for="s-size">Größe: <span id="s-size-val">1.0×</span></label>
+                    <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+                  </div>
+                  <div>
+                    <label class="field" for="s-thickness">Strichstärke: <span id="s-thickness-val">1.0×</span></label>
+                    <input id="s-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
+                  </div>
+                  <div>
+                    <label class="field" for="s-sheet">Blatt</label>
+                    <select id="s-sheet" class="select">
+                      <option value="liniert">Liniert</option>
+                      <option value="kariert">Kariert</option>
+                      <option value="blanko">Blanko</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="field" for="s-ink">Tinte</label>
+                    <input id="s-ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
+                  </div>
                 </div>
               </div>
-              <div id="settings-status" class="status"></div>
-            </div>
-          </details>
+            </details>
+          </section>
         </div>
-      </section>
+      </div>
 
-      <!-- ===================================================== -->
-      <!-- Schritt 3: Text rendern                                -->
-      <!-- ===================================================== -->
-      <div class="grid cols-2">
-        <section class="card stack">
-          <div>
-            <label class="field" for="text">Dein Text</label>
-            <textarea id="text" class="textarea" placeholder="Gib hier den Text ein, der in Handschrift umgewandelt werden soll…"></textarea>
-          </div>
+      <!-- ===================== Tab 2: Text umwandeln ===================== -->
+      <div class="tab-panel" id="tab-render">
+        <div class="grid cols-2">
+          <section class="card stack">
+            <div>
+              <label class="field" for="text">Dein Text</label>
+              <textarea id="text" class="textarea" placeholder="Gib hier den Text ein, der in Handschrift umgewandelt werden soll…"></textarea>
+            </div>
 
-          <div class="toolbar">
-            <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
-            <div class="toolbar-spacer"></div>
-            <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
-            <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
-            <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
-          </div>
-          <div id="status" class="status">Bereit.</div>
-        </section>
+            <div class="toolbar">
+              <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
+              <div class="toolbar-spacer"></div>
+              <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
+              <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
+              <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
+            </div>
+            <div id="status" class="status">Bereit.</div>
+          </section>
 
-        <section class="stack">
-          <h3 style="margin:0; font-size:18px">Live-Vorschau</h3>
-          <div id="preview" class="preview-wrap">
-            <div class="empty-state">Noch keine Vorschau. Text eingeben und „Rendern" klicken.</div>
-          </div>
-        </section>
+          <section class="stack">
+            <h3 style="margin:0; font-size:18px">Live-Vorschau</h3>
+            <div id="preview" class="preview-wrap">
+              <div class="empty-state">Noch keine Vorschau. Text eingeben und „Rendern" klicken.</div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </main>

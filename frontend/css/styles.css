@@ -247,3 +247,23 @@ footer.site {
 .page-header { padding: 40px 0 0; }
 .page-header h2 { font-size: 32px; letter-spacing: -0.02em; margin: 8px 0 0; }
 .page-header p { margin: 8px 0 0; color: var(--text-muted); font-size: 16px; }
+
+/* ----------------------------------------------------------------- Tabs */
+
+.tab-bar {
+  display: flex; gap: 4px;
+  border-bottom: 2px solid var(--border-light);
+  margin-bottom: 28px;
+}
+.tab-btn {
+  padding: 12px 22px; border: none; background: none;
+  font-size: 15px; font-weight: 600; color: var(--text-muted);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: color 0.15s, border-color 0.15s;
+  border-radius: 8px 8px 0 0;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface-muted); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
