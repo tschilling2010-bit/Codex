@@ -39,9 +39,10 @@ function highlightNav() {
   const path = location.pathname;
   $$(".nav-links a").forEach(a => {
     const href = a.getAttribute("href");
-    if ((path === "/" && href === "/") || (href !== "/" && path.startsWith(href))) {
-      a.classList.add("active");
-    }
+    const match =
+      (href === "/" && (path === "/" || path === "/handwriting.html")) ||
+      (href !== "/" && path.startsWith(href));
+    if (match) a.classList.add("active");
   });
 }
 
