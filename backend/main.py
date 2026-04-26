@@ -76,13 +76,15 @@ if _FRONTEND.exists():
     if _js.exists():
         app.mount("/js", StaticFiles(directory=str(_js)), name="js")
 
+    _NO_CACHE = {"Cache-Control": "no-cache, no-store, must-revalidate"}
+
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_FRONTEND / "handwriting.html")
+        return FileResponse(_FRONTEND / "handwriting.html", headers=_NO_CACHE)
 
     @app.get("/{page}.html")
     def page(page: str) -> FileResponse:
         path = _FRONTEND / f"{page}.html"
         if path.exists():
-            return FileResponse(path)
-        return FileResponse(_FRONTEND / "handwriting.html")
+            return FileResponse(path, headers=_NO_CACHE)
+        return FileResponse(_FRONTEND / "handwriting.html", headers=_NO_CACHE)
