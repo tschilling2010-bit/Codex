@@ -10,12 +10,15 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .routers import handwriting, hefter, projects
+from .routers import handwriting, hefter, projects, trading
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+# Suppress noisy yfinance HTTP errors from restricted environments
+logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 log = logging.getLogger("hefterpro")
 
 app = FastAPI(
@@ -44,6 +47,7 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
 app.include_router(handwriting.router, prefix="/api/handwriting", tags=["handwriting"])
 app.include_router(hefter.router, prefix="/api/hefter", tags=["hefter"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
+app.include_router(trading.router, prefix="/api/trading", tags=["trading"])
 
 
 @app.get("/api/health")
