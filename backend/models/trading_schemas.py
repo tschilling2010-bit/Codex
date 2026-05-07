@@ -29,6 +29,15 @@ class SignalStrength(str, Enum):
     STRONG_SELL = "strong_sell"
 
 
+class OutcomeStatus(str, Enum):
+    OPEN = "open"           # Trade still open, tracking ongoing
+    TARGET_HIT = "target_hit"   # Price reached predicted target → WIN
+    STOP_HIT = "stop_hit"      # Price hit stop-loss → LOSS
+    CLOSED_PROFIT = "closed_profit"
+    CLOSED_LOSS = "closed_loss"
+    EXPIRED = "expired"     # Timeframe passed, closed at market
+
+
 class MarketSymbol(BaseModel):
     symbol: str
     name: str
@@ -94,6 +103,39 @@ class TradingSignal(BaseModel):
     timestamp: datetime
 
 
+class TradeOutcome(BaseModel):
+    """Tracks what actually happened after a trade was executed."""
+    trade_id: str
+    symbol: str
+    action: TradeAction
+    entry_price: float
+    predicted_target: Optional[float]
+    predicted_stop: Optional[float]
+    invested_eur: float
+    quantity: float
+
+    # Outcome (filled as price moves)
+    exit_price: Optional[float] = None
+    exit_eur: Optional[float] = None
+    pnl_eur: Optional[float] = None
+    pnl_pct: Optional[float] = None
+    status: OutcomeStatus = OutcomeStatus.OPEN
+
+    # Timing
+    opened_at: datetime
+    closed_at: Optional[datetime] = None
+    duration_minutes: Optional[float] = None
+
+    # Bot reasoning stored for display
+    bot_reasoning: str = ""
+    bot_confidence: float = 0.0
+    key_factors: list[str] = []
+
+    # What-if explanation (generated after close)
+    outcome_explanation: str = ""
+    prediction_correct: Optional[bool] = None  # Did bot call direction right?
+
+
 class DemoPosition(BaseModel):
     symbol: str
     name: str
@@ -106,6 +148,10 @@ class DemoPosition(BaseModel):
     invested_amount: float
     current_value: float
     opened_at: datetime
+    # Store the signal that triggered this buy
+    signal_target: Optional[float] = None
+    signal_stop: Optional[float] = None
+    signal_reasoning: Optional[str] = None
 
 
 class TradeRecord(BaseModel):
@@ -118,7 +164,11 @@ class TradeRecord(BaseModel):
     fee: float
     realized_pnl: Optional[float] = None
     signal_confidence: Optional[float] = None
+    signal_strength: Optional[str] = None
     reasoning: Optional[str] = None
+    key_factors: list[str] = []
+    predicted_target: Optional[float] = None
+    predicted_stop: Optional[float] = None
     executed_at: datetime
 
 
@@ -139,9 +189,59 @@ class DemoPortfolio(BaseModel):
     updated_at: datetime
 
 
+class PerformanceStats(BaseModel):
+    """Aggregated performance analytics for a demo session."""
+    session_id: str
+    initial_balance: float
+    current_value: float
+    total_pnl: float
+    total_pnl_pct: float
+
+    # Trade stats
+    total_trades: int
+    winning_trades: int
+    losing_trades: int
+    open_trades: int
+    win_rate: float
+
+    # Signal accuracy
+    predictions_correct: int = 0
+    predictions_wrong: int = 0
+    prediction_accuracy: float = 0.0
+
+    # Best/worst
+    best_trade_pnl: Optional[float] = None
+    best_trade_symbol: Optional[str] = None
+    worst_trade_pnl: Optional[float] = None
+    worst_trade_symbol: Optional[str] = None
+
+    # Avg metrics
+    avg_win_eur: float = 0.0
+    avg_loss_eur: float = 0.0
+    avg_trade_duration_minutes: float = 0.0
+    profit_factor: float = 0.0  # Total wins / Total losses
+
+    # P&L over time (list of {timestamp, value} for chart)
+    equity_curve: list[dict] = []
+
+    computed_at: datetime
+
+
+class BotActivity(BaseModel):
+    """A single bot activity event for the live log."""
+    timestamp: datetime
+    event_type: str  # scan, signal, trade, outcome, stop_loss
+    symbol: Optional[str] = None
+    message: str
+    detail: Optional[str] = None
+    emoji: str = "📊"
+
+
 class StartDemoRequest(BaseModel):
     initial_balance: float = Field(default=10.0, ge=1.0, le=100000.0)
     currency: str = "EUR"
+    auto_start_bot: bool = True
+    markets: list[str] = ["BTC-USD", "ETH-USD", "SOL-USD", "AAPL", "TSLA", "NVDA"]
 
 
 class ManualTradeRequest(BaseModel):
@@ -155,7 +255,7 @@ class BotConfig(BaseModel):
     session_id: str
     markets: list[str] = ["BTC-USD", "ETH-USD", "AAPL", "TSLA"]
     max_position_pct: float = Field(default=0.25, ge=0.05, le=0.5)
-    min_confidence: float = Field(default=0.65, ge=0.5, le=0.95)
+    min_confidence: float = Field(default=0.60, ge=0.5, le=0.95)
     trade_interval_minutes: int = Field(default=15, ge=5, le=60)
     risk_per_trade_pct: float = Field(default=0.02, ge=0.01, le=0.1)
 
@@ -167,14 +267,3 @@ class MarketDataResponse(BaseModel):
     candles: list[OHLCV]
     analysis: MarketAnalysis
     signal: Optional[TradingSignal] = None
-
-
-class PortfolioStats(BaseModel):
-    session_id: str
-    total_value: float
-    initial_balance: float
-    total_return_pct: float
-    best_trade_pnl: Optional[float] = None
-    worst_trade_pnl: Optional[float] = None
-    avg_trade_duration_minutes: Optional[float] = None
-    sharpe_ratio: Optional[float] = None

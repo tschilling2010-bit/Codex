@@ -1,4 +1,10 @@
-"""Trading bot orchestrator — coordinates market data, analysis, AI signals, and execution."""
+"""
+Trading Bot Orchestrator — autonomous demo trader.
+
+The bot behaves exactly like a real trader with real money, but uses virtual funds.
+It scans markets, generates AI signals, executes trades, and tracks outcomes.
+After each closed trade it explains: "Das wäre passiert, wenn du echtes Geld investiert hättest."
+"""
 from __future__ import annotations
 
 import asyncio
@@ -7,8 +13,7 @@ from datetime import datetime, timezone
 from typing import Callable, Optional
 
 from ..models.trading_schemas import (
-    BotConfig, MarketAnalysis, MarketDataResponse, MarketType,
-    TradeAction, TradingSignal
+    BotConfig, MarketDataResponse, TradeAction, TradingSignal
 )
 from .ai_trader import analyze_market
 from .demo_portfolio import DemoPortfolioService, get_session
@@ -19,6 +24,7 @@ from .market_data import (
 from .technical_analysis import (
     calculate_indicators, determine_trend, find_support_resistance, score_signal
 )
+from .trade_tracker import TradeTracker, get_tracker
 
 log = logging.getLogger("trading.bot")
 
@@ -26,21 +32,18 @@ log = logging.getLogger("trading.bot")
 async def build_market_analysis(symbol: str, interval: str = "1h") -> Optional[MarketDataResponse]:
     """Fetch data and build full market analysis for a symbol."""
     try:
+        from ..models.trading_schemas import MarketAnalysis
         sym_info = get_symbol_info(symbol)
 
-        # Use daily candles for better indicator calculation on longer timeframes
         candles_1h = await fetch_candles(symbol, period="5d", interval=interval)
         candles_daily = await fetch_daily_candles(symbol, days=90)
 
         if not candles_1h and not candles_daily:
-            log.warning("No candles available for %s", symbol)
             return None
 
-        # Use hourly for recent analysis, supplement with daily for SMA200
         analysis_candles = candles_1h if len(candles_1h) >= 30 else candles_daily
         indicators = calculate_indicators(analysis_candles)
 
-        # Fill SMA200 from daily if we have enough daily data
         if candles_daily and len(candles_daily) >= 200:
             from .technical_analysis import sma, _closes
             indicators.sma_200 = sma(_closes(candles_daily), 200)
@@ -77,34 +80,33 @@ async def build_market_analysis(symbol: str, interval: str = "1h") -> Optional[M
 
 
 async def get_ai_signal(symbol: str, market_data: MarketDataResponse) -> TradingSignal:
-    """Generate AI trading signal for a market."""
     analysis = market_data.analysis
     technical_score, technical_factors = score_signal(analysis.indicators, analysis.current_price)
     news = await fetch_news_headlines(symbol)
-
-    signal = await analyze_market(
-        symbol=symbol,
-        name=market_data.name,
-        analysis=analysis,
-        news_headlines=news,
-        technical_score=technical_score,
+    return await analyze_market(
+        symbol=symbol, name=market_data.name, analysis=analysis,
+        news_headlines=news, technical_score=technical_score,
         technical_factors=technical_factors,
     )
-    return signal
 
 
 class TradingBotRunner:
-    """Autonomous trading bot that scans markets and executes trades."""
+    """
+    Autonomous trading bot — acts exactly like a real trader with real money,
+    but uses virtual funds and tracks every outcome.
+    """
 
     def __init__(self, config: BotConfig, portfolio: DemoPortfolioService):
         self.config = config
         self.portfolio = portfolio
+        self.tracker: TradeTracker = get_tracker(config.session_id)
         self._running = False
         self._task: Optional[asyncio.Task] = None
         self._broadcast_cb: Optional[Callable] = None
         self.last_signals: dict[str, TradingSignal] = {}
         self.scan_count = 0
         self.last_scan: Optional[datetime] = None
+        self._first_scan = True  # Execute immediately on first run
 
     def set_broadcast(self, cb: Callable) -> None:
         self._broadcast_cb = cb
@@ -116,16 +118,25 @@ class TradingBotRunner:
             except Exception:
                 pass
 
-    async def _scan_market(self, symbol: str) -> Optional[TradingSignal]:
-        """Analyze one market and optionally execute a trade."""
+    async def _scan_and_trade(self, symbol: str) -> None:
+        """Core logic: analyze market → signal → decide → trade → track."""
         try:
             market_data = await build_market_analysis(symbol)
-            if not market_data:
-                return None
+            if not market_data or market_data.analysis.current_price <= 0:
+                return
 
             signal = await get_ai_signal(symbol, market_data)
             market_data.signal = signal
             self.last_signals[symbol] = signal
+
+            # Log the analysis
+            self.tracker.log_activity(
+                event_type="signal",
+                symbol=symbol,
+                message=f"{symbol}: {signal.strength.replace('_', ' ').upper()} (Konfidenz {signal.confidence:.0%})",
+                detail=signal.reasoning,
+                emoji=self._signal_emoji(signal),
+            )
 
             await self._broadcast("signal", {
                 "symbol": symbol,
@@ -133,96 +144,153 @@ class TradingBotRunner:
                 "analysis": market_data.analysis.model_dump(mode="json"),
             })
 
-            # Auto-execute if confidence meets threshold
-            if signal.confidence >= self.config.min_confidence:
-                await self._maybe_execute(symbol, market_data, signal)
+            # Execute if confidence meets threshold
+            if signal.confidence >= self.config.min_confidence and signal.action != TradeAction.HOLD:
+                await self._execute_signal(symbol, market_data, signal)
 
-            return signal
+            # Check open outcomes (did previous trades hit target/stop?)
+            p = self.portfolio._portfolio
+            if p:
+                outcome_updates = await self.tracker.check_open_outcomes(p.positions)
+                for update in outcome_updates:
+                    outcome = update.get("outcome", {})
+                    await self._broadcast("outcome", {
+                        "update_type": update["type"],
+                        "outcome": outcome,
+                    })
+                    # If target/stop hit, close the position in portfolio
+                    if update["type"] in ("target_hit", "stop_hit"):
+                        await self._close_triggered_position(symbol, outcome, market_data)
+
         except Exception as exc:
-            log.error("scan_market %s: %s", symbol, exc)
-            return None
+            log.error("scan_and_trade %s: %s", symbol, exc)
 
-    async def _maybe_execute(
+    async def _execute_signal(
         self, symbol: str, market_data: MarketDataResponse, signal: TradingSignal
     ) -> None:
-        """Execute a trade based on signal, respecting position limits."""
         p = self.portfolio._portfolio
         if not p:
             return
 
         current_price = market_data.analysis.current_price
-        if current_price <= 0:
-            return
-
         sym_info = get_symbol_info(symbol)
-        max_position_value = p.initial_balance * self.config.max_position_pct
-        risk_amount = p.initial_balance * self.config.risk_per_trade_pct
-
         existing = next((pos for pos in p.positions if pos.symbol == symbol), None)
 
         if signal.action == TradeAction.BUY:
-            # Don't buy if already at max position size
-            current_position_value = existing.current_value if existing else 0.0
-            available_to_invest = min(
-                max_position_value - current_position_value,
-                p.cash_balance * 0.9,
-                risk_amount * 3,
+            # Position sizing: risk-based
+            max_invest = p.initial_balance * self.config.max_position_pct
+            already_invested = existing.invested_amount if existing else 0.0
+            available = min(
+                max_invest - already_invested,
+                p.cash_balance * 0.85,
+                p.initial_balance * self.config.risk_per_trade_pct * 3,
             )
-            if available_to_invest < 0.5:
+            if available < 0.5:
+                self.tracker.log_activity(
+                    "skip", f"{symbol}: Übersprungen (zu wenig freies Kapital für neue Position)", symbol=symbol, emoji="⏭"
+                )
                 return
 
             success, msg, trade = self.portfolio.execute_trade(
-                symbol=symbol,
-                name=market_data.name,
-                market_type=sym_info.market_type,
-                action=TradeAction.BUY,
-                amount_eur=available_to_invest,
-                current_price=current_price,
-                signal=signal,
+                symbol=symbol, name=market_data.name,
+                market_type=sym_info.market_type, action=TradeAction.BUY,
+                amount_eur=available, current_price=current_price, signal=signal,
             )
             if success and trade:
-                log.info("BOT BUY %s: %s", symbol, msg)
+                # Register for outcome tracking
+                self.tracker.record_trade_open(trade, available)
+                self.tracker.log_activity(
+                    "trade", f"KAUF {symbol}: €{available:.2f} @ ${current_price:.4f}",
+                    symbol=symbol,
+                    detail=f"Ziel: ${signal.target_price:.4f} | Stop: ${signal.stop_loss:.4f}\n{signal.reasoning}" if signal.target_price else signal.reasoning,
+                    emoji="📈",
+                )
                 await self._broadcast("trade", {"trade": trade.model_dump(mode="json"), "message": msg})
 
         elif signal.action == TradeAction.SELL and existing:
-            # Sell if signal says sell and we have a position
-            sell_amount = existing.current_value * 0.8  # Sell 80% of position
+            sell_amount = existing.current_value * 0.9
+            buy_trade = self.portfolio.get_buy_trade_by_symbol(symbol)
+
             success, msg, trade = self.portfolio.execute_trade(
-                symbol=symbol,
-                name=market_data.name,
-                market_type=sym_info.market_type,
-                action=TradeAction.SELL,
-                amount_eur=sell_amount,
-                current_price=current_price,
-                signal=signal,
+                symbol=symbol, name=market_data.name,
+                market_type=sym_info.market_type, action=TradeAction.SELL,
+                amount_eur=sell_amount, current_price=current_price, signal=signal,
             )
             if success and trade:
-                log.info("BOT SELL %s: %s", symbol, msg)
+                # Record outcome for the corresponding buy
+                if buy_trade:
+                    self.tracker.record_trade_close(
+                        buy_trade.id, current_price,
+                        trade.realized_pnl or 0, existing.invested_amount,
+                    )
+                self.tracker.log_activity(
+                    "trade", f"VERK {symbol}: {msg}",
+                    symbol=symbol, emoji="📉",
+                )
                 await self._broadcast("trade", {"trade": trade.model_dump(mode="json"), "message": msg})
 
-        # Check stop-loss
-        if existing and signal.stop_loss:
-            if current_price <= signal.stop_loss:
-                success, msg, trade = self.portfolio.execute_trade(
-                    symbol=symbol,
-                    name=market_data.name,
-                    market_type=sym_info.market_type,
-                    action=TradeAction.SELL,
-                    amount_eur=existing.current_value,
-                    current_price=current_price,
-                    signal=signal,
-                )
-                if success:
-                    log.info("BOT STOP-LOSS %s: %s", symbol, msg)
-                    await self._broadcast("stop_loss", {"symbol": symbol, "message": msg})
+    async def _close_triggered_position(self, symbol: str, outcome: dict, market_data: MarketDataResponse) -> None:
+        """Close a position when target or stop was hit."""
+        p = self.portfolio._portfolio
+        if not p:
+            return
+        existing = next((pos for pos in p.positions if pos.symbol == symbol), None)
+        if not existing:
+            return
+
+        exit_price = outcome.get("exit_price", market_data.analysis.current_price)
+        sym_info = get_symbol_info(symbol)
+        self.portfolio.execute_trade(
+            symbol=symbol, name=market_data.name,
+            market_type=sym_info.market_type, action=TradeAction.SELL,
+            amount_eur=existing.current_value, current_price=exit_price,
+        )
+
+    def _signal_emoji(self, signal: TradingSignal) -> str:
+        return {
+            "strong_buy": "🚀", "buy": "📈",
+            "neutral": "⏸", "hold": "⏸",
+            "sell": "📉", "strong_sell": "⚠️",
+        }.get(signal.strength, "📊")
+
+    async def _portfolio_refresh(self) -> None:
+        """Fetch current prices and broadcast updated portfolio."""
+        prices: dict[str, float] = {}
+        for symbol in self.config.markets:
+            price = await get_current_price(symbol)
+            if price:
+                prices[symbol] = price
+        p = self.portfolio._portfolio
+        if p:
+            for pos in p.positions:
+                if pos.symbol not in prices:
+                    price = await get_current_price(pos.symbol)
+                    if price:
+                        prices[pos.symbol] = price
+        portfolio = self.portfolio.get_portfolio(prices)
+        await self._broadcast("portfolio_update", {"portfolio": portfolio.model_dump(mode="json")})
 
     async def _run_loop(self) -> None:
         log.info("Bot started for session %s", self.config.session_id)
-        interval_seconds = self.config.trade_interval_minutes * 60
+
+        # First scan immediately, then wait for interval
+        delay = 0 if self._first_scan else self.config.trade_interval_minutes * 60
+        self._first_scan = False
 
         while self._running:
+            if delay > 0:
+                await asyncio.sleep(delay)
+            if not self._running:
+                break
+
             self.scan_count += 1
             self.last_scan = datetime.now(timezone.utc)
+
+            self.tracker.log_activity(
+                "scan",
+                f"Scan #{self.scan_count}: Analysiere {len(self.config.markets)} Märkte...",
+                emoji="🔍",
+            )
             await self._broadcast("scan_start", {
                 "scan_count": self.scan_count,
                 "markets": self.config.markets,
@@ -231,28 +299,18 @@ class TradingBotRunner:
             for symbol in self.config.markets:
                 if not self._running:
                     break
-                await self._scan_market(symbol)
-                await asyncio.sleep(2)  # Rate limiting between market scans
+                await self._scan_and_trade(symbol)
+                await asyncio.sleep(1.5)  # small delay between markets
 
-            # Broadcast portfolio update after each scan
-            prices = {}
-            for symbol in self.config.markets:
-                price = await get_current_price(symbol)
-                if price:
-                    prices[symbol] = price
-
-            portfolio = self.portfolio.get_portfolio(prices)
-            await self._broadcast("portfolio_update", {
-                "portfolio": portfolio.model_dump(mode="json")
-            })
-
+            await self._portfolio_refresh()
             await self._broadcast("scan_complete", {
                 "scan_count": self.scan_count,
-                "next_scan_in": interval_seconds,
+                "next_scan_in_seconds": self.config.trade_interval_minutes * 60,
+                "activity": [a.model_dump(mode="json") for a in self.tracker.get_activity(5)],
             })
+            log.info("Bot scan #%d done, next in %d min", self.scan_count, self.config.trade_interval_minutes)
 
-            log.info("Bot scan %d complete. Sleeping %ds", self.scan_count, interval_seconds)
-            await asyncio.sleep(interval_seconds)
+            delay = self.config.trade_interval_minutes * 60
 
     def start(self) -> None:
         if self._running:
@@ -269,13 +327,11 @@ class TradingBotRunner:
             except asyncio.CancelledError:
                 pass
             self._task = None
-        log.info("Bot stopped for session %s", self.config.session_id)
 
     def is_running(self) -> bool:
-        return self._running
+        return self._running and self._task is not None and not self._task.done()
 
 
-# Global bot registry
 _bots: dict[str, TradingBotRunner] = {}
 
 
@@ -295,9 +351,8 @@ def create_bot(config: BotConfig, broadcast_cb: Optional[Callable] = None) -> Tr
 
 
 async def stop_bot(session_id: str) -> bool:
-    bot = _bots.get(session_id)
+    bot = _bots.pop(session_id, None)
     if bot:
         await bot.stop()
-        del _bots[session_id]
         return True
     return False

@@ -1,0 +1,2 @@
+# Ignore runtime outcome and activity files
+*.json
