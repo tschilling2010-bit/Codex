@@ -217,6 +217,19 @@ canvas#priceChart{max-height:280px;width:100%!important}
 .empty{padding:24px;text-align:center;color:var(--text3);font-size:12px}
 .empty .ei{font-size:28px;margin-bottom:6px}
 
+/* API key modal */
+.key-modal{position:fixed;inset:0;z-index:999;display:flex;align-items:flex-start;justify-content:flex-end;padding:60px 16px 0;pointer-events:none;opacity:0;transition:.15s}
+.key-modal.open{pointer-events:all;opacity:1}
+.key-box{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:18px;width:320px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+.key-box h3{font-size:13px;font-weight:700;margin-bottom:4px}
+.key-box p{font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+.key-input-row{display:flex;gap:6px;margin-bottom:6px}
+.key-input-row input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--text);font-size:12px;outline:none;min-width:0}
+.key-input-row input:focus{border-color:var(--blue)}
+#keyFeedback{font-size:11px;margin-top:2px}
+.gear-btn{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);padding:4px 8px;cursor:pointer;font-size:14px;line-height:1;transition:.12s}
+.gear-btn:hover{background:var(--bg3);color:var(--text)}
+
 /* Scrollbars */
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -235,7 +248,25 @@ canvas#priceChart{max-height:280px;width:100%!important}
   <div class="spacer"></div>
   <div id="aiStatusBadge" style="font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(100,116,139,.12);color:var(--text3);border:1px solid rgba(100,116,139,.2);display:none">⚙️ Algorithmus</div>
   <div class="pnl-display" id="topPnl">Kein Portfolio</div>
+  <button class="gear-btn" onclick="toggleKeyModal()" title="Claude API-Key">⚙️</button>
   <div id="ws-dot" title="Echtzeit-Verbindung"></div>
+</div>
+
+<!-- API Key Modal -->
+<div class="key-modal" id="keyModal" onclick="closeKeyModalOutside(event)">
+  <div class="key-box">
+    <h3>🤖 Claude API-Key</h3>
+    <p>Gib deinen Anthropic API-Key ein, damit der Bot echte KI-Analysen von Claude macht.<br>
+    <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">→ Key holen (console.anthropic.com)</a></p>
+    <div class="key-input-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off"/>
+      <button class="btn btn-primary btn-sm" onclick="saveApiKey()">Setzen</button>
+    </div>
+    <div id="keyFeedback" style="color:var(--text3)">Ohne Key läuft der Bot algorithmisch weiter.</div>
+    <div style="margin-top:10px;text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick="closeKeyModal()">Schließen</button>
+    </div>
+  </div>
 </div>
 
 <div class="layout">
@@ -246,20 +277,6 @@ canvas#priceChart{max-height:280px;width:100%!important}
 
     <!-- Setup or Portfolio -->
     <div class="section" id="setupSection">
-      <!-- API Key card -->
-      <div id="apiKeyCard" style="margin-bottom:12px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);border-radius:var(--radius);padding:12px">
-        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">🤖 Claude KI aktivieren</div>
-        <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px">
-          Gib deinen Anthropic API-Key ein — dann analysiert Claude echte Märkte wie ein Profi-Trader.<br>
-          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">→ Kostenlos holen (console.anthropic.com)</a>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:6px">
-          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off"
-            style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:11px;outline:none;min-width:0"/>
-          <button class="btn btn-primary btn-sm" onclick="saveApiKey()" style="flex-shrink:0">Setzen</button>
-        </div>
-        <div id="apiKeyMsg" style="font-size:10px;color:var(--text3)">Ohne Key läuft der Bot mit rein technischem Algorithmus.</div>
-      </div>
       <div class="setup-card">
         <h2>Demo starten</h2>
         <p>Gib einen Betrag ein. Der Bot investiert dieses <strong>virtuelle Geld</strong> auf echten Marktdaten — und zeigt dir, was wirklich passiert wäre.</p>
@@ -488,51 +505,50 @@ function fdur(m) {
   return Math.floor(m/60)+'h '+Math.round(m%60)+'m';
 }
 
-// ─── API Key ─────────────────────────────────────────────────────────────────
+// ─── API Key Modal ────────────────────────────────────────────────────────────
+function toggleKeyModal() {
+  document.getElementById('keyModal').classList.toggle('open');
+}
+function closeKeyModal() {
+  document.getElementById('keyModal').classList.remove('open');
+}
+function closeKeyModalOutside(e) {
+  if (e.target === document.getElementById('keyModal')) closeKeyModal();
+}
+
 async function saveApiKey() {
-  const key = document.getElementById('apiKeyInput').value.trim();
+  const input = document.getElementById('apiKeyInput');
+  const key = input.value.trim();
   if (!key) { notify('Bitte API-Key eingeben','error'); return; }
+  const fb = document.getElementById('keyFeedback');
   try {
     const d = await api('/config/key', {method:'POST', body:JSON.stringify({key})});
     localStorage.setItem('anthropicKey', key);
-    document.getElementById('apiKeyMsg').textContent = '✅ ' + d.message;
-    document.getElementById('apiKeyMsg').style.color = 'var(--green)';
-    document.getElementById('apiKeyInput').value = '';
+    input.value = '';
+    fb.textContent = '✅ ' + d.message;
+    fb.style.color = 'var(--green)';
     updateAiStatusBadge(true);
-    notify('KI aktiv — Claude analysiert jetzt die Märkte!', 'success', 5000);
+    notify('🟢 KI aktiv — Claude analysiert jetzt Märkte!', 'success', 5000);
+    setTimeout(closeKeyModal, 1500);
   } catch(e) {
-    document.getElementById('apiKeyMsg').textContent = '❌ ' + e.message;
-    document.getElementById('apiKeyMsg').style.color = 'var(--red)';
+    fb.textContent = '❌ ' + e.message;
+    fb.style.color = 'var(--red)';
   }
 }
 
 async function checkAndRestoreApiKey() {
-  // First check if key is already set via env var on server
   try {
     const st = await api('/config/status');
-    if (st.key_configured) {
-      updateAiStatusBadge(st.active || true);
-      if (st.key_configured) hideApiKeyCard();
-      return;
-    }
+    if (st.key_configured) { updateAiStatusBadge(st.active !== false); return; }
   } catch(e) {}
-  // Try to restore from localStorage
   const saved = localStorage.getItem('anthropicKey');
   if (saved) {
     try {
       await api('/config/key', {method:'POST', body:JSON.stringify({key:saved})});
       updateAiStatusBadge(true);
-      hideApiKeyCard();
+      const fb = document.getElementById('keyFeedback');
+      if (fb) { fb.textContent = '✅ Key gespeichert & aktiv'; fb.style.color='var(--green)'; }
     } catch(e) {}
-  }
-}
-
-function hideApiKeyCard() {
-  const card = document.getElementById('apiKeyCard');
-  if (card) {
-    card.style.border = '1px solid rgba(16,185,129,.25)';
-    card.style.background = 'rgba(16,185,129,.05)';
-    card.innerHTML = '<div style="font-size:11px;color:var(--green)">🟢 Claude KI aktiv — Analysen werden von Claude Sonnet durchgeführt.</div>';
   }
 }
 

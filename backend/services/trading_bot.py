@@ -182,7 +182,7 @@ class TradingBotRunner:
             if signal.confidence >= self.config.min_confidence and signal.action != TradeAction.HOLD:
                 await self._execute_signal(symbol, market_data, signal)
 
-            # Check open outcomes (did previous trades hit target/stop?)
+            # ── Step 4: Offene Outcomes aller Märkte prüfen ─────────────────
             p = self.portfolio._portfolio
             if p:
                 outcome_updates = await self.tracker.check_open_outcomes(p.positions)
@@ -192,9 +192,10 @@ class TradingBotRunner:
                         "update_type": update["type"],
                         "outcome": outcome,
                     })
-                    # If target/stop hit, close the position in portfolio
+                    # Use the outcome's own symbol — NOT the currently-scanned symbol
                     if update["type"] in ("target_hit", "stop_hit"):
-                        await self._close_triggered_position(symbol, outcome, market_data)
+                        outcome_sym = outcome.get("symbol", symbol)
+                        await self._close_triggered_position(outcome_sym, outcome, market_data)
 
         except Exception as exc:
             log.error("scan_and_trade %s: %s", symbol, exc)
