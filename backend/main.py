@@ -84,6 +84,10 @@ if _FRONTEND.exists():
 
     @app.get("/")
     def index() -> FileResponse:
+        # Trading branch: root opens the trading dashboard
+        trading_page = _FRONTEND / "trading.html"
+        if trading_page.exists():
+            return FileResponse(trading_page, headers=_NO_CACHE)
         return FileResponse(_FRONTEND / "handwriting.html", headers=_NO_CACHE)
 
     @app.get("/{page}.html")
