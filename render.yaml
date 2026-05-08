@@ -1,16 +1,18 @@
 services:
   - type: web
-    name: hefterpro
+    name: ai-trading-bot
     runtime: python
-    branch: main
+    branch: claude/ai-trading-bot-qZGLD
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"
       - key: HEFTERPRO_STORAGE
-        value: /var/data/hefterpro
+        value: /var/data/trading
+      - key: ANTHROPIC_API_KEY
+        sync: false   # Du trägst den Key manuell in Render ein
     disk:
-      name: hefterpro-data
-      mountPath: /var/data/hefterpro
+      name: trading-data
+      mountPath: /var/data/trading
       sizeGB: 1
