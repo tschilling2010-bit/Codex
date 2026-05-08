@@ -133,19 +133,9 @@ class TradingBotRunner:
             if not market_data or market_data.analysis.current_price <= 0:
                 return
 
-            # ── Step 1: Algorithmus-Vorfilter ──────────────────────────────
             tech_signal, tech_score, tech_factors = _get_technical_signal(symbol, market_data)
 
-            # Skip sideways markets — save API calls and reduce noise
-            if abs(tech_score) < 0.35:
-                self.tracker.log_activity(
-                    "scan", symbol=symbol,
-                    message=f"{symbol}: Seitwärts (Score {tech_score:+.2f}) — übersprungen",
-                    emoji="⏭",
-                )
-                return
-
-            # ── Step 2: KI-Analyse nur bei echtem Signal ───────────────────
+            # ── KI-Analyse ─────────────────────────────────────────────────
             ai_status = get_ai_status()
             if ai_status["key_configured"]:
                 analysis = market_data.analysis
@@ -170,7 +160,6 @@ class TradingBotRunner:
                 detail=signal.reasoning,
                 emoji=self._signal_emoji(signal),
             )
-
             await self._broadcast("signal", {
                 "symbol": symbol,
                 "signal": signal.model_dump(mode="json"),
@@ -178,11 +167,11 @@ class TradingBotRunner:
                 "source": source_label,
             })
 
-            # ── Step 3: Trade ausführen wenn Konfidenz hoch genug ──────────
+            # ── Trade ausführen wenn Konfidenz hoch genug ──────────────────
             if signal.confidence >= self.config.min_confidence and signal.action != TradeAction.HOLD:
                 await self._execute_signal(symbol, market_data, signal)
 
-            # ── Step 4: Offene Outcomes aller Märkte prüfen ─────────────────
+            # ── Offene Outcomes prüfen ─────────────────────────────────────
             p = self.portfolio._portfolio
             if p:
                 outcome_updates = await self.tracker.check_open_outcomes(p.positions)
@@ -192,7 +181,6 @@ class TradingBotRunner:
                         "update_type": update["type"],
                         "outcome": outcome,
                     })
-                    # Use the outcome's own symbol — NOT the currently-scanned symbol
                     if update["type"] in ("target_hit", "stop_hit"):
                         outcome_sym = outcome.get("symbol", symbol)
                         await self._close_triggered_position(outcome_sym, outcome, market_data)
