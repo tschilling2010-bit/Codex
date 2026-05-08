@@ -15,7 +15,7 @@ from typing import Callable, Optional
 from ..models.trading_schemas import (
     BotConfig, MarketDataResponse, TradeAction, TradingSignal
 )
-from .ai_trader import analyze_market, get_ai_status
+from .ai_trader import analyze_market, get_ai_status, _fallback_signal
 from .demo_portfolio import DemoPortfolioService, get_session
 from .market_data import (
     fetch_candles, fetch_daily_candles, fetch_news_headlines,
@@ -90,6 +90,14 @@ async def get_ai_signal(symbol: str, market_data: MarketDataResponse) -> Trading
     )
 
 
+def _get_technical_signal(symbol: str, market_data: MarketDataResponse) -> tuple[TradingSignal, float, list[str]]:
+    """Compute technical-only signal without calling Claude. Returns (signal, score, factors)."""
+    analysis = market_data.analysis
+    technical_score, technical_factors = score_signal(analysis.indicators, analysis.current_price)
+    signal = _fallback_signal(symbol, analysis, technical_score, technical_factors)
+    return signal, technical_score, technical_factors
+
+
 class TradingBotRunner:
     """
     Autonomous trading bot — acts exactly like a real trader with real money,
@@ -119,21 +127,46 @@ class TradingBotRunner:
                 pass
 
     async def _scan_and_trade(self, symbol: str) -> None:
-        """Core logic: analyze market → signal → decide → trade → track."""
+        """Core logic: algorithm pre-filter → (optional) AI analysis → decide → trade → track."""
         try:
             market_data = await build_market_analysis(symbol)
             if not market_data or market_data.analysis.current_price <= 0:
                 return
 
-            signal = await get_ai_signal(symbol, market_data)
+            # ── Step 1: Algorithmus-Vorfilter ──────────────────────────────
+            tech_signal, tech_score, tech_factors = _get_technical_signal(symbol, market_data)
+
+            # Skip sideways markets — save API calls and reduce noise
+            if abs(tech_score) < 0.35:
+                self.tracker.log_activity(
+                    "scan", symbol=symbol,
+                    message=f"{symbol}: Seitwärts (Score {tech_score:+.2f}) — übersprungen",
+                    emoji="⏭",
+                )
+                return
+
+            # ── Step 2: KI-Analyse nur bei echtem Signal ───────────────────
+            ai_status = get_ai_status()
+            if ai_status["key_configured"]:
+                analysis = market_data.analysis
+                news = await fetch_news_headlines(symbol)
+                signal = await analyze_market(
+                    symbol=symbol, name=market_data.name, analysis=analysis,
+                    news_headlines=news, technical_score=tech_score,
+                    technical_factors=tech_factors,
+                )
+                source_label = "KI"
+            else:
+                signal = tech_signal
+                source_label = "Algo"
+
             market_data.signal = signal
             self.last_signals[symbol] = signal
 
-            # Log the analysis
             self.tracker.log_activity(
                 event_type="signal",
                 symbol=symbol,
-                message=f"{symbol}: {signal.strength.replace('_', ' ').upper()} (Konfidenz {signal.confidence:.0%})",
+                message=f"{symbol} [{source_label}]: {signal.strength.replace('_', ' ').upper()} (Konfidenz {signal.confidence:.0%}, Score {tech_score:+.2f})",
                 detail=signal.reasoning,
                 emoji=self._signal_emoji(signal),
             )
@@ -142,9 +175,10 @@ class TradingBotRunner:
                 "symbol": symbol,
                 "signal": signal.model_dump(mode="json"),
                 "analysis": market_data.analysis.model_dump(mode="json"),
+                "source": source_label,
             })
 
-            # Execute if confidence meets threshold
+            # ── Step 3: Trade ausführen wenn Konfidenz hoch genug ──────────
             if signal.confidence >= self.config.min_confidence and signal.action != TradeAction.HOLD:
                 await self._execute_signal(symbol, market_data, signal)
 
