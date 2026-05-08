@@ -20,6 +20,7 @@
     var vl = getEl("view-list"), vd = getEl("view-detail");
     if (vl) vl.style.display = "";
     if (vd) vd.style.display = "none";
+    hideNewProfileForm();
   }
   function showDetail() {
     var vl = getEl("view-list"), vd = getEl("view-detail");
@@ -160,8 +161,8 @@
       '<div style="display:flex;justify-content:space-between;align-items:center"><strong>Paar ' + num + "</strong>" + badge + "</div>" +
       '<div style="margin-top:12px"><a href="' + pdfUrl + '" class="btn btn-ghost" style="padding:8px 16px;font-size:13px" download>PDF herunterladen &amp; ausdrucken</a></div>' +
       '<div class="field-row" style="margin-top:14px">' +
-      '<div style="flex:1"><label class="field">Seite 1 (Foto/Scan)</label><input type="file" class="pair-page1" accept="image/*" style="font-size:14px" /></div>' +
-      '<div style="flex:1"><label class="field">Seite 2 (Foto/Scan)</label><input type="file" class="pair-page2" accept="image/*" style="font-size:14px" /></div></div>' +
+      '<div style="flex:1"><label class="field">Seite 1 (Foto/Scan)</label><input type="file" class="pair-page1" accept="image/*" style="font-size:16px;padding:8px 0" /></div>' +
+      '<div style="flex:1"><label class="field">Seite 2 (Foto/Scan)</label><input type="file" class="pair-page2" accept="image/*" style="font-size:16px;padding:8px 0" /></div></div>' +
       '<div style="margin-top:12px"><button class="btn btn-primary btn-pair-upload" disabled>Buchstaben extrahieren</button></div>' +
       prevHtml + "</div>";
   }
@@ -241,12 +242,37 @@
     }, 400);
   }
 
+  // ---- Inline new-profile form ----
+  function showNewProfileForm() {
+    var form = getEl("new-profile-form");
+    var inp = getEl("new-profile-name");
+    var btn = getEl("btn-new-profile");
+    if (form) form.style.display = "";
+    if (btn) btn.style.display = "none";
+    if (inp) { inp.value = ""; inp.focus(); }
+  }
+  function hideNewProfileForm() {
+    var form = getEl("new-profile-form");
+    var btn = getEl("btn-new-profile");
+    if (form) form.style.display = "none";
+    if (btn) btn.style.display = "";
+  }
+  function submitNewProfile() {
+    var inp = getEl("new-profile-name");
+    var name = inp ? inp.value.trim() : "";
+    if (!name) return;
+    hideNewProfileForm();
+    createProfile(name);
+  }
+
   // ---- Bind UI ----
   function bindUI() {
-    // New profile
-    on(getEl("btn-new-profile"), "click", function () {
-      var name = prompt("Name für die neue Schrift:");
-      if (name && name.trim()) createProfile(name.trim());
+    // New profile – inline form
+    on(getEl("btn-new-profile"), "click", showNewProfileForm);
+    on(getEl("btn-new-cancel"), "click", hideNewProfileForm);
+    on(getEl("btn-new-confirm"), "click", submitNewProfile);
+    on(getEl("new-profile-name"), "keydown", function (e) {
+      if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
 
     // Back
@@ -344,7 +370,16 @@
     var btn = getEl(btnMap[fmt]);
     var reset = showSpinner(btn, fmt.toUpperCase());
     API.exportHandwriting(state.projectId, fmt)
-      .then(function (res) { window.open(res.url, "_blank"); msg(getEl("status"), "Export fertig.", "ok"); })
+      .then(function (res) {
+        var a = document.createElement("a");
+        a.href = res.url;
+        a.download = "";
+        a.style.display = "none";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        msg(getEl("status"), "Export fertig.", "ok");
+      })
       .catch(function (e) { msg(getEl("status"), "Export: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
