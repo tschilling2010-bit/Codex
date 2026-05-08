@@ -17,13 +17,32 @@ from .technical_analysis import score_signal
 log = logging.getLogger("trading.ai_trader")
 
 _client: Optional[anthropic.Anthropic] = None
+_runtime_key: Optional[str] = None
+_ai_status: dict = {"active": False, "last_error": None, "calls": 0}
+
+
+def set_api_key(key: str) -> bool:
+    """Set Anthropic API key at runtime. Returns True if key looks valid."""
+    global _client, _runtime_key
+    key = key.strip()
+    if not key.startswith("sk-ant-"):
+        return False
+    _runtime_key = key
+    _client = None  # Force client recreation with new key
+    return True
+
+
+def get_ai_status() -> dict:
+    return {**_ai_status, "key_configured": bool(_runtime_key or os.environ.get("ANTHROPIC_API_KEY"))}
 
 
 def _get_client() -> anthropic.Anthropic:
     global _client
     if _client is None:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        _client = anthropic.Anthropic(api_key=api_key)
+        key = _runtime_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        if not key:
+            raise ValueError("ANTHROPIC_API_KEY not configured")
+        _client = anthropic.Anthropic(api_key=key)
     return _client
 
 
@@ -126,6 +145,9 @@ async def analyze_market(
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": prompt}],
         )
+        _ai_status["active"] = True
+        _ai_status["last_error"] = None
+        _ai_status["calls"] += 1
 
         raw = message.content[0].text.strip()
 
@@ -164,9 +186,12 @@ async def analyze_market(
 
     except json.JSONDecodeError as exc:
         log.warning("AI response JSON parse error for %s: %s", symbol, exc)
+        _ai_status["last_error"] = f"JSON parse error: {exc}"
         return _fallback_signal(symbol, analysis, technical_score, technical_factors)
     except Exception as exc:
         log.error("AI analysis failed for %s: %s", symbol, exc)
+        _ai_status["active"] = False
+        _ai_status["last_error"] = str(exc)
         return _fallback_signal(symbol, analysis, technical_score, technical_factors)
 
 

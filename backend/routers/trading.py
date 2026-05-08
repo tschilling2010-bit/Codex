@@ -22,6 +22,7 @@ from ..services.technical_analysis import (
     calculate_indicators, determine_trend, find_support_resistance, score_signal
 )
 from ..services.trade_tracker import get_tracker
+from ..services.ai_trader import get_ai_status, set_api_key
 from ..services.trading_bot import build_market_analysis, get_ai_signal
 
 log = logging.getLogger("trading.router")
@@ -59,6 +60,26 @@ class ConnectionManager:
 
 
 ws_manager = ConnectionManager()
+
+
+# ─── Config ───────────────────────────────────────────────────────────────────
+
+@router.get("/config/status")
+async def config_status():
+    """Return AI configuration and health status."""
+    return get_ai_status()
+
+
+@router.post("/config/key")
+async def set_key(body: dict):
+    """Set Anthropic API key at runtime (stored in memory, not persisted)."""
+    key = body.get("key", "").strip()
+    if not key:
+        raise HTTPException(400, "Kein API-Key angegeben")
+    ok = set_api_key(key)
+    if not ok:
+        raise HTTPException(400, "Ungültiger API-Key (muss mit sk-ant- beginnen)")
+    return {"success": True, "message": "API-Key gesetzt — KI ist jetzt aktiv"}
 
 
 # ─── Markets ──────────────────────────────────────────────────────────────────

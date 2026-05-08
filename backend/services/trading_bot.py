@@ -15,7 +15,7 @@ from typing import Callable, Optional
 from ..models.trading_schemas import (
     BotConfig, MarketDataResponse, TradeAction, TradingSignal
 )
-from .ai_trader import analyze_market
+from .ai_trader import analyze_market, get_ai_status
 from .demo_portfolio import DemoPortfolioService, get_session
 from .market_data import (
     fetch_candles, fetch_daily_candles, fetch_news_headlines,
@@ -307,6 +307,7 @@ class TradingBotRunner:
                 "scan_count": self.scan_count,
                 "next_scan_in_seconds": self.config.trade_interval_minutes * 60,
                 "activity": [a.model_dump(mode="json") for a in self.tracker.get_activity(5)],
+                "ai_active": get_ai_status()["active"],
             })
             log.info("Bot scan #%d done, next in %d min", self.scan_count, self.config.trade_interval_minutes)
 

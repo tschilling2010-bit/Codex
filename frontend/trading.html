@@ -233,6 +233,7 @@ canvas#priceChart{max-height:280px;width:100%!important}
   <div class="logo">⚡ AI Trading Bot</div>
   <div class="demo-badge">DEMO</div>
   <div class="spacer"></div>
+  <div id="aiStatusBadge" style="font-size:11px;padding:3px 10px;border-radius:99px;background:rgba(100,116,139,.12);color:var(--text3);border:1px solid rgba(100,116,139,.2);display:none">⚙️ Algorithmus</div>
   <div class="pnl-display" id="topPnl">Kein Portfolio</div>
   <div id="ws-dot" title="Echtzeit-Verbindung"></div>
 </div>
@@ -245,6 +246,20 @@ canvas#priceChart{max-height:280px;width:100%!important}
 
     <!-- Setup or Portfolio -->
     <div class="section" id="setupSection">
+      <!-- API Key card -->
+      <div id="apiKeyCard" style="margin-bottom:12px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.18);border-radius:var(--radius);padding:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">🤖 Claude KI aktivieren</div>
+        <div style="font-size:11px;color:var(--text2);line-height:1.5;margin-bottom:8px">
+          Gib deinen Anthropic API-Key ein — dann analysiert Claude echte Märkte wie ein Profi-Trader.<br>
+          <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--blue);text-decoration:none">→ Kostenlos holen (console.anthropic.com)</a>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <input type="password" id="apiKeyInput" placeholder="sk-ant-api03-..." autocomplete="off"
+            style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:11px;outline:none;min-width:0"/>
+          <button class="btn btn-primary btn-sm" onclick="saveApiKey()" style="flex-shrink:0">Setzen</button>
+        </div>
+        <div id="apiKeyMsg" style="font-size:10px;color:var(--text3)">Ohne Key läuft der Bot mit rein technischem Algorithmus.</div>
+      </div>
       <div class="setup-card">
         <h2>Demo starten</h2>
         <p>Gib einen Betrag ein. Der Bot investiert dieses <strong>virtuelle Geld</strong> auf echten Marktdaten — und zeigt dir, was wirklich passiert wäre.</p>
@@ -402,28 +417,22 @@ canvas#priceChart{max-height:280px;width:100%!important}
 <div class="right">
   <div class="rtabs">
     <div class="rtab active" onclick="setRTab('activity',this)">📡 Bot-Log</div>
-    <div class="rtab" onclick="setRTab('outcomes',this)">📊 Ergebnisse</div>
     <div class="rtab" onclick="setRTab('positions',this)">💼 Positionen</div>
-    <div class="rtab" onclick="setRTab('perf',this)">🏆 Performance</div>
+    <div class="rtab" onclick="setRTab('outcomes',this)">📊 Ergebnisse</div>
   </div>
   <div class="rpanel">
     <!-- Activity log -->
     <div id="rtab-activity">
       <div id="activityFeed"><div class="empty"><div class="ei">📡</div>Bot-Aktivität erscheint hier sobald eine Session gestartet ist.</div></div>
     </div>
-    <!-- Outcomes -->
-    <div id="rtab-outcomes" style="display:none">
-      <div id="outcomesList"><div class="empty"><div class="ei">📊</div>Abgeschlossene Trades mit "Was-wäre-passiert"-Analyse erscheinen hier.</div></div>
-    </div>
     <!-- Positions -->
     <div id="rtab-positions" style="display:none">
       <div id="positionsList"><div class="empty"><div class="ei">💼</div>Keine offenen Positionen.</div></div>
     </div>
-    <!-- Performance -->
-    <div id="rtab-perf" style="display:none">
-      <div class="perf-panel" id="perfPanel">
-        <div class="empty"><div class="ei">🏆</div>Performance erscheint nach den ersten Trades.</div>
-      </div>
+    <!-- Outcomes + Performance combined -->
+    <div id="rtab-outcomes" style="display:none">
+      <div class="perf-panel" id="perfPanel" style="margin-bottom:8px"></div>
+      <div id="outcomesList"><div class="empty"><div class="ei">📊</div>Abgeschlossene Trades mit "Was-wäre-passiert"-Analyse erscheinen hier.</div></div>
     </div>
   </div>
 </div>
@@ -477,6 +486,71 @@ function fdur(m) {
   if(!m) return '—';
   if(m<60) return Math.round(m)+'m';
   return Math.floor(m/60)+'h '+Math.round(m%60)+'m';
+}
+
+// ─── API Key ─────────────────────────────────────────────────────────────────
+async function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key) { notify('Bitte API-Key eingeben','error'); return; }
+  try {
+    const d = await api('/config/key', {method:'POST', body:JSON.stringify({key})});
+    localStorage.setItem('anthropicKey', key);
+    document.getElementById('apiKeyMsg').textContent = '✅ ' + d.message;
+    document.getElementById('apiKeyMsg').style.color = 'var(--green)';
+    document.getElementById('apiKeyInput').value = '';
+    updateAiStatusBadge(true);
+    notify('KI aktiv — Claude analysiert jetzt die Märkte!', 'success', 5000);
+  } catch(e) {
+    document.getElementById('apiKeyMsg').textContent = '❌ ' + e.message;
+    document.getElementById('apiKeyMsg').style.color = 'var(--red)';
+  }
+}
+
+async function checkAndRestoreApiKey() {
+  // First check if key is already set via env var on server
+  try {
+    const st = await api('/config/status');
+    if (st.key_configured) {
+      updateAiStatusBadge(st.active || true);
+      if (st.key_configured) hideApiKeyCard();
+      return;
+    }
+  } catch(e) {}
+  // Try to restore from localStorage
+  const saved = localStorage.getItem('anthropicKey');
+  if (saved) {
+    try {
+      await api('/config/key', {method:'POST', body:JSON.stringify({key:saved})});
+      updateAiStatusBadge(true);
+      hideApiKeyCard();
+    } catch(e) {}
+  }
+}
+
+function hideApiKeyCard() {
+  const card = document.getElementById('apiKeyCard');
+  if (card) {
+    card.style.border = '1px solid rgba(16,185,129,.25)';
+    card.style.background = 'rgba(16,185,129,.05)';
+    card.innerHTML = '<div style="font-size:11px;color:var(--green)">🟢 Claude KI aktiv — Analysen werden von Claude Sonnet durchgeführt.</div>';
+  }
+}
+
+function updateAiStatusBadge(active) {
+  const el = document.getElementById('aiStatusBadge');
+  if (!el) return;
+  el.style.display = '';
+  if (active) {
+    el.textContent = '🟢 Claude KI aktiv';
+    el.style.background = 'rgba(16,185,129,.1)';
+    el.style.color = 'var(--green)';
+    el.style.borderColor = 'rgba(16,185,129,.3)';
+  } else {
+    el.textContent = '⚙️ Algorithmus';
+    el.style.background = 'rgba(100,116,139,.12)';
+    el.style.color = 'var(--text3)';
+    el.style.borderColor = 'rgba(100,116,139,.2)';
+  }
 }
 
 // ─── Session ─────────────────────────────────────────────────────────────────
@@ -904,9 +978,10 @@ async function loadPerformance() {
 
 function renderPerformance(d) {
   const el = document.getElementById('perfPanel');
+  if (!el) return;
   const ts = d.trade_stats;
   if (!ts || ts.total_closed===0) {
-    el.innerHTML = '<div class="empty"><div class="ei">🏆</div>Performance erscheint nach den ersten abgeschlossenen Trades.</div>';
+    el.innerHTML = '';
     return;
   }
   const pnlCls = d.total_pnl>=0?'g':'r';
@@ -969,8 +1044,7 @@ function setRTab(tab, btn) {
   btn.classList.add('active');
   document.getElementById('rtab-'+tab).style.display='';
   // Load data on tab switch
-  if(tab==='outcomes') loadOutcomes();
-  else if(tab==='perf') loadPerformance();
+  if(tab==='outcomes') { loadOutcomes(); loadPerformance(); }
   else if(tab==='activity') loadActivity();
 }
 
@@ -1046,8 +1120,8 @@ function handleWS(msg) {
       break;
     case 'scan_complete':
       document.getElementById('pBotStatus').textContent = '🟢 Aktiv';
-      document.getElementById('pScanCount').textContent = 'Scan #'+data.scan_count+' done';
-      // Refresh activity from latest
+      document.getElementById('pScanCount').textContent = 'Scan #'+data.scan_count;
+      if(data.ai_active != null) updateAiStatusBadge(data.ai_active);
       if(data.activity) data.activity.forEach(a => prependActivity(a));
       break;
     case 'stop_loss':
@@ -1066,7 +1140,7 @@ async function fetchEurRate() {
 }
 
 async function init() {
-  await Promise.all([loadMarkets(), fetchEurRate()]);
+  await Promise.all([loadMarkets(), fetchEurRate(), checkAndRestoreApiKey()]);
 
   if (S.sid) {
     try {
