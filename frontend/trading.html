@@ -304,6 +304,7 @@ canvas#priceChart{max-height:280px;width:100%!important}
     </div>
     <div>
       <div class="big-price" id="cPrice">—</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px" id="cPriceEur"></div>
       <div class="chg-pill" id="cChg">—</div>
     </div>
     <div class="actions">
@@ -443,6 +444,7 @@ const S = {
   chart: null,
   ctab: 'signal',
   rtab: 'activity',
+  eurUsd: 1.12,   // live EUR/USD rate, refreshed on load
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -648,6 +650,11 @@ async function loadChart(sym, interval) {
     ]);
     renderChart(cData.candles, sym);
     document.getElementById('cPrice').textContent = fp(info.current_price);
+    const eurEl = document.getElementById('cPriceEur');
+    if (eurEl && S.eurUsd > 0) {
+      const eurPrice = info.current_price / S.eurUsd;
+      eurEl.textContent = '≈ €' + eurPrice.toLocaleString('de-DE', {minimumFractionDigits:2,maximumFractionDigits:2});
+    }
     const pct = info.price_change_pct_24h;
     const ce = document.getElementById('cChg');
     ce.textContent = fpct(pct)+' (24h)';
@@ -1051,8 +1058,15 @@ function handleWS(msg) {
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+async function fetchEurRate() {
+  try {
+    const d = await api('/market/EURUSD=X/price');
+    if (d && d.current_price > 0) S.eurUsd = d.current_price;
+  } catch(e) {}
+}
+
 async function init() {
-  await loadMarkets();
+  await Promise.all([loadMarkets(), fetchEurRate()]);
 
   if (S.sid) {
     try {
@@ -1080,8 +1094,20 @@ async function init() {
   }
 
   // Refresh prices every 30s
-  setInterval(() => {
+  setInterval(async () => {
+    await fetchEurRate();
     S.markets.forEach(m=>loadMktPrice(m.symbol));
+    if (S.sym) {
+      // Refresh EUR display in chart header without reloading candles
+      try {
+        const info = await api('/market/'+S.sym+'/price');
+        document.getElementById('cPrice').textContent = fp(info.current_price);
+        const eurEl = document.getElementById('cPriceEur');
+        if (eurEl && S.eurUsd > 0) {
+          eurEl.textContent = '≈ €' + (info.current_price / S.eurUsd).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+        }
+      } catch(e) {}
+    }
     if (S.sid) {
       loadPortfolio();
       if (S.rtab==='activity') loadActivity();

@@ -40,25 +40,26 @@ POPULAR_MARKETS: list[MarketSymbol] = [
 
 _SYMBOL_MAP = {m.symbol: m for m in POPULAR_MARKETS}
 
-# Reference prices — kept current; real API overrides these in production
+# Reference prices (USD) — fallback only when live API unavailable.
+# Updated May 2026. Real API always overrides these.
 _REFERENCE_PRICES: dict[str, float] = {
-    "BTC-USD": 104500.0,
-    "ETH-USD": 2480.0,
-    "SOL-USD": 165.0,
-    "BNB-USD": 635.0,
-    "XRP-USD": 2.35,
-    "ADA-USD": 0.78,
-    "AAPL": 211.0,
-    "TSLA": 340.0,
-    "NVDA": 134.0,
-    "MSFT": 458.0,
-    "AMZN": 224.0,
-    "META": 623.0,
-    "GOOGL": 178.0,
-    "SPY": 593.0,
-    "QQQ": 520.0,
-    "GLD": 308.0,
-    "EURUSD=X": 1.088,
+    "BTC-USD": 81200.0,
+    "ETH-USD": 1820.0,
+    "SOL-USD": 148.0,
+    "BNB-USD": 590.0,
+    "XRP-USD": 2.18,
+    "ADA-USD": 0.68,
+    "AAPL": 198.0,
+    "TSLA": 248.0,
+    "NVDA": 112.0,
+    "MSFT": 422.0,
+    "AMZN": 198.0,
+    "META": 558.0,
+    "GOOGL": 162.0,
+    "SPY": 558.0,
+    "QQQ": 476.0,
+    "GLD": 298.0,
+    "EURUSD=X": 1.124,
     "GBPUSD=X": 1.328,
 }
 
