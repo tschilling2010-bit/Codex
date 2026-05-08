@@ -1165,11 +1165,15 @@ async function init() {
       connectWS();
       loadActivity();
       document.getElementById('pBotStatus').textContent = '⌛ Prüfe...';
-      // Check if bot is still running
       try {
         const bot = await api('/bot/'+S.sid+'/status');
-        document.getElementById('pBotStatus').textContent = bot.running ? '🟢 Aktiv' : '⭕ Gestoppt';
-        document.getElementById('pScanCount').textContent = bot.scan_count?'Scan #'+bot.scan_count:'';
+        if (bot.running) {
+          document.getElementById('pBotStatus').textContent = '🟢 Aktiv';
+          document.getElementById('pScanCount').textContent = bot.scan_count ? 'Scan #'+bot.scan_count : '';
+          notify('🔄 Bot läuft weiter — auch wenn du weg warst.', 'success', 5000);
+        } else {
+          document.getElementById('pBotStatus').textContent = '⭕ Gestoppt';
+        }
       } catch(e) {}
     } catch(e) {
       S.sid = null;

@@ -1,7 +1,9 @@
 """HefterPro FastAPI application entry point."""
 from __future__ import annotations
 
+import asyncio
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -11,20 +13,68 @@ from fastapi.staticfiles import StaticFiles
 
 from . import config
 from .routers import handwriting, hefter, projects, trading
+from .services import demo_portfolio as portfolio_svc
+from .services import trading_bot as bot_svc
+from .services.session_manager import load_active_session
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
-# Suppress noisy yfinance HTTP errors from restricted environments
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 log = logging.getLogger("hefterpro")
+
+
+async def _resume_bot_if_saved() -> None:
+    """On server start: restore the last active bot session from disk."""
+    await asyncio.sleep(3)  # wait for app to be fully ready
+    session = load_active_session()
+    if not session:
+        return
+    sid = session["session_id"]
+    log.info("Resuming saved bot session: %s", sid)
+    try:
+        from .models.trading_schemas import BotConfig
+        svc = portfolio_svc.get_or_create_session(
+            session_id=sid,
+            initial_balance=session["initial_balance"],
+        )
+        config_obj = BotConfig(
+            session_id=sid,
+            markets=session["markets"],
+            min_confidence=session.get("min_confidence", 0.60),
+            trade_interval_minutes=session.get("trade_interval_minutes", 15),
+            max_position_pct=session.get("max_position_pct", 0.30),
+            risk_per_trade_pct=session.get("risk_per_trade_pct", 0.03),
+        )
+        # No WS broadcast on startup — frontend reconnects via WebSocket later
+        bot = bot_svc.create_bot(config_obj)
+        bot.start()
+        log.info("Bot auto-resumed for session %s", sid)
+
+        from .services.trade_tracker import get_tracker
+        tracker = get_tracker(sid)
+        tracker.log_activity(
+            "start",
+            "Server neu gestartet — Bot wurde automatisch fortgesetzt.",
+            emoji="🔄",
+        )
+    except Exception as exc:
+        log.error("Failed to resume bot session: %s", exc)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    asyncio.create_task(_resume_bot_if_saved())
+    yield
+
 
 app = FastAPI(
     title="HefterPro",
     description="Text → Handschrift & automatische Hefterblatt-Erstellung.",
     version="2.0.0",
+    lifespan=_lifespan,
 )
 
 app.add_middleware(
@@ -53,6 +103,12 @@ app.include_router(trading.router, prefix="/api/trading", tags=["trading"])
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok", "version": app.version}
+
+
+@app.get("/api/ping")
+def ping() -> dict:
+    """Keep-alive endpoint — used by UptimeRobot to prevent Render free tier sleep."""
+    return {"pong": True}
 
 
 app.mount(

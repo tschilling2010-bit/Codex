@@ -135,7 +135,16 @@ class TradingBotRunner:
 
             tech_signal, tech_score, tech_factors = _get_technical_signal(symbol, market_data)
 
-            # ── KI-Analyse ─────────────────────────────────────────────────
+            # ── Vorfilter: Seitwärtsmärkte überspringen ────────────────────
+            if abs(tech_score) < 0.35:
+                self.tracker.log_activity(
+                    "scan", symbol=symbol,
+                    message=f"{symbol}: Seitwärts (Score {tech_score:+.2f}) — übersprungen",
+                    emoji="⏭",
+                )
+                return
+
+            # ── KI-Analyse nur bei echtem Signal ───────────────────────────
             ai_status = get_ai_status()
             if ai_status["key_configured"]:
                 analysis = market_data.analysis

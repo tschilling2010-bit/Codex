@@ -23,6 +23,7 @@ from ..services.technical_analysis import (
 )
 from ..services.trade_tracker import get_tracker
 from ..services.ai_trader import get_ai_status, set_api_key
+from ..services.session_manager import clear_active_session, save_active_session
 from ..services.trading_bot import build_market_analysis, get_ai_signal
 
 log = logging.getLogger("trading.router")
@@ -155,6 +156,17 @@ async def start_demo(req: StartDemoRequest):
             emoji="🚀",
         )
 
+        # Persist session so it survives server restarts
+        save_active_session(
+            session_id=sid,
+            initial_balance=req.initial_balance,
+            markets=req.markets,
+            min_confidence=config.min_confidence,
+            trade_interval_minutes=config.trade_interval_minutes,
+            max_position_pct=config.max_position_pct,
+            risk_per_trade_pct=config.risk_per_trade_pct,
+        )
+
     return {
         "session_id": sid,
         "initial_balance": req.initial_balance,
@@ -277,6 +289,7 @@ async def get_performance(session_id: str):
 @router.delete("/demo/{session_id}")
 async def reset_demo(session_id: str):
     await bot_svc.stop_bot(session_id)
+    clear_active_session()
     svc = portfolio_svc.get_or_create_session(initial_balance=10.0)
     return {"session_id": svc.session_id, "message": "Neue Demo-Session erstellt"}
 
