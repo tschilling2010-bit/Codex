@@ -105,13 +105,23 @@
               <input id="page-title" class="input" placeholder="z.B. Bahnformen von Satelliten" />
             </div>
             <div>
-              <label class="field" for="page-content">Inhalt</label>
-              <textarea id="page-content" class="textarea" placeholder="Notizen, Stichpunkte, Definitionen, Formeln, alles was auf die Seite soll. Es ist OK wenn der Inhalt knapp ist — die KI füllt nichts dazu."></textarea>
+              <label class="field" for="page-content">Text-Inhalt (optional)</label>
+              <textarea id="page-content" class="textarea" placeholder="Notizen, Stichpunkte, Definitionen, Formeln…"></textarea>
+            </div>
+            <div>
+              <label class="field">Dateien hochladen (optional)</label>
+              <p class="muted" style="font-size:13px; margin:0 0 8px 0">Bilder oder PDFs — die KI analysiert den Inhalt und erstellt daraus die Hefterseite.</p>
+              <div id="file-drop" style="border:2px dashed var(--border); border-radius:12px; padding:24px; text-align:center; cursor:pointer; transition:border-color 0.2s">
+                <p style="margin:0; font-size:15px; color:var(--muted)">Dateien hierher ziehen oder antippen</p>
+                <p style="margin:4px 0 0; font-size:12px; color:var(--muted)">Bilder (PNG, JPG) und PDFs</p>
+                <input id="file-input" type="file" multiple accept="image/*,.pdf,application/pdf" style="display:none" />
+              </div>
+              <div id="file-list" style="margin-top:8px"></div>
             </div>
             <div class="toolbar">
               <button class="btn btn-primary" id="btn-generate">Seite erzeugen</button>
               <div class="toolbar-spacer"></div>
-              <span class="muted" style="font-size:13px">Dauert ca. 10–25 Sek.</span>
+              <span class="muted" style="font-size:13px">Dauert ca. 10–30 Sek.</span>
             </div>
             <div id="gen-status" class="status" style="display:none"></div>
           </div>
@@ -153,8 +163,8 @@
 
   <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
-  <script src="/js/common.js?v=6"></script>
-  <script src="/js/api.js?v=6"></script>
-  <script src="/js/hefter.js?v=6"></script>
+  <script src="/js/common.js?v=7"></script>
+  <script src="/js/api.js?v=7"></script>
+  <script src="/js/hefter.js?v=7"></script>
 </body>
 </html>

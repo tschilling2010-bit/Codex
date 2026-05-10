@@ -88,9 +88,17 @@ var API = (function () {
     deleteSubject: function (id) {
       return request("/api/hefter/subjects/" + id, { method: "DELETE" });
     },
-    createHefterPage: function (subjectId, content, title) {
+    createHefterPage: function (subjectId, content, title, files) {
+      var fd = new FormData();
+      fd.append("content", content || "");
+      fd.append("title", title || "");
+      if (files && files.length) {
+        for (var i = 0; i < files.length; i++) {
+          fd.append("files", files[i]);
+        }
+      }
       return request("/api/hefter/subjects/" + subjectId + "/pages",
-        { method: "POST", body: { content: content, title: title || "" } });
+        { method: "POST", form: fd });
     },
     deleteHefterPage: function (subjectId, pageId) {
       return request("/api/hefter/subjects/" + subjectId + "/pages/" + pageId,

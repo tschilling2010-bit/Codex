@@ -2,6 +2,7 @@
   "use strict";
 
   var state = { subjects: [], activeId: null, subject: null };
+  var selectedFiles = [];
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -152,24 +153,84 @@
     if (box) box.style.display = "none";
   }
 
+  // ---- File upload ----
+  function bindFileUpload() {
+    var drop = getEl("file-drop");
+    var input = getEl("file-input");
+    if (!drop || !input) return;
+
+    on(drop, "click", function () { input.click(); });
+
+    on(input, "change", function () {
+      addFiles(input.files);
+      input.value = "";
+    });
+
+    on(drop, "dragover", function (e) {
+      e.preventDefault();
+      drop.style.borderColor = "var(--primary)";
+    });
+    on(drop, "dragleave", function () {
+      drop.style.borderColor = "var(--border)";
+    });
+    on(drop, "drop", function (e) {
+      e.preventDefault();
+      drop.style.borderColor = "var(--border)";
+      addFiles(e.dataTransfer.files);
+    });
+  }
+
+  function addFiles(fileList) {
+    for (var i = 0; i < fileList.length; i++) {
+      selectedFiles.push(fileList[i]);
+    }
+    renderFileList();
+  }
+
+  function renderFileList() {
+    var el = getEl("file-list");
+    if (!el) return;
+    if (selectedFiles.length === 0) { el.innerHTML = ""; return; }
+    el.innerHTML = selectedFiles.map(function (f, i) {
+      var size = f.size < 1024 ? f.size + " B" : (f.size / 1024).toFixed(0) + " KB";
+      var tag = (f.type === "application/pdf") ? "[PDF]" : "[Bild]";
+      return '<div style="display:flex; align-items:center; gap:8px; padding:6px 0; font-size:14px">' +
+        '<span class="muted">' + tag + '</span>' +
+        '<span style="flex:1">' + escapeHtml(f.name) + ' <span class="muted">(' + size + ')</span></span>' +
+        '<button class="btn btn-ghost btn-rm-file" data-idx="' + i + '" style="padding:4px 10px; font-size:12px; color:var(--err)">Entfernen</button>' +
+        '</div>';
+    }).join("");
+    qa(".btn-rm-file", el).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        selectedFiles.splice(parseInt(btn.getAttribute("data-idx"), 10), 1);
+        renderFileList();
+      });
+    });
+  }
+
   // ---- Generate page ----
   function generatePage() {
     if (!state.activeId) return;
     var titleEl = getEl("page-title");
     var contentEl = getEl("page-content");
     var content = contentEl ? contentEl.value.trim() : "";
-    if (!content) {
-      msg(getEl("gen-status"), "Bitte Inhalt eingeben.", "err");
+    if (!content && selectedFiles.length === 0) {
+      msg(getEl("gen-status"), "Bitte Inhalt eingeben oder Dateien hochladen.", "err");
       return;
     }
     var btn = getEl("btn-generate");
     var reset = showSpinner(btn, "Erzeuge…");
-    msg(getEl("gen-status"), "KI gestaltet die Seite, das dauert einen Moment…");
-    API.createHefterPage(state.activeId, content, titleEl ? titleEl.value : "")
+    var info = selectedFiles.length > 0
+      ? "KI analysiert Dateien und gestaltet die Seite…"
+      : "KI gestaltet die Seite, das dauert einen Moment…";
+    msg(getEl("gen-status"), info);
+    API.createHefterPage(state.activeId, content, titleEl ? titleEl.value : "", selectedFiles)
       .then(function () {
         msg(getEl("gen-status"), "Seite fertig!", "ok");
         if (titleEl) titleEl.value = "";
         if (contentEl) contentEl.value = "";
+        selectedFiles = [];
+        renderFileList();
         return API.getSubject(state.activeId);
       })
       .then(function (s) {
@@ -269,6 +330,7 @@
     });
 
     on(getEl("btn-generate"), "click", generatePage);
+    bindFileUpload();
 
     on(getEl("lightbox-close"), "click", closeLightbox);
     on(getEl("lightbox"), "click", function (e) {
