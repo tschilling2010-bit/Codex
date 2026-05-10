@@ -33,15 +33,27 @@
       <div style="text-align:center; padding:12px 0">
         <button class="btn btn-primary" id="btn-new-profile" style="padding:14px 32px; font-size:15px">+ Neue Schrift erstellen</button>
       </div>
+
+      <!-- Inline-Formular für neue Schrift (statt prompt()) -->
+      <div id="new-profile-form" style="display:none; max-width:400px; margin:0 auto; padding:8px 0">
+        <div class="card" style="padding:20px">
+          <h3 style="margin:0 0 12px 0; font-size:17px">Neue Schrift erstellen</h3>
+          <input id="new-profile-name" class="input" placeholder="z.B. Meine Handschrift" style="width:100%; margin-bottom:12px; font-size:16px; padding:12px" />
+          <div style="display:flex; gap:8px; justify-content:flex-end">
+            <button class="btn btn-ghost" id="btn-new-cancel" style="padding:10px 20px">Abbrechen</button>
+            <button class="btn btn-primary" id="btn-new-confirm" style="padding:10px 20px">Erstellen</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ======================== VIEW 2: Profile Detail ======================== -->
     <div id="view-detail" style="display:none">
       <div class="stack-lg">
-        <div style="display:flex; align-items:center; gap:12px">
+        <div class="detail-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
           <button class="btn btn-ghost" id="btn-back" style="padding:8px 16px">&larr; Zurück</button>
-          <div style="flex:1">
-            <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent" placeholder="Profilname" />
+          <div style="flex:1; min-width:150px">
+            <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Profilname" />
           </div>
           <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">Profil löschen</button>
         </div>
@@ -126,8 +138,8 @@
 
   <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
-  <script src="/js/common.js?v=4"></script>
-  <script src="/js/api.js?v=4"></script>
-  <script src="/js/handwriting.js?v=4"></script>
+  <script src="/js/common.js?v=5"></script>
+  <script src="/js/api.js?v=5"></script>
+  <script src="/js/handwriting.js?v=5"></script>
 </body>
 </html>
