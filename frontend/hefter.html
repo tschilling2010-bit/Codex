@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hefterblatt erstellen — HefterPro</title>
+  <title>HefterPro — Hefterblatt</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
@@ -20,60 +20,141 @@
   </header>
 
   <main class="container" style="padding-top:40px; padding-bottom:64px">
-    <div class="stack-lg">
+
+    <!-- ======================== VIEW 1: Subject List ======================== -->
+    <div id="view-list" class="stack-lg">
       <div class="page-header">
-        <span class="eyebrow">Funktion 2</span>
-        <h2>Hefterblatt erstellen</h2>
-        <p>Lade Unterlagen hoch oder gib Text ein — HefterPro baut ein strukturiertes Blatt daraus.</p>
+        <h2>Meine Hefter</h2>
+        <p>Erstelle für jedes Fach einen Hefter — KI-gestaltete Seiten mit deinen Inhalten.</p>
       </div>
 
-      <div class="grid cols-2">
-        <section class="card stack">
-          <div>
-            <label class="field">Dateien (optional)</label>
-            <div class="dropzone" id="drop">
-              <strong>Dateien hier ablegen</strong>
-              <span class="muted">Bilder, PDFs oder Textdateien</span>
-              <input type="file" id="files" multiple hidden />
-              <div class="file-list" id="file-list"></div>
+      <div id="ai-warning" class="status err" style="display:none">
+        OpenAI API-Key fehlt. Auf Render unter „Environment“ den Key <code>OPENAI_API_KEY</code> hinzufügen.
+      </div>
+
+      <div id="subject-grid" class="grid cols-3"></div>
+
+      <div style="text-align:center; padding:12px 0">
+        <button class="btn btn-primary" id="btn-new-subject" style="padding:14px 32px; font-size:15px">+ Neues Fach erstellen</button>
+      </div>
+
+      <!-- Inline-Formular für neues Fach -->
+      <div id="new-subject-form" style="display:none; max-width:480px; margin:0 auto; padding:8px 0">
+        <div class="card" style="padding:24px">
+          <h3 style="margin:0 0 16px 0; font-size:17px">Neues Fach</h3>
+          <label class="field" for="ns-name">Fachname</label>
+          <input id="ns-name" class="input" placeholder="z.B. Physik" style="margin-bottom:14px; font-size:16px; padding:12px" />
+
+          <div class="field-row" style="margin-bottom:14px">
+            <div>
+              <label class="field" for="ns-color">Fachfarbe</label>
+              <input id="ns-color" class="input" type="color" value="#1a6c8a" style="height:48px; padding:4px 8px" />
+            </div>
+            <div>
+              <label class="field" for="ns-paper">Papier</label>
+              <select id="ns-paper" class="select">
+                <option value="liniert">Liniert</option>
+                <option value="kariert">Kariert</option>
+                <option value="blanko">Blanko</option>
+              </select>
             </div>
           </div>
 
-          <div>
-            <label class="field" for="topic">Thema (optional)</label>
-            <input id="topic" class="input" placeholder="z.B. Photosynthese, Zweiter Weltkrieg, Bruchrechnung…" />
+          <div style="display:flex; gap:8px; justify-content:flex-end">
+            <button class="btn btn-ghost" id="btn-ns-cancel" style="padding:10px 20px">Abbrechen</button>
+            <button class="btn btn-primary" id="btn-ns-confirm" style="padding:10px 20px">Erstellen</button>
           </div>
+        </div>
+      </div>
+    </div>
 
-          <div>
-            <label class="field" for="extra">Text / Notizen</label>
-            <textarea id="extra" class="textarea" style="min-height:160px"
-              placeholder="Eigene Notizen, Stichpunkte oder Text, der ins Hefterblatt einfließen soll."></textarea>
+    <!-- ======================== VIEW 2: Subject Detail ======================== -->
+    <div id="view-detail" style="display:none">
+      <div class="stack-lg">
+        <div class="detail-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <button class="btn btn-ghost" id="btn-back" style="padding:8px 16px">&larr; Zurück</button>
+          <div style="flex:1; min-width:150px">
+            <input id="subject-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Fachname" />
           </div>
+          <button class="btn btn-soft" id="btn-delete-subject" style="color:var(--err)">Fach löschen</button>
+        </div>
 
-          <div class="toolbar">
-            <button class="btn btn-primary" id="btn-process">Hefterblatt erstellen</button>
-            <div class="toolbar-spacer"></div>
-            <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
-            <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
-            <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
-          </div>
-          <div id="status" class="status">Bereit.</div>
-        </section>
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="pages">Seiten</button>
+          <button class="tab-btn" data-tab="create">Neue Seite</button>
+          <button class="tab-btn" data-tab="settings">Einstellungen</button>
+        </div>
 
-        <section class="stack">
-          <h3 style="margin:0; font-size:18px">Vorschau</h3>
-          <div id="preview" class="preview-wrap">
-            <div class="empty-state">Noch kein Hefterblatt erzeugt.</div>
+        <!-- Tab: Seiten -->
+        <div class="tab-panel active" id="tab-pages">
+          <div class="stack">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
+              <p class="muted" id="pages-info" style="margin:0; font-size:14px">Noch keine Seiten.</p>
+              <a id="btn-export-pdf" class="btn btn-primary" style="padding:8px 18px; font-size:13px" href="#" download>Alles als PDF</a>
+            </div>
+            <div id="pages-grid" class="grid cols-2"></div>
           </div>
-        </section>
+        </div>
+
+        <!-- Tab: Neue Seite -->
+        <div class="tab-panel" id="tab-create">
+          <div class="card stack">
+            <div>
+              <label class="field" for="page-title">Überschrift (optional)</label>
+              <input id="page-title" class="input" placeholder="z.B. Bahnformen von Satelliten" />
+            </div>
+            <div>
+              <label class="field" for="page-content">Inhalt</label>
+              <textarea id="page-content" class="textarea" placeholder="Notizen, Stichpunkte, Definitionen, Formeln, alles was auf die Seite soll. Es ist OK wenn der Inhalt knapp ist — die KI füllt nichts dazu."></textarea>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-primary" id="btn-generate">Seite erzeugen</button>
+              <div class="toolbar-spacer"></div>
+              <span class="muted" style="font-size:13px">Dauert ca. 10–25 Sek.</span>
+            </div>
+            <div id="gen-status" class="status" style="display:none"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Einstellungen -->
+        <div class="tab-panel" id="tab-settings">
+          <div class="card">
+            <div class="field-row">
+              <div>
+                <label class="field" for="s-color">Fachfarbe</label>
+                <input id="s-color" class="input" type="color" style="height:48px; padding:4px 8px" />
+              </div>
+              <div>
+                <label class="field" for="s-paper">Papier</label>
+                <select id="s-paper" class="select">
+                  <option value="liniert">Liniert</option>
+                  <option value="kariert">Kariert</option>
+                  <option value="blanko">Blanko</option>
+                </select>
+              </div>
+            </div>
+            <p class="muted" style="margin-top:12px; font-size:13px">Änderungen werden automatisch gespeichert.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================== Lightbox / Page viewer ======================== -->
+    <div id="lightbox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; padding:20px; flex-direction:column; gap:12px">
+      <img id="lightbox-img" style="max-width:95%; max-height:80vh; background:#fff; border-radius:8px; box-shadow:0 24px 48px rgba(0,0,0,0.4)" alt="" />
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">
+        <a id="lightbox-download" class="btn btn-primary" style="padding:10px 20px" href="#" download>Bild herunterladen</a>
+        <button id="lightbox-delete" class="btn btn-soft" style="padding:10px 20px; color:var(--err)">Seite löschen</button>
+        <button id="lightbox-close" class="btn btn-ghost" style="padding:10px 20px; background:#fff">Schließen</button>
       </div>
     </div>
   </main>
 
   <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
-  <script src="/js/common.js?v=5"></script>
-  <script src="/js/api.js?v=5"></script>
-  <script src="/js/hefter.js?v=5"></script>
+  <script src="/js/common.js?v=6"></script>
+  <script src="/js/api.js?v=6"></script>
+  <script src="/js/hefter.js?v=6"></script>
 </body>
 </html>

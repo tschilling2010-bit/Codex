@@ -111,3 +111,43 @@ class ProjectInfo(BaseModel):
     created_at: float
     pages: int
     exports: List[str] = []
+
+
+# ----------------------------- Hefter v2 (Subjects + AI pages) -------------
+
+PaperType = Literal["liniert", "kariert", "blanko"]
+
+
+class HefterPageInfo(BaseModel):
+    id: str
+    subject_id: str
+    title: str
+    created_at: float
+    image_url: str
+
+
+class SubjectInfo(BaseModel):
+    id: str
+    name: str
+    color: str = "#1a2a6c"
+    paper_type: PaperType = "liniert"
+    created_at: float
+    page_count: int = 0
+    pages: List[HefterPageInfo] = []
+
+
+class SubjectCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1)
+    color: str = "#1a2a6c"
+    paper_type: PaperType = "liniert"
+
+
+class SubjectUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1)
+    color: Optional[str] = None
+    paper_type: Optional[PaperType] = None
+
+
+class HefterPageCreateRequest(BaseModel):
+    title: Optional[str] = ""
+    content: str = Field(..., min_length=1, description="Roher Text/Notizen, die in das Blatt sollen.")
