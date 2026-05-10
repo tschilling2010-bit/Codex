@@ -136,7 +136,7 @@ class TradingBotRunner:
             tech_signal, tech_score, tech_factors = _get_technical_signal(symbol, market_data)
 
             # ── Vorfilter: Seitwärtsmärkte überspringen ────────────────────
-            if abs(tech_score) < 0.35:
+            if abs(tech_score) < 0.20:
                 self.tracker.log_activity(
                     "scan", symbol=symbol,
                     message=f"{symbol}: Seitwärts (Score {tech_score:+.2f}) — übersprungen",

@@ -312,6 +312,11 @@ canvas#priceChart{max-height:280px;width:100%!important}
           <div class="sub" id="pScanCount">—</div>
         </div>
       </div>
+      <!-- Open positions summary — always visible -->
+      <div id="openPosSummary" style="display:none;margin-top:8px;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 10px;cursor:pointer" onclick="setRTab('positions',document.querySelector('.rtab:nth-child(2)'))">
+        <div style="font-size:10px;color:var(--text3);margin-bottom:4px">OFFENE POSITIONEN</div>
+        <div id="openPosItems" style="font-size:12px"></div>
+      </div>
       <div style="margin-top:8px;display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="resetSession()">↺ Reset</button>
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="stopBot()">⏹ Stop</button>
@@ -636,6 +641,11 @@ async function loadPortfolio() {
     S.portfolio = p;
     renderPortfolio(p);
     renderPositions(p.positions||[]);
+    // Auto-switch to Positionen tab when there are open positions
+    if ((p.positions||[]).length > 0 && S.rtab === 'activity') {
+      const btn = document.querySelector('.rtab:nth-child(2)');
+      setRTab('positions', btn);
+    }
   } catch(e) {
     if (e.message.includes('404')) { S.sid=null; localStorage.removeItem('tradeSid'); }
   }
@@ -652,6 +662,24 @@ function renderPortfolio(p) {
   document.getElementById('pWinRate').textContent = p.win_rate!=null ? p.win_rate.toFixed(1)+'%' : '—';
   document.getElementById('pWins').textContent = p.winning_trades+'W / '+p.losing_trades+'L';
   document.getElementById('topPnl').innerHTML = `<span class="${cls}">${sign}${fe(p.total_pnl,2)} (${fpct(p.total_pnl_pct)})</span>`;
+
+  // Open positions mini-panel (always visible in left sidebar)
+  const pos = p.positions || [];
+  const summary = document.getElementById('openPosSummary');
+  const items = document.getElementById('openPosItems');
+  if (pos.length > 0) {
+    summary.style.display = '';
+    items.innerHTML = pos.map(p => {
+      const c = p.unrealized_pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const sign = p.unrealized_pnl >= 0 ? '+' : '';
+      return `<div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span style="font-weight:700">${p.symbol}</span>
+        <span style="color:${c}">${sign}${fe(p.unrealized_pnl,2)} (${fpct(p.unrealized_pnl_pct)})</span>
+      </div>`;
+    }).join('');
+  } else {
+    summary.style.display = 'none';
+  }
 }
 
 function renderPositions(positions) {
