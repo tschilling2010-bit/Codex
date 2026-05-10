@@ -21,6 +21,7 @@
 
   <main class="container" style="padding-top:40px; padding-bottom:64px">
 
+    <!-- ======================== VIEW 1: Subject List ======================== -->
     <div id="view-list" class="stack-lg">
       <div class="page-header">
         <h2>Meine Hefter</h2>
@@ -37,6 +38,7 @@
         <button class="btn btn-primary" id="btn-new-subject" style="padding:14px 32px; font-size:15px">+ Neues Fach erstellen</button>
       </div>
 
+      <!-- Inline-Formular für neues Fach -->
       <div id="new-subject-form" style="display:none; max-width:480px; margin:0 auto; padding:8px 0">
         <div class="card" style="padding:24px">
           <h3 style="margin:0 0 16px 0; font-size:17px">Neues Fach</h3>
@@ -66,6 +68,7 @@
       </div>
     </div>
 
+    <!-- ======================== VIEW 2: Subject Detail ======================== -->
     <div id="view-detail" style="display:none">
       <div class="stack-lg">
         <div class="detail-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
@@ -76,12 +79,14 @@
           <button class="btn btn-soft" id="btn-delete-subject" style="color:var(--err)">Fach löschen</button>
         </div>
 
+        <!-- Tabs -->
         <div class="tab-bar">
           <button class="tab-btn active" data-tab="pages">Seiten</button>
           <button class="tab-btn" data-tab="create">Neue Seite</button>
           <button class="tab-btn" data-tab="settings">Einstellungen</button>
         </div>
 
+        <!-- Tab: Seiten -->
         <div class="tab-panel active" id="tab-pages">
           <div class="stack">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
@@ -92,6 +97,7 @@
           </div>
         </div>
 
+        <!-- Tab: Neue Seite -->
         <div class="tab-panel" id="tab-create">
           <div class="card stack">
             <div>
@@ -111,6 +117,7 @@
           </div>
         </div>
 
+        <!-- Tab: Einstellungen -->
         <div class="tab-panel" id="tab-settings">
           <div class="card">
             <div class="field-row">
@@ -133,6 +140,7 @@
       </div>
     </div>
 
+    <!-- ======================== Lightbox / Page viewer ======================== -->
     <div id="lightbox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; padding:20px; flex-direction:column; gap:12px">
       <img id="lightbox-img" style="max-width:95%; max-height:80vh; background:#fff; border-radius:8px; box-shadow:0 24px 48px rgba(0,0,0,0.4)" alt="" />
       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">

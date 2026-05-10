@@ -96,7 +96,7 @@ def _call_image_api(prompt: str) -> bytes:
         "model": config.OPENAI_IMAGE_MODEL,
         "prompt": prompt,
         "n": 1,
-        "size": "1024x1792",
+        "size": "1024x1792",  # A4 portrait ratio
         "quality": "hd",
         "response_format": "b64_json",
     }

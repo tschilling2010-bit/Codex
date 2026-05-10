@@ -75,6 +75,7 @@ var API = (function () {
       return request(url, { method: "POST", body: { project_id: projectId, format: format } });
     },
 
+    // Hefter v2: Subjects + AI pages
     hefterStatus: function () { return request("/api/hefter/status"); },
     listSubjects: function () { return request("/api/hefter/subjects"); },
     createSubject: function (data) {

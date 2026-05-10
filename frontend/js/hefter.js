@@ -7,6 +7,7 @@
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function on(el, evt, fn) { if (el) el.addEventListener(evt, fn); }
 
+  // ---- Init ----
   document.addEventListener("DOMContentLoaded", function () {
     try { bindUI(); } catch (e) { console.error("bindUI error:", e); }
     checkAi();
@@ -20,6 +21,7 @@
     }).catch(function () {});
   }
 
+  // ---- Views ----
   function showList() {
     state.activeId = null;
     state.subject = null;
@@ -34,6 +36,7 @@
     if (vd) vd.style.display = "";
   }
 
+  // ---- Subjects list ----
   function loadSubjects() {
     var grid = getEl("subject-grid");
     return API.listSubjects().then(function (list) {
@@ -86,6 +89,7 @@
     });
   }
 
+  // ---- Tabs ----
   function activateTab(name) {
     var detail = getEl("view-detail");
     if (!detail) return;
@@ -97,6 +101,7 @@
     });
   }
 
+  // ---- Pages ----
   function renderPages() {
     var info = getEl("pages-info");
     var grid = getEl("pages-grid");
@@ -120,6 +125,7 @@
     });
   }
 
+  // ---- Lightbox ----
   function openLightbox(pageId) {
     var pages = state.subject ? (state.subject.pages || []) : [];
     var page = null;
@@ -146,6 +152,7 @@
     if (box) box.style.display = "none";
   }
 
+  // ---- Generate page ----
   function generatePage() {
     if (!state.activeId) return;
     var titleEl = getEl("page-title");
@@ -176,6 +183,7 @@
       .finally(function () { reset(); });
   }
 
+  // ---- New subject form ----
   function showNewSubjectForm() {
     var form = getEl("new-subject-form");
     var btn = getEl("btn-new-subject");
@@ -207,6 +215,7 @@
     }).catch(function (e) { alert("Fehler: " + e.message); });
   }
 
+  // ---- Auto-save settings ----
   var saveNameTimer, saveSettingsTimer;
   function autoSaveName() {
     clearTimeout(saveNameTimer);
@@ -231,6 +240,7 @@
     }, 400);
   }
 
+  // ---- Bind UI ----
   function bindUI() {
     on(getEl("btn-new-subject"), "click", showNewSubjectForm);
     on(getEl("btn-ns-cancel"), "click", hideNewSubjectForm);
