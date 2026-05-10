@@ -50,6 +50,17 @@ a:hover { text-decoration: underline; }
 @media (max-width: 860px) {
   .cols-2, .cols-3 { grid-template-columns: 1fr; }
 }
+@media (max-width: 600px) {
+  .container { padding: 0 16px; }
+  .page-header { padding: 24px 0 0; }
+  .page-header h2 { font-size: 24px; }
+  .card { padding: 20px; }
+  .nav-inner { height: 56px; }
+  .nav-links a { padding: 6px 10px; font-size: 13px; }
+  .tab-btn { padding: 10px 14px; font-size: 14px; }
+  .detail-header { flex-wrap: wrap; }
+  .detail-header .btn { padding: 8px 12px; font-size: 13px; }
+}
 
 .stack > * + * { margin-top: 20px; }
 .stack-sm > * + * { margin-top: 12px; }
