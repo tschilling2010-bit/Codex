@@ -112,7 +112,7 @@ def health() -> dict:
     return {"status": "ok", "version": app.version}
 
 
-@app.get("/api/ping")
+@app.api_route("/api/ping", methods=["GET", "HEAD"])
 def ping() -> dict:
     """Keep-alive endpoint — used by UptimeRobot to prevent Render free tier sleep."""
     return {"pong": True}
