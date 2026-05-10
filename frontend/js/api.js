@@ -75,21 +75,28 @@ var API = (function () {
       return request(url, { method: "POST", body: { project_id: projectId, format: format } });
     },
 
-    hefterUpload: function (files) {
-      var fd = new FormData();
-      for (var i = 0; i < files.length; i++) fd.append("files", files[i]);
-      return request("/api/hefter/upload", { method: "POST", form: fd });
+    hefterStatus: function () { return request("/api/hefter/status"); },
+    listSubjects: function () { return request("/api/hefter/subjects"); },
+    createSubject: function (data) {
+      return request("/api/hefter/subjects", { method: "POST", body: data });
     },
-    hefterProcess: function (opts) {
-      var fd = new FormData();
-      fd.append("upload_id", opts.upload_id || "");
-      fd.append("additional_text", opts.additional_text || "");
-      fd.append("topic_hint", opts.topic_hint || "");
-      return request("/api/hefter/process", { method: "POST", form: fd });
+    getSubject: function (id) { return request("/api/hefter/subjects/" + id); },
+    updateSubject: function (id, data) {
+      return request("/api/hefter/subjects/" + id, { method: "PATCH", body: data });
     },
-    exportHefter: function (projectId, format) {
-      var url = format === "pdf" ? "/api/hefter/export/pdf" : "/api/hefter/export/image";
-      return request(url, { method: "POST", body: { project_id: projectId, format: format } });
+    deleteSubject: function (id) {
+      return request("/api/hefter/subjects/" + id, { method: "DELETE" });
+    },
+    createHefterPage: function (subjectId, content, title) {
+      return request("/api/hefter/subjects/" + subjectId + "/pages",
+        { method: "POST", body: { content: content, title: title || "" } });
+    },
+    deleteHefterPage: function (subjectId, pageId) {
+      return request("/api/hefter/subjects/" + subjectId + "/pages/" + pageId,
+        { method: "DELETE" });
+    },
+    subjectPdfUrl: function (subjectId) {
+      return "/api/hefter/subjects/" + subjectId + "/export/pdf";
     },
 
     listProjects: function () { return request("/api/projects/"); },
