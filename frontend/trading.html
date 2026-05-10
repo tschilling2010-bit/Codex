@@ -578,7 +578,7 @@ async function startSession() {
     const d = await api('/demo/start', {
       method:'POST',
       body: JSON.stringify({initial_balance:bal,currency:'EUR',auto_start_bot:true,
-        markets:['BTC-USD','ETH-USD','SOL-USD','AAPL','TSLA','NVDA']})
+        markets:['BTC-USD','ETH-USD','SOL-USD','BNB-USD','XRP-USD','AAPL','TSLA','NVDA','MSFT','AMZN','META','GOOGL']})
     });
     S.sid = d.session_id;
     localStorage.setItem('tradeSid', S.sid);

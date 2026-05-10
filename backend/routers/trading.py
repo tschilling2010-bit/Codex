@@ -141,7 +141,7 @@ async def start_demo(req: StartDemoRequest):
             session_id=sid,
             markets=req.markets,
             min_confidence=0.60,
-            trade_interval_minutes=15,
+            trade_interval_minutes=8,
             max_position_pct=0.30,
             risk_per_trade_pct=0.03,
         )
