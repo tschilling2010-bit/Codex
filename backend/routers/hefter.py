@@ -1,139 +1,136 @@
-"""API: Hefterblatt-Erstellung."""
+"""API: Hefter-Fächer (Subjects) mit KI-generierten Seiten."""
 from __future__ import annotations
 
 import logging
-import uuid
-from pathlib import Path
+from io import BytesIO
 from typing import List
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse, Response
 from PIL import Image
 
 from .. import config
 from ..models.schemas import (
-    ExportRequest,
-    ExportResponse,
-    HefterDocument,
-    HefterProcessResponse,
+    HefterPageCreateRequest,
+    HefterPageInfo,
+    SubjectCreateRequest,
+    SubjectInfo,
+    SubjectUpdateRequest,
 )
-from ..services import export, file_processing, hefter_generator, projects
+from ..services import export, subjects
+from ..services.openai_pages import OpenAIError, generate_hefter_page
 
 log = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/upload")
-async def hefter_upload(
-    files: List[UploadFile] = File(default=[]),
-) -> dict:
-    token = uuid.uuid4().hex[:12]
-    target = config.UPLOADS_DIR / token
-    target.mkdir(parents=True, exist_ok=True)
-    saved: List[str] = []
-    for f in files:
-        safe_name = Path(f.filename or "datei.bin").name
-        out = target / safe_name
-        with out.open("wb") as fh:
-            fh.write(await f.read())
-        saved.append(safe_name)
-    return {"upload_id": token, "files": saved}
+# ----------------------------------------------------------- Subjects ------
+
+@router.get("/subjects", response_model=List[SubjectInfo])
+def list_subjects() -> List[SubjectInfo]:
+    return subjects.list_subjects()
 
 
-@router.post("/process", response_model=HefterProcessResponse)
-def hefter_process(
-    upload_id: str = Form(""),
-    additional_text: str = Form(""),
-    topic_hint: str = Form(""),
-) -> HefterProcessResponse:
-    paths: List[Path] = []
-    if upload_id:
-        folder = config.UPLOADS_DIR / upload_id
-        if not folder.exists():
-            raise HTTPException(status_code=404, detail="Upload nicht gefunden.")
-        paths = sorted(p for p in folder.iterdir() if p.is_file())
-
-    content = file_processing.extract_all(paths)
-    doc = hefter_generator.build_document(
-        content, additional_text=additional_text, topic_hint=topic_hint
-    )
-
-    options = hefter_generator.HefterRenderOptions(
-        accent="#1a2a6c",
-        sheet_type="blanko",
-    )
-    pages = hefter_generator.render_hefter(doc, options)
-
-    project = projects.new_project("hefter", doc.title)
-    preview_urls = projects.save_pages(project, pages)
-
-    meta_path = config.PROJECTS_DIR / project.id / "document.json"
-    meta_path.write_text(doc.model_dump_json(indent=2))
-
-    return HefterProcessResponse(
-        project_id=project.id, document=doc, preview_urls=preview_urls
+@router.post("/subjects", response_model=SubjectInfo)
+def create_subject(req: SubjectCreateRequest) -> SubjectInfo:
+    return subjects.create_subject(
+        name=req.name, color=req.color, paper_type=req.paper_type
     )
 
 
-@router.get("/preview/{project_id}", response_model=HefterDocument)
-def hefter_preview(project_id: str) -> HefterDocument:
-    doc_path = config.PROJECTS_DIR / project_id / "document.json"
-    if not doc_path.exists():
-        raise HTTPException(status_code=404, detail="Hefter-Dokument nicht gefunden.")
-    return HefterDocument.model_validate_json(doc_path.read_text())
+@router.get("/subjects/{subject_id}", response_model=SubjectInfo)
+def get_subject(subject_id: str) -> SubjectInfo:
+    sub = subjects.get_subject(subject_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+    return sub
 
 
-def _load_pages(project_id: str) -> List[Image.Image]:
-    project = projects.load_meta(project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages: List[Image.Image] = []
-    for i in range(1, project.pages + 1):
-        path = projects.page_file(project_id, i)
-        if path is None:
-            continue
-        pages.append(Image.open(path))
-    if not pages:
-        raise HTTPException(status_code=400, detail="Keine Seiten vorhanden.")
-    return pages
+@router.patch("/subjects/{subject_id}", response_model=SubjectInfo)
+def update_subject(subject_id: str, req: SubjectUpdateRequest) -> SubjectInfo:
+    sub = subjects.get_subject(subject_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+    if req.name is not None:
+        sub.name = req.name.strip()
+    if req.color is not None:
+        sub.color = req.color
+    if req.paper_type is not None:
+        sub.paper_type = req.paper_type
+    subjects.save_subject(sub)
+    return subjects.get_subject(subject_id)
 
 
-@router.post("/export/pdf", response_model=ExportResponse)
-def export_pdf_ep(req: ExportRequest) -> ExportResponse:
-    project = projects.load_meta(req.project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages = _load_pages(req.project_id)
-    out = config.EXPORTS_DIR / f"{req.project_id}-hefter.pdf"
-    export.export_pdf(pages, out)
-    projects.add_export(project, out)
-    return ExportResponse(
-        project_id=req.project_id,
-        format="pdf",
-        url=f"/files/exports/{out.name}",
-        filename=out.name,
+@router.delete("/subjects/{subject_id}")
+def delete_subject(subject_id: str) -> dict:
+    if not subjects.delete_subject(subject_id):
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- Pages ----
+
+@router.post("/subjects/{subject_id}/pages", response_model=HefterPageInfo)
+def create_page(subject_id: str, req: HefterPageCreateRequest) -> HefterPageInfo:
+    sub = subjects.get_subject(subject_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+    try:
+        png_bytes, _img = generate_hefter_page(
+            content=req.content,
+            subject_name=sub.name,
+            color=sub.color,
+            paper_type=sub.paper_type,
+        )
+    except OpenAIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    page = subjects.add_page(subject_id, req.title or sub.name, png_bytes)
+    return page
+
+
+@router.get("/subjects/{subject_id}/pages/{page_id}.png")
+def get_page_image(subject_id: str, page_id: str) -> FileResponse:
+    path = subjects.page_image_path(subject_id, page_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Seite nicht gefunden.")
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=3600"},
     )
 
 
-@router.post("/export/image", response_model=ExportResponse)
-def export_image_ep(req: ExportRequest) -> ExportResponse:
-    project = projects.load_meta(req.project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages = _load_pages(req.project_id)
-    tmp_dir = config.EXPORTS_DIR / f"{req.project_id}-img"
-    tmp_dir.mkdir(exist_ok=True)
-    if req.format == "png":
-        paths = export.export_png(pages, tmp_dir, "hefter")
-    elif req.format == "jpg":
-        paths = export.export_jpg(pages, tmp_dir, "hefter")
-    else:
-        raise HTTPException(status_code=400, detail="Nur png oder jpg erlaubt.")
-    for p in paths:
-        projects.add_export(project, p)
-    first = paths[0]
-    return ExportResponse(
-        project_id=req.project_id,
-        format=req.format,
-        url=f"/files/exports/{project.id}-{first.name}",
-        filename=first.name,
-    )
+@router.delete("/subjects/{subject_id}/pages/{page_id}")
+def delete_page(subject_id: str, page_id: str) -> dict:
+    if not subjects.delete_page(subject_id, page_id):
+        raise HTTPException(status_code=404, detail="Seite nicht gefunden.")
+    return {"ok": True}
+
+
+# ----------------------------------------------------------------- Export --
+
+@router.get("/subjects/{subject_id}/export/pdf")
+def export_subject_pdf(subject_id: str) -> Response:
+    sub = subjects.get_subject(subject_id)
+    if sub is None:
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+    paths = subjects.all_page_paths(subject_id)
+    if not paths:
+        raise HTTPException(status_code=400, detail="Keine Seiten im Fach.")
+    images: List[Image.Image] = [Image.open(p).convert("RGB") for p in paths]
+    out = config.EXPORTS_DIR / f"hefter-{subject_id}.pdf"
+    export.export_pdf(images, out)
+    safe_name = "".join(c for c in sub.name if c.isalnum() or c in "_-") or "Hefter"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{safe_name}.pdf"',
+        "Cache-Control": "no-store",
+    }
+    return Response(content=out.read_bytes(), media_type="application/pdf", headers=headers)
+
+
+# --------------------------------------------------- Status / API key check
+
+@router.get("/status")
+def status() -> dict:
+    has_key = bool((config.OPENAI_API_KEY or "").strip())
+    return {"ai_configured": has_key, "image_model": config.OPENAI_IMAGE_MODEL}
