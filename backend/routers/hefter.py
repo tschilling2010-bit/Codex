@@ -3,22 +3,26 @@ from __future__ import annotations
 
 import logging
 from io import BytesIO
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from PIL import Image
 
 from .. import config
 from ..models.schemas import (
-    HefterPageCreateRequest,
     HefterPageInfo,
     SubjectCreateRequest,
     SubjectInfo,
     SubjectUpdateRequest,
 )
 from ..services import export, subjects
-from ..services.openai_pages import OpenAIError, generate_hefter_page
+from ..services.openai_pages import (
+    OpenAIError,
+    analyze_image,
+    extract_pdf_text,
+    generate_hefter_page,
+)
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -71,20 +75,60 @@ def delete_subject(subject_id: str) -> dict:
 # ---------------------------------------------------------------- Pages ----
 
 @router.post("/subjects/{subject_id}/pages", response_model=HefterPageInfo)
-def create_page(subject_id: str, req: HefterPageCreateRequest) -> HefterPageInfo:
+def create_page(
+    subject_id: str,
+    title: str = Form(""),
+    content: str = Form(""),
+    files: Optional[List[UploadFile]] = File(default=None),
+) -> HefterPageInfo:
     sub = subjects.get_subject(subject_id)
     if sub is None:
         raise HTTPException(status_code=404, detail="Fach nicht gefunden.")
+
+    parts: List[str] = []
+    if content.strip():
+        parts.append(content.strip())
+
+    for f in (files or []):
+        raw = f.file.read()
+        if not raw:
+            continue
+        ct = (f.content_type or "").lower()
+        fname = (f.filename or "").lower()
+
+        if ct.startswith("image/") or fname.endswith(
+            (".png", ".jpg", ".jpeg", ".gif", ".webp")
+        ):
+            mime = ct if ct.startswith("image/") else "image/png"
+            try:
+                parts.append(analyze_image(raw, mime))
+            except OpenAIError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+        elif ct == "application/pdf" or fname.endswith(".pdf"):
+            try:
+                text = extract_pdf_text(raw)
+                if text:
+                    parts.append(text)
+            except OpenAIError as exc:
+                raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    combined = "\n\n".join(parts)
+    if not combined.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Bitte Inhalt eingeben oder Dateien hochladen.",
+        )
+
     try:
         png_bytes, _img = generate_hefter_page(
-            content=req.content,
+            content=combined,
             subject_name=sub.name,
             color=sub.color,
             paper_type=sub.paper_type,
         )
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    page = subjects.add_page(subject_id, req.title or sub.name, png_bytes)
+    page = subjects.add_page(subject_id, title or sub.name, png_bytes)
     return page
 
 

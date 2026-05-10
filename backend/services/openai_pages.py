@@ -96,7 +96,7 @@ def _call_image_api(prompt: str) -> bytes:
         "model": config.OPENAI_IMAGE_MODEL,
         "prompt": prompt,
         "n": 1,
-        "size": "1024x1792",
+        "size": "1024x1792",  # A4 portrait ratio
         "quality": "hd",
         "response_format": "b64_json",
     }
@@ -122,6 +122,76 @@ def _call_image_api(prompt: str) -> bytes:
 
 
 # ---------------------------------------------------------------- Public
+
+def analyze_image(image_bytes: bytes, mime_type: str = "image/png") -> str:
+    """Use GPT-4o to analyze an image and extract its content."""
+    key = _require_key()
+    b64 = base64.b64encode(image_bytes).decode()
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": config.OPENAI_TEXT_MODEL,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Analysiere dieses Bild. Extrahiere den gesamten sichtbaren Text, "
+                            "beschreibe Diagramme, Formeln, Tabellen und wichtige visuelle Elemente. "
+                            "Gib den Inhalt strukturiert zurueck (Ueberschriften, Stichpunkte, Formeln). "
+                            "Antworte auf Deutsch. Gib NUR den extrahierten Inhalt zurueck, "
+                            "keine Erklaerungen oder Kommentare."
+                        ),
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{mime_type};base64,{b64}"},
+                    },
+                ],
+            }
+        ],
+        "max_tokens": 3000,
+    }
+    try:
+        with httpx.Client(timeout=_TIMEOUT) as client:
+            res = client.post(url, headers=headers, json=payload)
+    except httpx.HTTPError as exc:
+        raise OpenAIError(f"Bildanalyse fehlgeschlagen: {exc}") from exc
+
+    if res.status_code != 200:
+        try:
+            err = res.json().get("error", {}).get("message") or res.text
+        except Exception:
+            err = res.text
+        raise OpenAIError(f"OpenAI Bildanalyse Fehler ({res.status_code}): {err}")
+
+    data = res.json()
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError) as exc:
+        raise OpenAIError("Unerwartete Antwort bei Bildanalyse.") from exc
+
+
+def extract_pdf_text(pdf_bytes: bytes) -> str:
+    """Extract text from a PDF file using pypdf."""
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(pdf_bytes))
+        texts = []
+        for page in reader.pages:
+            text = page.extract_text()
+            if text:
+                texts.append(text.strip())
+        return "\n\n".join(texts)
+    except Exception as exc:
+        raise OpenAIError(f"PDF konnte nicht gelesen werden: {exc}") from exc
+
 
 def generate_hefter_page(
     *,
