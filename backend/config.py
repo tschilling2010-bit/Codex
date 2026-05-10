@@ -17,8 +17,9 @@ PROJECTS_DIR = STORAGE_DIR / "projects"
 EXPORTS_DIR = STORAGE_DIR / "exports"
 UPLOADS_DIR = STORAGE_DIR / "uploads"
 TEMPLATES_DIR = STORAGE_DIR / "templates"
+SUBJECTS_DIR = STORAGE_DIR / "subjects"
 
-for _d in (PROFILES_DIR, PROJECTS_DIR, EXPORTS_DIR, UPLOADS_DIR, TEMPLATES_DIR):
+for _d in (PROFILES_DIR, PROJECTS_DIR, EXPORTS_DIR, UPLOADS_DIR, TEMPLATES_DIR, SUBJECTS_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 # Page layout defaults (A4 @ 150 dpi).
@@ -45,3 +46,8 @@ SUPPORTED_EXPORT_FORMATS = ("pdf", "png", "jpg")
 # Optional AI hook for hefter structuring.  Disabled by default so the app
 # works fully offline.
 AI_ENABLED = os.environ.get("HEFTERPRO_AI", "0") == "1"
+
+# OpenAI integration for AI-generated Hefter pages.
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_IMAGE_MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "dall-e-3")
+OPENAI_TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini")
