@@ -21,6 +21,7 @@
 
   <main class="container" style="padding-top:40px; padding-bottom:64px">
 
+    <!-- ======================== VIEW 1: Subject List ======================== -->
     <div id="view-list" class="stack-lg">
       <div class="page-header">
         <h2>Meine Hefter</h2>
@@ -37,6 +38,7 @@
         <button class="btn btn-primary" id="btn-new-subject" style="padding:14px 32px; font-size:15px">+ Neues Fach erstellen</button>
       </div>
 
+      <!-- Inline-Formular für neues Fach -->
       <div id="new-subject-form" style="display:none; max-width:480px; margin:0 auto; padding:8px 0">
         <div class="card" style="padding:24px">
           <h3 style="margin:0 0 16px 0; font-size:17px">Neues Fach</h3>
@@ -66,6 +68,7 @@
       </div>
     </div>
 
+    <!-- ======================== VIEW 2: Subject Detail ======================== -->
     <div id="view-detail" style="display:none">
       <div class="stack-lg">
         <div class="detail-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
@@ -76,12 +79,14 @@
           <button class="btn btn-soft" id="btn-delete-subject" style="color:var(--err)">Fach löschen</button>
         </div>
 
+        <!-- Tabs -->
         <div class="tab-bar">
           <button class="tab-btn active" data-tab="pages">Seiten</button>
           <button class="tab-btn" data-tab="create">Neue Seite</button>
           <button class="tab-btn" data-tab="settings">Einstellungen</button>
         </div>
 
+        <!-- Tab: Seiten -->
         <div class="tab-panel active" id="tab-pages">
           <div class="stack">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap">
@@ -92,6 +97,7 @@
           </div>
         </div>
 
+        <!-- Tab: Neue Seite -->
         <div class="tab-panel" id="tab-create">
           <div class="card stack">
             <div>
@@ -99,18 +105,29 @@
               <input id="page-title" class="input" placeholder="z.B. Bahnformen von Satelliten" />
             </div>
             <div>
-              <label class="field" for="page-content">Inhalt</label>
-              <textarea id="page-content" class="textarea" placeholder="Notizen, Stichpunkte, Definitionen, Formeln, alles was auf die Seite soll. Es ist OK wenn der Inhalt knapp ist — die KI füllt nichts dazu."></textarea>
+              <label class="field" for="page-content">Text-Inhalt (optional)</label>
+              <textarea id="page-content" class="textarea" placeholder="Notizen, Stichpunkte, Definitionen, Formeln…"></textarea>
+            </div>
+            <div>
+              <label class="field">Dateien hochladen (optional)</label>
+              <p class="muted" style="font-size:13px; margin:0 0 8px 0">Bilder oder PDFs — die KI analysiert den Inhalt und erstellt daraus die Hefterseite.</p>
+              <div id="file-drop" style="border:2px dashed var(--border); border-radius:12px; padding:24px; text-align:center; cursor:pointer; transition:border-color 0.2s">
+                <p style="margin:0; font-size:15px; color:var(--muted)">Dateien hierher ziehen oder antippen</p>
+                <p style="margin:4px 0 0; font-size:12px; color:var(--muted)">Bilder (PNG, JPG) und PDFs</p>
+                <input id="file-input" type="file" multiple accept="image/*,.pdf,application/pdf" style="display:none" />
+              </div>
+              <div id="file-list" style="margin-top:8px"></div>
             </div>
             <div class="toolbar">
               <button class="btn btn-primary" id="btn-generate">Seite erzeugen</button>
               <div class="toolbar-spacer"></div>
-              <span class="muted" style="font-size:13px">Dauert ca. 10–25 Sek.</span>
+              <span class="muted" style="font-size:13px">Dauert ca. 10–30 Sek.</span>
             </div>
             <div id="gen-status" class="status" style="display:none"></div>
           </div>
         </div>
 
+        <!-- Tab: Einstellungen -->
         <div class="tab-panel" id="tab-settings">
           <div class="card">
             <div class="field-row">
@@ -133,6 +150,7 @@
       </div>
     </div>
 
+    <!-- ======================== Lightbox / Page viewer ======================== -->
     <div id="lightbox" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:1000; align-items:center; justify-content:center; padding:20px; flex-direction:column; gap:12px">
       <img id="lightbox-img" style="max-width:95%; max-height:80vh; background:#fff; border-radius:8px; box-shadow:0 24px 48px rgba(0,0,0,0.4)" alt="" />
       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">
@@ -145,8 +163,8 @@
 
   <footer class="site"><div class="container">HefterPro · made for students</div></footer>
 
-  <script src="/js/common.js?v=6"></script>
-  <script src="/js/api.js?v=6"></script>
-  <script src="/js/hefter.js?v=6"></script>
+  <script src="/js/common.js?v=7"></script>
+  <script src="/js/api.js?v=7"></script>
+  <script src="/js/hefter.js?v=7"></script>
 </body>
 </html>
