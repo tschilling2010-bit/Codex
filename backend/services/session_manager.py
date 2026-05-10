@@ -23,6 +23,7 @@ def save_active_session(
     trade_interval_minutes: int = 15,
     max_position_pct: float = 0.30,
     risk_per_trade_pct: float = 0.03,
+    api_key: str = "",
 ) -> None:
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     data = {
@@ -33,6 +34,7 @@ def save_active_session(
         "trade_interval_minutes": trade_interval_minutes,
         "max_position_pct": max_position_pct,
         "risk_per_trade_pct": risk_per_trade_pct,
+        "api_key": api_key,
     }
     _SESSION_FILE.write_text(json.dumps(data, indent=2))
     log.info("Active session saved: %s", session_id)

@@ -35,6 +35,13 @@ async def _resume_bot_if_saved() -> None:
     sid = session["session_id"]
     log.info("Resuming saved bot session: %s", sid)
     try:
+        # Restore API key first so Claude works immediately
+        saved_key = session.get("api_key", "")
+        if saved_key:
+            from .services.ai_trader import set_api_key
+            set_api_key(saved_key)
+            log.info("API key restored from disk")
+
         from .models.trading_schemas import BotConfig
         svc = portfolio_svc.get_or_create_session(
             session_id=sid,

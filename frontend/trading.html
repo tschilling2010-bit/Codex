@@ -314,8 +314,9 @@ canvas#priceChart{max-height:280px;width:100%!important}
       </div>
       <div style="margin-top:8px;display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" style="flex:1" onclick="resetSession()">↺ Reset</button>
-        <button class="btn btn-ghost btn-sm" style="flex:1" id="stopBotBtn" onclick="stopBot()" style="display:none">⏹ Stop</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="stopBot()">⏹ Stop</button>
       </div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px" onclick="shareSession()" title="Link für iPad/anderes Gerät kopieren">📲 Auf anderem Gerät öffnen</button>
     </div>
 
     <!-- Markets -->
@@ -461,7 +462,7 @@ canvas#priceChart{max-height:280px;width:100%!important}
 <script>
 // ─── State ──────────────────────────────────────────────────────────────────
 const S = {
-  sid: localStorage.getItem('tradeSid') || null,
+  sid: (new URLSearchParams(location.search).get('s')) || localStorage.getItem('tradeSid') || null,
   sym: null,
   interval: '1h',
   markets: [],
@@ -608,6 +609,16 @@ async function resetSession() {
 async function stopBot() {
   if (!S.sid) return;
   try { await api('/bot/'+S.sid+'/stop',{method:'POST'}); notify('Bot gestoppt','info'); } catch(e) {}
+}
+
+function shareSession() {
+  if (!S.sid) return;
+  const url = `${location.origin}${location.pathname}?s=${S.sid}`;
+  navigator.clipboard?.writeText(url).then(() => {
+    notify('📲 Link kopiert! Öffne ihn auf deinem iPad oder Handy.', 'success', 6000);
+  }).catch(() => {
+    prompt('Kopiere diesen Link für dein iPad:', url);
+  });
 }
 
 function clearUI() {
@@ -1156,6 +1167,12 @@ async function fetchEurRate() {
 }
 
 async function init() {
+  // If session came from URL param, save it to localStorage for next visit
+  const urlSid = new URLSearchParams(location.search).get('s');
+  if (urlSid) {
+    S.sid = urlSid;
+    localStorage.setItem('tradeSid', urlSid);
+  }
   await Promise.all([loadMarkets(), fetchEurRate(), checkAndRestoreApiKey()]);
 
   if (S.sid) {

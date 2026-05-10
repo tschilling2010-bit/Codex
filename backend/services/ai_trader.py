@@ -212,7 +212,8 @@ def _fallback_signal(
         action = TradeAction.HOLD
         strength = SignalStrength.NEUTRAL
 
-    confidence = min(0.9, abs(technical_score) * 0.8 + 0.3)
+    # Boost confidence so algo signals actually pass the 0.60 trade threshold
+    confidence = min(0.9, abs(technical_score) * 0.8 + 0.38)
     price = analysis.current_price
     atr_val = analysis.indicators.atr or price * 0.01
 

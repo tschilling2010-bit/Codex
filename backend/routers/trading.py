@@ -23,7 +23,7 @@ from ..services.technical_analysis import (
 )
 from ..services.trade_tracker import get_tracker
 from ..services.ai_trader import get_ai_status, set_api_key
-from ..services.session_manager import clear_active_session, save_active_session
+from ..services.session_manager import clear_active_session, load_active_session, save_active_session
 from ..services.trading_bot import build_market_analysis, get_ai_signal
 
 log = logging.getLogger("trading.router")
@@ -80,6 +80,10 @@ async def set_key(body: dict):
     ok = set_api_key(key)
     if not ok:
         raise HTTPException(400, "Ungültiger API-Key (muss mit sk-ant- beginnen)")
+    # Update persisted session with new key so it survives restarts
+    saved = load_active_session()
+    if saved:
+        save_active_session(**{**saved, "api_key": key})
     return {"success": True, "message": "API-Key gesetzt — KI ist jetzt aktiv"}
 
 
@@ -156,7 +160,10 @@ async def start_demo(req: StartDemoRequest):
             emoji="🚀",
         )
 
-        # Persist session so it survives server restarts
+        # Persist session (incl. API key) so it survives server restarts
+        from ..services.ai_trader import get_ai_status
+        ai_st = get_ai_status()
+        from ..services import ai_trader as _at
         save_active_session(
             session_id=sid,
             initial_balance=req.initial_balance,
@@ -165,6 +172,7 @@ async def start_demo(req: StartDemoRequest):
             trade_interval_minutes=config.trade_interval_minutes,
             max_position_pct=config.max_position_pct,
             risk_per_trade_pct=config.risk_per_trade_pct,
+            api_key=_at._runtime_key or "",
         )
 
     return {
