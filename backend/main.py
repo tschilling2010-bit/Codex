@@ -43,10 +43,10 @@ async def _resume_bot_if_saved() -> None:
         config_obj = BotConfig(
             session_id=sid,
             markets=session["markets"],
-            min_confidence=session.get("min_confidence", 0.60),
-            trade_interval_minutes=session.get("trade_interval_minutes", 15),
-            max_position_pct=session.get("max_position_pct", 0.30),
-            risk_per_trade_pct=session.get("risk_per_trade_pct", 0.03),
+            min_confidence=session.get("min_confidence", 0.55),
+            trade_interval_minutes=session.get("trade_interval_minutes", 8),
+            max_position_pct=session.get("max_position_pct", 0.60),
+            risk_per_trade_pct=session.get("risk_per_trade_pct", 0.15),
         )
         # No WS broadcast on startup — frontend reconnects via WebSocket later
         bot = bot_svc.create_bot(config_obj)

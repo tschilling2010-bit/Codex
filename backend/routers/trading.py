@@ -123,10 +123,10 @@ async def start_demo(req: StartDemoRequest):
         config = BotConfig(
             session_id=sid,
             markets=req.markets,
-            min_confidence=0.60,
+            min_confidence=0.55,
             trade_interval_minutes=8,
-            max_position_pct=0.30,
-            risk_per_trade_pct=0.03,
+            max_position_pct=0.60,
+            risk_per_trade_pct=0.15,
         )
         async def broadcast_cb(event_type: str, data: dict):
             await ws_manager.broadcast(sid, event_type, data)

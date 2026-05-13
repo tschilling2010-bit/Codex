@@ -19,10 +19,10 @@ def save_active_session(
     session_id: str,
     initial_balance: float,
     markets: list[str],
-    min_confidence: float = 0.60,
-    trade_interval_minutes: int = 15,
-    max_position_pct: float = 0.30,
-    risk_per_trade_pct: float = 0.03,
+    min_confidence: float = 0.55,
+    trade_interval_minutes: int = 8,
+    max_position_pct: float = 0.60,
+    risk_per_trade_pct: float = 0.15,
     api_key: str = "",
 ) -> None:
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)

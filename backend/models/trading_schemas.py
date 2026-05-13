@@ -255,10 +255,10 @@ class ManualTradeRequest(BaseModel):
 class BotConfig(BaseModel):
     session_id: str
     markets: list[str] = ["BTC-USD", "ETH-USD", "AAPL", "TSLA"]
-    max_position_pct: float = Field(default=0.25, ge=0.05, le=0.5)
-    min_confidence: float = Field(default=0.60, ge=0.5, le=0.95)
-    trade_interval_minutes: int = Field(default=15, ge=5, le=60)
-    risk_per_trade_pct: float = Field(default=0.02, ge=0.01, le=0.1)
+    max_position_pct: float = Field(default=0.60, ge=0.05, le=0.9)
+    min_confidence: float = Field(default=0.55, ge=0.5, le=0.95)
+    trade_interval_minutes: int = Field(default=8, ge=5, le=60)
+    risk_per_trade_pct: float = Field(default=0.15, ge=0.01, le=0.4)
 
 
 class MarketDataResponse(BaseModel):
