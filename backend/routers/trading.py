@@ -22,9 +22,8 @@ from ..services.technical_analysis import (
     calculate_indicators, determine_trend, find_support_resistance, score_signal
 )
 from ..services.trade_tracker import get_tracker
-from ..services.ai_trader import get_ai_status, set_api_key
 from ..services.session_manager import clear_active_session, load_active_session, save_active_session
-from ..services.trading_bot import build_market_analysis, get_ai_signal
+from ..services.trading_bot import build_market_analysis, get_signal
 
 log = logging.getLogger("trading.router")
 router = APIRouter()
@@ -67,24 +66,8 @@ ws_manager = ConnectionManager()
 
 @router.get("/config/status")
 async def config_status():
-    """Return AI configuration and health status."""
-    return get_ai_status()
-
-
-@router.post("/config/key")
-async def set_key(body: dict):
-    """Set Anthropic API key at runtime (stored in memory, not persisted)."""
-    key = body.get("key", "").strip()
-    if not key:
-        raise HTTPException(400, "Kein API-Key angegeben")
-    ok = set_api_key(key)
-    if not ok:
-        raise HTTPException(400, "Ungültiger API-Key (muss mit sk-ant- beginnen)")
-    # Update persisted session with new key so it survives restarts
-    saved = load_active_session()
-    if saved:
-        save_active_session(**{**saved, "api_key": key})
-    return {"success": True, "message": "API-Key gesetzt — KI ist jetzt aktiv"}
+    """Strategy engine status — always active, no external dependencies."""
+    return {"active": True, "engine": "rule-based", "strategies": ["EMA-Goldcross", "RSI-Umkehr", "MACD-Breakout"]}
 
 
 # ─── Markets ──────────────────────────────────────────────────────────────────
@@ -109,7 +92,7 @@ async def get_market_analysis(symbol: str):
     market_data = await build_market_analysis(symbol)
     if not market_data:
         raise HTTPException(404, f"Analyse für {symbol} nicht möglich")
-    signal = await get_ai_signal(symbol, market_data)
+    signal = get_signal(symbol, market_data)
     market_data.signal = signal
     return market_data.model_dump(mode="json")
 
@@ -160,10 +143,7 @@ async def start_demo(req: StartDemoRequest):
             emoji="🚀",
         )
 
-        # Persist session (incl. API key) so it survives server restarts
-        from ..services.ai_trader import get_ai_status
-        ai_st = get_ai_status()
-        from ..services import ai_trader as _at
+        # Persist session so it survives server restarts
         save_active_session(
             session_id=sid,
             initial_balance=req.initial_balance,
@@ -172,7 +152,6 @@ async def start_demo(req: StartDemoRequest):
             trade_interval_minutes=config.trade_interval_minutes,
             max_position_pct=config.max_position_pct,
             risk_per_trade_pct=config.risk_per_trade_pct,
-            api_key=_at._runtime_key or "",
         )
 
     return {
@@ -354,7 +333,7 @@ async def quick_scan(symbol: str):
     market_data = await build_market_analysis(symbol)
     if not market_data:
         raise HTTPException(404, f"Analyse für {symbol} nicht möglich")
-    signal = await get_ai_signal(symbol, market_data)
+    signal = get_signal(symbol, market_data)
     tech_score, tech_factors = score_signal(
         market_data.analysis.indicators, market_data.analysis.current_price
     )

@@ -101,6 +101,7 @@ class TradingSignal(BaseModel):
     risk_reward_ratio: Optional[float] = None
     timeframe: str = "1d"
     timestamp: datetime
+    strategy: Optional[str] = None  # Name of the pattern that triggered this signal
 
 
 class TradeOutcome(BaseModel):

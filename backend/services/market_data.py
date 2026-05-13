@@ -14,26 +14,36 @@ from ..models.trading_schemas import (
 log = logging.getLogger("trading.market_data")
 
 POPULAR_MARKETS: list[MarketSymbol] = [
-    # Crypto
+    # Crypto (10)
     MarketSymbol(symbol="BTC-USD", name="Bitcoin", market_type=MarketType.CRYPTO, currency="USD"),
     MarketSymbol(symbol="ETH-USD", name="Ethereum", market_type=MarketType.CRYPTO, currency="USD"),
     MarketSymbol(symbol="SOL-USD", name="Solana", market_type=MarketType.CRYPTO, currency="USD"),
     MarketSymbol(symbol="BNB-USD", name="BNB", market_type=MarketType.CRYPTO, currency="USD"),
     MarketSymbol(symbol="XRP-USD", name="Ripple", market_type=MarketType.CRYPTO, currency="USD"),
     MarketSymbol(symbol="ADA-USD", name="Cardano", market_type=MarketType.CRYPTO, currency="USD"),
-    # US Stocks
-    MarketSymbol(symbol="AAPL", name="Apple Inc.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="TSLA", name="Tesla Inc.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="NVDA", name="NVIDIA Corp.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="MSFT", name="Microsoft Corp.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="AMZN", name="Amazon.com Inc.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="META", name="Meta Platforms", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="GOOGL", name="Alphabet Inc.", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
-    # ETFs
-    MarketSymbol(symbol="SPY", name="S&P 500 ETF", market_type=MarketType.ETF, exchange="NYSE", currency="USD"),
-    MarketSymbol(symbol="QQQ", name="Nasdaq-100 ETF", market_type=MarketType.ETF, exchange="NASDAQ", currency="USD"),
-    MarketSymbol(symbol="GLD", name="Gold ETF", market_type=MarketType.ETF, exchange="NYSE", currency="USD"),
-    # Forex
+    MarketSymbol(symbol="DOGE-USD", name="Dogecoin", market_type=MarketType.CRYPTO, currency="USD"),
+    MarketSymbol(symbol="AVAX-USD", name="Avalanche", market_type=MarketType.CRYPTO, currency="USD"),
+    MarketSymbol(symbol="LINK-USD", name="Chainlink", market_type=MarketType.CRYPTO, currency="USD"),
+    MarketSymbol(symbol="DOT-USD", name="Polkadot", market_type=MarketType.CRYPTO, currency="USD"),
+    # US Stocks (12)
+    MarketSymbol(symbol="AAPL", name="Apple", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="TSLA", name="Tesla", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="NVDA", name="NVIDIA", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="MSFT", name="Microsoft", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="AMZN", name="Amazon", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="META", name="Meta", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="GOOGL", name="Alphabet", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="AMD", name="AMD", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="NFLX", name="Netflix", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="COIN", name="Coinbase", market_type=MarketType.STOCK, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="UBER", name="Uber", market_type=MarketType.STOCK, exchange="NYSE", currency="USD"),
+    MarketSymbol(symbol="PLTR", name="Palantir", market_type=MarketType.STOCK, exchange="NYSE", currency="USD"),
+    # ETFs (4)
+    MarketSymbol(symbol="SPY", name="S&P 500", market_type=MarketType.ETF, exchange="NYSE", currency="USD"),
+    MarketSymbol(symbol="QQQ", name="Nasdaq-100", market_type=MarketType.ETF, exchange="NASDAQ", currency="USD"),
+    MarketSymbol(symbol="GLD", name="Gold", market_type=MarketType.ETF, exchange="NYSE", currency="USD"),
+    MarketSymbol(symbol="SLV", name="Silber", market_type=MarketType.ETF, exchange="NYSE", currency="USD"),
+    # Forex (2)
     MarketSymbol(symbol="EURUSD=X", name="EUR/USD", market_type=MarketType.FOREX, currency="USD"),
     MarketSymbol(symbol="GBPUSD=X", name="GBP/USD", market_type=MarketType.FOREX, currency="USD"),
 ]
@@ -43,34 +53,26 @@ _SYMBOL_MAP = {m.symbol: m for m in POPULAR_MARKETS}
 # Reference prices (USD) — fallback only when live API unavailable.
 # Updated May 2026. Real API always overrides these.
 _REFERENCE_PRICES: dict[str, float] = {
-    "BTC-USD": 81200.0,
-    "ETH-USD": 1820.0,
-    "SOL-USD": 148.0,
-    "BNB-USD": 590.0,
-    "XRP-USD": 2.18,
-    "ADA-USD": 0.68,
-    "AAPL": 198.0,
-    "TSLA": 248.0,
-    "NVDA": 112.0,
-    "MSFT": 422.0,
-    "AMZN": 198.0,
-    "META": 558.0,
-    "GOOGL": 162.0,
-    "SPY": 558.0,
-    "QQQ": 476.0,
-    "GLD": 298.0,
-    "EURUSD=X": 1.124,
-    "GBPUSD=X": 1.328,
+    "BTC-USD": 81200.0, "ETH-USD": 1820.0, "SOL-USD": 148.0,
+    "BNB-USD": 590.0, "XRP-USD": 2.18, "ADA-USD": 0.68,
+    "DOGE-USD": 0.16, "AVAX-USD": 22.5, "LINK-USD": 12.8, "DOT-USD": 4.2,
+    "AAPL": 198.0, "TSLA": 248.0, "NVDA": 112.0, "MSFT": 422.0,
+    "AMZN": 198.0, "META": 558.0, "GOOGL": 162.0, "AMD": 102.0,
+    "NFLX": 985.0, "COIN": 195.0, "UBER": 78.0, "PLTR": 88.0,
+    "SPY": 558.0, "QQQ": 476.0, "GLD": 298.0, "SLV": 33.0,
+    "EURUSD=X": 1.124, "GBPUSD=X": 1.328,
 }
 
 # Realistic volatility per symbol (daily % std dev)
 _VOLATILITY: dict[str, float] = {
     "BTC-USD": 0.025, "ETH-USD": 0.030, "SOL-USD": 0.040,
     "BNB-USD": 0.025, "XRP-USD": 0.035, "ADA-USD": 0.040,
-    "AAPL": 0.012, "TSLA": 0.030, "NVDA": 0.025,
-    "MSFT": 0.012, "AMZN": 0.015, "META": 0.018,
-    "GOOGL": 0.014, "SPY": 0.008, "QQQ": 0.010,
-    "GLD": 0.007, "EURUSD=X": 0.004, "GBPUSD=X": 0.005,
+    "DOGE-USD": 0.055, "AVAX-USD": 0.045, "LINK-USD": 0.040, "DOT-USD": 0.040,
+    "AAPL": 0.012, "TSLA": 0.030, "NVDA": 0.025, "MSFT": 0.012,
+    "AMZN": 0.015, "META": 0.018, "GOOGL": 0.014, "AMD": 0.028,
+    "NFLX": 0.022, "COIN": 0.045, "UBER": 0.020, "PLTR": 0.035,
+    "SPY": 0.008, "QQQ": 0.010, "GLD": 0.007, "SLV": 0.015,
+    "EURUSD=X": 0.004, "GBPUSD=X": 0.005,
 }
 
 # Cache for simulated data to keep it consistent across calls

@@ -10,8 +10,6 @@ services:
         value: "3.11.9"
       - key: HEFTERPRO_STORAGE
         value: /var/data/trading
-      - key: ANTHROPIC_API_KEY
-        sync: false   # Du trägst den Key manuell in Render ein
     disk:
       name: trading-data
       mountPath: /var/data/trading

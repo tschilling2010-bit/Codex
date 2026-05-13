@@ -47,6 +47,13 @@ class DemoPortfolioService:
 
     def _save(self) -> None:
         if self._portfolio:
+            # Always recompute total_invested from current positions before saving
+            p = self._portfolio
+            self._portfolio = DemoPortfolio(
+                **{**p.model_dump(),
+                   "total_invested": sum(pos.invested_amount for pos in p.positions),
+                   "total_value": p.cash_balance + sum(pos.current_value for pos in p.positions)}
+            )
             _portfolio_path(self.session_id).write_text(
                 self._portfolio.model_dump_json(indent=2)
             )

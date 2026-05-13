@@ -1,9 +1,9 @@
 """
-Trading Bot Orchestrator — autonomous demo trader.
+Trading Bot Orchestrator — autonomous algorithmic trader.
 
-The bot behaves exactly like a real trader with real money, but uses virtual funds.
-It scans markets, generates AI signals, executes trades, and tracks outcomes.
-After each closed trade it explains: "Das wäre passiert, wenn du echtes Geld investiert hättest."
+Uses rule-based strategy patterns (EMA crossover, RSI reversal, MACD momentum)
+to find high-confidence trade setups. No AI/LLM — purely deterministic and
+free to run continuously.
 """
 from __future__ import annotations
 
@@ -15,14 +15,14 @@ from typing import Callable, Optional
 from ..models.trading_schemas import (
     BotConfig, MarketDataResponse, TradeAction, TradingSignal
 )
-from .ai_trader import analyze_market, get_ai_status, _fallback_signal
 from .demo_portfolio import DemoPortfolioService, get_session
 from .market_data import (
-    fetch_candles, fetch_daily_candles, fetch_news_headlines,
+    fetch_candles, fetch_daily_candles,
     get_current_price, get_market_info, get_symbol_info
 )
+from .strategy_engine import evaluate_strategies
 from .technical_analysis import (
-    calculate_indicators, determine_trend, find_support_resistance, score_signal
+    calculate_indicators, determine_trend, find_support_resistance
 )
 from .trade_tracker import TradeTracker, get_tracker
 
@@ -79,23 +79,9 @@ async def build_market_analysis(symbol: str, interval: str = "1h") -> Optional[M
         return None
 
 
-async def get_ai_signal(symbol: str, market_data: MarketDataResponse) -> TradingSignal:
-    analysis = market_data.analysis
-    technical_score, technical_factors = score_signal(analysis.indicators, analysis.current_price)
-    news = await fetch_news_headlines(symbol)
-    return await analyze_market(
-        symbol=symbol, name=market_data.name, analysis=analysis,
-        news_headlines=news, technical_score=technical_score,
-        technical_factors=technical_factors,
-    )
-
-
-def _get_technical_signal(symbol: str, market_data: MarketDataResponse) -> tuple[TradingSignal, float, list[str]]:
-    """Compute technical-only signal without calling Claude. Returns (signal, score, factors)."""
-    analysis = market_data.analysis
-    technical_score, technical_factors = score_signal(analysis.indicators, analysis.current_price)
-    signal = _fallback_signal(symbol, analysis, technical_score, technical_factors)
-    return signal, technical_score, technical_factors
+def get_signal(symbol: str, market_data: MarketDataResponse) -> TradingSignal:
+    """Generate a trading signal from the strategy engine (deterministic, no AI)."""
+    return evaluate_strategies(symbol, market_data.candles, market_data.analysis)
 
 
 class TradingBotRunner:
@@ -127,45 +113,24 @@ class TradingBotRunner:
                 pass
 
     async def _scan_and_trade(self, symbol: str) -> None:
-        """Core logic: algorithm pre-filter → (optional) AI analysis → decide → trade → track."""
+        """Run strategy engine, log signal, execute if confidence meets threshold."""
         try:
             market_data = await build_market_analysis(symbol)
             if not market_data or market_data.analysis.current_price <= 0:
                 return
 
-            tech_signal, tech_score, tech_factors = _get_technical_signal(symbol, market_data)
-
-            # ── Vorfilter: Seitwärtsmärkte überspringen ────────────────────
-            if abs(tech_score) < 0.20:
-                self.tracker.log_activity(
-                    "scan", symbol=symbol,
-                    message=f"{symbol}: Seitwärts (Score {tech_score:+.2f}) — übersprungen",
-                    emoji="⏭",
-                )
-                return
-
-            # ── KI-Analyse nur bei echtem Signal ───────────────────────────
-            ai_status = get_ai_status()
-            if ai_status["key_configured"]:
-                analysis = market_data.analysis
-                news = await fetch_news_headlines(symbol)
-                signal = await analyze_market(
-                    symbol=symbol, name=market_data.name, analysis=analysis,
-                    news_headlines=news, technical_score=tech_score,
-                    technical_factors=tech_factors,
-                )
-                source_label = "KI"
-            else:
-                signal = tech_signal
-                source_label = "Algo"
-
+            signal = get_signal(symbol, market_data)
             market_data.signal = signal
             self.last_signals[symbol] = signal
+
+            # No pattern detected — quietly skip (don't spam log)
+            if signal.action == TradeAction.HOLD or signal.confidence < 0.55:
+                return
 
             self.tracker.log_activity(
                 event_type="signal",
                 symbol=symbol,
-                message=f"{symbol} [{source_label}]: {signal.strength.replace('_', ' ').upper()} (Konfidenz {signal.confidence:.0%}, Score {tech_score:+.2f})",
+                message=f"{symbol}: {signal.strategy} — {signal.action.upper()} ({signal.confidence:.0%})",
                 detail=signal.reasoning,
                 emoji=self._signal_emoji(signal),
             )
@@ -173,10 +138,8 @@ class TradingBotRunner:
                 "symbol": symbol,
                 "signal": signal.model_dump(mode="json"),
                 "analysis": market_data.analysis.model_dump(mode="json"),
-                "source": source_label,
             })
 
-            # ── Trade ausführen wenn Konfidenz hoch genug ──────────────────
             if signal.confidence >= self.config.min_confidence and signal.action != TradeAction.HOLD:
                 await self._execute_signal(symbol, market_data, signal)
 
@@ -339,7 +302,7 @@ class TradingBotRunner:
                 "scan_count": self.scan_count,
                 "next_scan_in_seconds": self.config.trade_interval_minutes * 60,
                 "activity": [a.model_dump(mode="json") for a in self.tracker.get_activity(5)],
-                "ai_active": get_ai_status()["active"],
+                "ai_active": False,
             })
             log.info("Bot scan #%d done, next in %d min", self.scan_count, self.config.trade_interval_minutes)
 
