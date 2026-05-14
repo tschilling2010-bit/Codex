@@ -112,7 +112,7 @@
     if (info) info.textContent = pages.length === 0 ? "Noch keine Seiten." : (pages.length + " Seite(n) im Hefter");
     if (pdfBtn) pdfBtn.style.display = pages.length === 0 ? "none" : "";
     if (pages.length === 0) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Erstelle deine erste Seite im Tab „Neue Seite".</div>';
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Erstelle deine erste Seite im Tab „Neue Seite“.</div>';
       return;
     }
     grid.innerHTML = pages.map(function (p, i) {
