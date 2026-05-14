@@ -92,6 +92,7 @@ class GlyphRenderer:
         self.line_step = int(config.mm_to_px(LINE_STEP_MM) * self.size_scale)
 
         self.glyph_height = int(config.mm_to_px(TEXT_HEIGHT_MM) * self.size_scale)
+        self.bullet_indent = config.mm_to_px(10)
         self.rng = random.Random()
 
     def _adjust_thickness(self, glyph: Image.Image) -> Image.Image:
@@ -138,17 +139,31 @@ class GlyphRenderer:
     def _new_page(self) -> Image.Image:
         return make_sheet_background(self.options.sheet_type)
 
-    def _is_bullet_line(self, line: str) -> Tuple[bool, str]:
-        stripped = line.lstrip()
-        if stripped and stripped[0] in self.BULLET_CHARS:
-            rest = stripped[1:].lstrip()
-            return True, rest
-        return False, line
+    def _parse_line(self, line: str) -> Tuple[str, str, int]:
+        """Return (line_type, content, indent_level).
 
-    def _draw_bullet(self, page: Image.Image, baseline: int) -> None:
+        line_type is 'bullet', 'numbered', or 'text'.
+        """
+        stripped = line.lstrip()
+        indent_chars = len(line) - len(stripped)
+        indent_level = indent_chars // 2
+
+        if stripped and stripped[0] in self.BULLET_CHARS:
+            return "bullet", stripped[1:].lstrip(), indent_level
+
+        for i in range(len(stripped)):
+            if stripped[i].isdigit():
+                continue
+            if stripped[i] in ".)" and i > 0:
+                return "numbered", stripped[:i + 1] + " " + stripped[i + 1:].lstrip(), indent_level
+            break
+
+        return "text", line, 0
+
+    def _draw_bullet(self, page: Image.Image, baseline: int, indent: int = 0) -> None:
         draw = ImageDraw.Draw(page)
         r = max(2, int(self.glyph_height * 0.08))
-        bx = self.margin_left + int(config.mm_to_px(2))
+        bx = self.margin_left + indent + int(config.mm_to_px(2))
         by = baseline - int(self.glyph_height * 0.35)
         draw.ellipse([bx - r, by - r, bx + r, by + r], fill=self.color)
 
@@ -173,12 +188,18 @@ class GlyphRenderer:
                 advance()
                 continue
 
-            is_bullet, content = self._is_bullet_line(raw_line)
-            indent = config.mm_to_px(10) if is_bullet else 0
-            x_start = self.margin_left + indent
-
-            if is_bullet:
-                self._draw_bullet(pages[-1], baseline)
+            line_type, content, indent_level = self._parse_line(raw_line)
+            extra_indent = self.bullet_indent * indent_level
+            if line_type == "bullet":
+                indent = self.bullet_indent + extra_indent
+                x_start = self.margin_left + indent
+                self._draw_bullet(pages[-1], baseline, extra_indent)
+            elif line_type == "numbered":
+                indent = self.bullet_indent + extra_indent
+                x_start = self.margin_left + extra_indent
+            else:
+                indent = 0
+                x_start = self.margin_left
 
             words = content.split(" ")
             line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
