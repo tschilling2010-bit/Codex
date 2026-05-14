@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw, ImageFilter
 
 from .. import config
 from . import fonts as font_lib
+from .charset import get_metrics
 
 log = logging.getLogger(__name__)
 
@@ -115,22 +116,26 @@ class GlyphRenderer:
         solid.putalpha(alpha)
         return solid
 
-    def _scale_glyph(self, glyph: Image.Image) -> Image.Image:
+    def _scale_glyph_to(self, glyph: Image.Image, target_h: int) -> Image.Image:
         w, h = glyph.size
         if h <= 0:
             return glyph
-        scale = self.glyph_height / h
+        scale = target_h / h
         new_w = max(1, int(round(w * scale)))
-        return glyph.resize((new_w, self.glyph_height), Image.LANCZOS)
+        return glyph.resize((new_w, target_h), Image.LANCZOS)
 
-    def _get_glyph(self, ch: str) -> Optional[Image.Image]:
+    def _get_glyph(self, ch: str) -> Optional[Tuple[Image.Image, int]]:
+        """Return (glyph_image, above_baseline_px) or None."""
         glyph = self.profile.pick(ch, self.rng)
         if glyph is None:
             return None
-        glyph = self._scale_glyph(glyph.convert("RGBA"))
+        scale, top = get_metrics(ch)
+        target_h = max(1, int(self.glyph_height * scale))
+        above_px = max(1, int(self.glyph_height * top))
+        glyph = self._scale_glyph_to(glyph.convert("RGBA"), target_h)
         glyph = self._adjust_thickness(glyph)
         glyph = self._tint_glyph(glyph)
-        return glyph
+        return glyph, above_px
 
     def _space_width(self) -> int:
         base = int(self.glyph_height * 0.75)
@@ -162,9 +167,9 @@ class GlyphRenderer:
 
     def _draw_bullet(self, page: Image.Image, baseline: int, indent: int = 0) -> None:
         draw = ImageDraw.Draw(page)
-        r = max(2, int(self.glyph_height * 0.08))
-        bx = self.margin_left + indent + int(config.mm_to_px(2))
-        by = baseline - int(self.glyph_height * 0.35)
+        r = max(3, int(self.glyph_height * 0.14))
+        bx = self.margin_left + indent + int(config.mm_to_px(4))
+        by = baseline - int(self.glyph_height * 0.30)
         draw.ellipse([bx - r, by - r, bx + r, by + r], fill=self.color)
 
     def render(self, text: str) -> List[Image.Image]:
@@ -213,15 +218,15 @@ class GlyphRenderer:
 
                 glyphs = []
                 for ch in word:
-                    g = self._get_glyph(ch)
-                    if g is not None:
-                        glyphs.append(g)
+                    result = self._get_glyph(ch)
+                    if result is not None:
+                        glyphs.append(result)
 
                 if not glyphs:
                     continue
 
                 word_w = 0
-                for i_g, g in enumerate(glyphs):
+                for i_g, (g, _) in enumerate(glyphs):
                     word_w += g.size[0]
                     if i_g < len(glyphs) - 1:
                         word_w += int(g.size[0] * -0.08)
@@ -237,9 +242,9 @@ class GlyphRenderer:
 
                 x += space
 
-                for g in glyphs:
+                for g, above_px in glyphs:
                     dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
-                    paste_y = baseline - self.glyph_height + line_dy + dy
+                    paste_y = baseline - above_px + line_dy + dy
                     pages[-1].paste(g, (x, paste_y), g)
                     kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
                     x += g.size[0] + kerning
