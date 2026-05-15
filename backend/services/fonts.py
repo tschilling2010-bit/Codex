@@ -33,7 +33,7 @@ MAX_PAIRS = 4
 DEFAULT_SETTINGS: Dict = {
     "size_scale": 1.0,
     "thickness": 1.0,
-    "ink_color": "#16306b",
+    "ink_color": "#000000",
     "sheet_type": "liniert",
     "jitter": 0.6,
 }

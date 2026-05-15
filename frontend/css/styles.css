@@ -220,6 +220,25 @@ label.field {
 
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
 
+input[type="file"] { color: var(--text-muted); }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  height: 6px; border-radius: 3px; background: var(--border);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%;
+  background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 6px rgba(0, 212, 255, 0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%; border: none;
+  background: var(--accent); cursor: pointer;
+}
+input[type="color"] {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+}
+
 /* --------------------------------------------------------------- Preview */
 
 .preview-wrap {

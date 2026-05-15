@@ -1,13 +1,12 @@
 (function () {
   "use strict";
-  var MAX_PAIRS = 4;
-  var state = { profiles: [], activeId: null, profile: null, projectId: null, pairFiles: {}, pairPreviews: {} };
+  var MAX_VARIANTS = 4;
+  var state = { profiles: [], activeId: null, profile: null, projectId: null, variantFiles: {} };
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function on(el, evt, fn) { if (el) el.addEventListener(evt, fn); }
 
-  // ---- Init ----
   document.addEventListener("DOMContentLoaded", function () {
     try { bindUI(); } catch (e) { console.error("bindUI error:", e); }
     loadProfiles().catch(function (e) { console.error("loadProfiles error:", e); });
@@ -35,7 +34,7 @@
       state.profiles = list;
       renderProfileGrid();
     }).catch(function (e) {
-      if (grid) grid.innerHTML = '<p class="muted">Fehler beim Laden: ' + escapeHtml(e.message) + "</p>";
+      if (grid) grid.innerHTML = '<p class="muted">Fehler: ' + escapeHtml(e.message) + "</p>";
     });
   }
 
@@ -43,17 +42,16 @@
     var grid = getEl("profile-grid");
     if (!grid) return;
     if (state.profiles.length === 0) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Noch keine Schriften. Erstelle dein erstes Profil!</div>';
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Noch keine Schriften erstellt.</div>';
       return;
     }
     grid.innerHTML = state.profiles.map(function (p) {
-      var pairs = (p.pairs || []).filter(function (pr) { return pr.uploaded_at; }).length;
       var badge = p.glyph_count > 0
-        ? '<span style="color:var(--ok);font-size:13px">' + p.glyph_count + " Buchstaben</span>"
-        : '<span class="muted" style="font-size:13px">Noch keine Vorlagen</span>';
+        ? '<span style="color:var(--ok);font-size:13px">' + p.glyph_count + " Glyphen</span>"
+        : '<span class="muted" style="font-size:13px">Keine Vorlagen</span>';
       return '<a class="card interactive" data-id="' + p.id + '" href="#">' +
         "<h3>" + escapeHtml(p.name) + "</h3>" +
-        "<p>" + pairs + " von " + MAX_PAIRS + " Paaren &middot; " + badge + "</p></a>";
+        "<p>" + badge + "</p></a>";
     }).join("");
 
     qa(".card.interactive", grid).forEach(function (card) {
@@ -66,20 +64,30 @@
 
   function openProfile(id) {
     state.activeId = id;
-    state.pairFiles = {};
-    state.pairPreviews = {};
+    state.variantFiles = {};
     return API.getProfile(id).then(function (p) {
       state.profile = p;
       showDetail();
       var nameEl = getEl("profile-name");
       if (nameEl) nameEl.value = p.name;
       applySettingsToUI(p.settings);
-      renderPairs();
-      updateRenderButton();
+      ensureFirstVariant().then(function () {
+        renderVariants();
+        updateTemplateLink();
+        updateRenderButton();
+      });
       activateTab("templates");
     }).catch(function (e) {
-      alert("Profil konnte nicht geladen werden: " + e.message);
+      alert("Fehler: " + e.message);
     });
+  }
+
+  function ensureFirstVariant() {
+    var pairs = (state.profile && state.profile.pairs) || [];
+    if (pairs.length > 0) return Promise.resolve();
+    return API.createPair(state.activeId, 0)
+      .then(function () { return API.getProfile(state.activeId); })
+      .then(function (p) { state.profile = p; });
   }
 
   // ---- Tabs ----
@@ -97,12 +105,9 @@
   // ---- Settings ----
   function applySettingsToUI(s) {
     var sz = getEl("s-size"), sv = getEl("s-size-val");
-    var th = getEl("s-thickness"), tv = getEl("s-thickness-val");
     var sh = getEl("s-sheet"), ink = getEl("s-ink");
     if (sz) sz.value = s.size_scale;
     if (sv) sv.textContent = fmtScale(s.size_scale);
-    if (th) th.value = s.thickness;
-    if (tv) tv.textContent = fmtScale(s.thickness);
     if (sh) sh.value = s.sheet_type;
     if (ink) ink.value = s.ink_color;
   }
@@ -112,107 +117,105 @@
     var btn = getEl("btn-render");
     var st = getEl("status");
     if (btn) btn.disabled = !ok;
-    msg(st, ok ? "Bereit." : 'Lade zuerst Vorlagen im Tab "Vorlagen" hoch.');
+    msg(st, ok ? "Bereit." : "Lade zuerst Vorlagen hoch.");
   }
 
-  // ---- Pairs ----
-  function renderPairs() {
-    var list = getEl("pairs-list");
-    var addBtn = getEl("btn-pair-add");
+  function updateTemplateLink() {
+    var link = getEl("template-download");
+    if (!link || !state.activeId) return;
+    link.href = "/api/handwriting/profile/" + state.activeId + "/pair/0/pdf";
+  }
+
+  // ---- Variants ----
+  function renderVariants() {
+    var list = getEl("variants-list");
+    var addBtn = getEl("btn-variant-add");
     if (!list || !state.profile) return;
     var pairs = state.profile.pairs || [];
-    var byIndex = {};
-    pairs.forEach(function (p) { byIndex[p.index] = p; });
     var html = [];
-    for (var i = 0; i < MAX_PAIRS; i++) {
-      if (byIndex[i] || i === 0 || byIndex[i - 1]) {
-        html.push(pairCardHTML(i, byIndex[i]));
-      }
+    for (var i = 0; i < pairs.length; i++) {
+      html.push(variantCardHTML(pairs[i]));
+    }
+    if (html.length === 0) {
+      html.push('<div class="empty-state">Keine Varianten vorhanden.</div>');
     }
     list.innerHTML = html.join("");
-    bindPairCards(list);
+    bindVariantCards(list);
     if (addBtn) {
-      addBtn.disabled = pairs.length >= MAX_PAIRS;
-      addBtn.textContent = pairs.length >= MAX_PAIRS ? "Alle 4 Paare vorhanden" : "+ Neues Paar";
+      addBtn.disabled = pairs.length >= MAX_VARIANTS;
     }
   }
 
-  function pairCardHTML(idx, pair) {
+  function variantCardHTML(pair) {
+    var idx = pair.index;
     var num = idx + 1;
-    if (!pair) {
-      return '<div class="pair-card card" data-pair="' + idx + '" style="padding:20px">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center">' +
-        "<strong>Paar " + num + "</strong>" +
-        '<span class="muted" style="font-size:13px">nicht erstellt</span></div>' +
-        '<div style="margin-top:12px"><button class="btn btn-soft btn-pair-create">Template erzeugen</button></div></div>';
-    }
     var done = !!pair.uploaded_at;
-    var badge = done
-      ? '<span style="color:var(--ok);font-size:13px;font-weight:600">' + pair.glyph_count + " Buchstaben</span>"
-      : '<span class="muted" style="font-size:13px">warte auf Upload</span>';
-    var pdfUrl = "/api/handwriting/profile/" + state.profile.id + "/pair/" + idx + "/pdf";
-    var prevUrl = state.pairPreviews[idx] ||
-      (done ? "/files/templates/" + state.profile.id + "/pair-" + idx + "/glyph-preview.png?t=" + pair.uploaded_at : "");
-    var prevHtml = prevUrl
-      ? '<div style="margin-top:14px"><p class="muted" style="font-size:13px;margin-bottom:6px">Extrahierte Buchstaben:</p>' +
-        '<img src="' + prevUrl + '" alt="Glyphen" style="max-width:100%;border:1px solid var(--border);border-radius:8px" /></div>'
-      : "";
-    return '<div class="pair-card card" data-pair="' + idx + '" style="padding:20px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center"><strong>Paar ' + num + "</strong>" + badge + "</div>" +
-      '<div style="margin-top:12px"><a href="' + pdfUrl + '" class="btn btn-ghost" style="padding:8px 16px;font-size:13px" download>PDF herunterladen &amp; ausdrucken</a></div>' +
-      '<div class="field-row" style="margin-top:14px">' +
-      '<div style="flex:1"><label class="field">Seite 1 (Foto/Scan)</label><input type="file" class="pair-page1" accept="image/*" style="font-size:16px;padding:8px 0" /></div>' +
-      '<div style="flex:1"><label class="field">Seite 2 (Foto/Scan)</label><input type="file" class="pair-page2" accept="image/*" style="font-size:16px;padding:8px 0" /></div></div>' +
-      '<div style="margin-top:12px"><button class="btn btn-primary btn-pair-upload" disabled>Buchstaben extrahieren</button></div>' +
-      prevHtml + "</div>";
+    var statusHtml = done
+      ? '<span style="color:var(--ok);font-size:13px;font-weight:600">' + pair.glyph_count + " Glyphen</span>"
+      : '<span class="muted" style="font-size:13px">Noch nicht hochgeladen</span>';
+
+    return '<div class="variant-card card" data-variant="' + idx + '" style="padding:18px 22px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+      "<strong>Variante " + num + "</strong>" + statusHtml + "</div>" +
+      '<div class="field-row">' +
+      '<div style="flex:1"><label class="field">Seite 1 (Buchstaben)</label>' +
+      '<input type="file" class="var-page1" accept="image/*" style="font-size:16px;padding:4px 0;width:100%" /></div>' +
+      '<div style="flex:1"><label class="field">Seite 2 (Sonderzeichen)</label>' +
+      '<input type="file" class="var-page2" accept="image/*" style="font-size:16px;padding:4px 0;width:100%" /></div></div>' +
+      '<div style="margin-top:12px"><button class="btn btn-primary btn-var-upload" disabled>Hochladen</button></div>' +
+      "</div>";
   }
 
-  function bindPairCards(root) {
-    qa(".pair-card", root).forEach(function (card) {
-      var idx = parseInt(card.getAttribute("data-pair"), 10);
-      var btnC = card.querySelector(".btn-pair-create");
-      if (btnC) btnC.addEventListener("click", function () { onCreatePair(idx, btnC); });
-      var p1 = card.querySelector(".pair-page1");
-      var p2 = card.querySelector(".pair-page2");
-      if (p1) p1.addEventListener("change", function () { onPageSelected(idx, 1, p1.files[0], card); });
-      if (p2) p2.addEventListener("change", function () { onPageSelected(idx, 2, p2.files[0], card); });
-      var btnU = card.querySelector(".btn-pair-upload");
-      if (btnU) btnU.addEventListener("click", function () { onUploadPair(idx, btnU); });
+  function bindVariantCards(root) {
+    qa(".variant-card", root).forEach(function (card) {
+      var idx = parseInt(card.getAttribute("data-variant"), 10);
+      var p1 = card.querySelector(".var-page1");
+      var p2 = card.querySelector(".var-page2");
+      if (p1) p1.addEventListener("change", function () { onFileSelected(idx, 1, p1.files[0], card); });
+      if (p2) p2.addEventListener("change", function () { onFileSelected(idx, 2, p2.files[0], card); });
+      var btnU = card.querySelector(".btn-var-upload");
+      if (btnU) btnU.addEventListener("click", function () { onUploadVariant(idx, btnU); });
     });
   }
 
-  function onCreatePair(idx, btn) {
-    if (!state.activeId) return;
-    var reset = showSpinner(btn, "Erzeuge…");
-    msg(getEl("pair-status"), "Paar " + (idx + 1) + " wird erzeugt…");
-    API.createPair(state.activeId, idx)
-      .then(function () { return API.getProfile(state.activeId); })
-      .then(function (p) { state.profile = p; renderPairs(); msg(getEl("pair-status"), "Paar " + (idx + 1) + " erzeugt. PDF herunterladen, ausdrucken, ausfüllen, Fotos hochladen.", "ok"); })
+  function onFileSelected(idx, pageNum, file, card) {
+    state.variantFiles[idx] = state.variantFiles[idx] || {};
+    state.variantFiles[idx][pageNum] = file || null;
+    var btn = card.querySelector(".btn-var-upload");
+    if (btn) btn.disabled = !(state.variantFiles[idx][1] && state.variantFiles[idx][2]);
+  }
+
+  function onUploadVariant(idx, btn) {
+    var files = state.variantFiles[idx] || {};
+    if (!files[1] || !files[2]) return;
+    var reset = showSpinner(btn, "Extrahiere…");
+    msg(getEl("pair-status"), "Variante " + (idx + 1) + ": Buchstaben werden extrahiert…");
+    API.uploadPair(state.activeId, idx, files[1], files[2])
+      .then(function (res) {
+        state.profile = res.profile;
+        state.variantFiles[idx] = {};
+        renderVariants();
+        updateRenderButton();
+        msg(getEl("pair-status"), "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen extrahiert!", "ok");
+      })
       .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
-  function onPageSelected(idx, pageNum, file, card) {
-    state.pairFiles[idx] = state.pairFiles[idx] || {};
-    state.pairFiles[idx][pageNum] = file || null;
-    var btn = card.querySelector(".btn-pair-upload");
-    if (btn) btn.disabled = !(state.pairFiles[idx][1] && state.pairFiles[idx][2]);
-  }
-
-  function onUploadPair(idx, btn) {
-    var files = state.pairFiles[idx] || {};
-    if (!files[1] || !files[2]) return;
-    var reset = showSpinner(btn, "Extrahiere…");
-    msg(getEl("pair-status"), "Paar " + (idx + 1) + ": Buchstaben werden extrahiert…");
-    API.uploadPair(state.activeId, idx, files[1], files[2])
-      .then(function (res) {
-        if (res.preview_url) state.pairPreviews[idx] = res.preview_url + "?t=" + Date.now();
-        state.profile = res.profile;
-        state.pairFiles[idx] = {};
-        renderPairs();
-        updateRenderButton();
-        msg(getEl("pair-status"), "Paar " + (idx + 1) + ": " + res.glyph_count + " Buchstaben extrahiert!", "ok");
-      })
+  function onAddVariant() {
+    if (!state.activeId || !state.profile) return;
+    var pairs = state.profile.pairs || [];
+    if (pairs.length >= MAX_VARIANTS) return;
+    var used = {};
+    pairs.forEach(function (p) { used[p.index] = true; });
+    var free = -1;
+    for (var i = 0; i < MAX_VARIANTS; i++) { if (!used[i]) { free = i; break; } }
+    if (free < 0) return;
+    var btn = getEl("btn-variant-add");
+    var reset = showSpinner(btn, "Erstelle…");
+    API.createPair(state.activeId, free)
+      .then(function () { return API.getProfile(state.activeId); })
+      .then(function (p) { state.profile = p; renderVariants(); msg(getEl("pair-status"), "Variante " + (free + 1) + " erstellt.", "ok"); })
       .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
@@ -232,12 +235,12 @@
     clearTimeout(saveSettingsTimer);
     saveSettingsTimer = setTimeout(function () {
       if (!state.activeId) return;
-      var sz = getEl("s-size"), th = getEl("s-thickness"), sh = getEl("s-sheet"), ink = getEl("s-ink");
+      var sz = getEl("s-size"), sh = getEl("s-sheet"), ink = getEl("s-ink");
       API.updateProfileSettings(state.activeId, {
         size_scale: sz ? parseFloat(sz.value) : 1.0,
-        thickness: th ? parseFloat(th.value) : 1.0,
+        thickness: 1.0,
         sheet_type: sh ? sh.value : "liniert",
-        ink_color: ink ? ink.value : "#16306b",
+        ink_color: ink ? ink.value : "#000000",
       }).then(function (p) { state.profile = p; }).catch(function () {});
     }, 400);
   }
@@ -267,7 +270,6 @@
 
   // ---- Bind UI ----
   function bindUI() {
-    // New profile – inline form
     on(getEl("btn-new-profile"), "click", showNewProfileForm);
     on(getEl("btn-new-cancel"), "click", hideNewProfileForm);
     on(getEl("btn-new-confirm"), "click", submitNewProfile);
@@ -275,12 +277,10 @@
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
 
-    // Back
     on(getEl("btn-back"), "click", function () {
       loadProfiles().then(showList);
     });
 
-    // Delete
     on(getEl("btn-delete"), "click", function () {
       if (!state.activeId) return;
       var pName = state.profile ? state.profile.name : state.activeId;
@@ -290,40 +290,22 @@
       }).then(showList);
     });
 
-    // Auto-save name
     on(getEl("profile-name"), "input", autoSaveName);
 
-    // Settings auto-save
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
       autoSaveSettings();
     });
-    on(getEl("s-thickness"), "input", function () {
-      var v = getEl("s-thickness-val");
-      if (v) v.textContent = fmtScale(getEl("s-thickness").value);
-      autoSaveSettings();
-    });
     on(getEl("s-sheet"), "change", autoSaveSettings);
     on(getEl("s-ink"), "change", autoSaveSettings);
 
-    // Add pair
-    on(getEl("btn-pair-add"), "click", function () {
-      if (!state.activeId || !state.profile) return;
-      var used = {};
-      (state.profile.pairs || []).forEach(function (p) { used[p.index] = true; });
-      var free = -1;
-      for (var i = 0; i < MAX_PAIRS; i++) { if (!used[i]) { free = i; break; } }
-      if (free < 0) return;
-      onCreatePair(free, getEl("btn-pair-add"));
-    });
+    on(getEl("btn-variant-add"), "click", onAddVariant);
 
-    // Tabs
     qa(".tab-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { activateTab(btn.getAttribute("data-tab")); });
     });
 
-    // Render
     on(getEl("btn-render"), "click", renderText);
     on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });
     on(getEl("btn-png"), "click", function () { doExport("png"); });

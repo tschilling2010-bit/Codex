@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro — Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=9" />
+  <link rel="stylesheet" href="/css/styles.css?v=10" />
 </head>
 <body>
   <header class="nav">
     <div class="container nav-inner">
       <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
-      <nav class="nav-links">
-        <a href="/">Handschrift</a>
-        <a href="/downloads.html">Downloads</a>
-      </nav>
     </div>
   </header>
 
@@ -23,39 +19,25 @@
     <!-- ======================== VIEW 1: Profile List ======================== -->
     <div id="view-list" class="stack-lg">
       <div class="page-header">
-        <span class="eyebrow">Deine Handschrift</span>
+        <span class="eyebrow">Handschrift</span>
         <h2>Meine Schriften</h2>
-        <p>Erstelle ein Profil, scanne deine Handschrift ein und wandle beliebigen Text in deine Schrift um.</p>
       </div>
 
       <div id="profile-grid" class="grid cols-3"></div>
 
       <div style="text-align:center; padding:12px 0">
-        <button class="btn btn-primary" id="btn-new-profile" style="padding:14px 32px; font-size:15px">+ Neue Schrift erstellen</button>
+        <button class="btn btn-primary" id="btn-new-profile" style="padding:14px 32px; font-size:15px">+ Neue Schrift</button>
       </div>
 
-      <!-- Inline-Formular fuer neue Schrift -->
       <div id="new-profile-form" style="display:none; max-width:400px; margin:0 auto; padding:8px 0">
         <div class="card" style="padding:20px">
-          <h3 style="margin:0 0 12px 0; font-size:17px">Neue Schrift erstellen</h3>
+          <h3 style="margin:0 0 12px 0; font-size:17px">Neue Schrift</h3>
           <input id="new-profile-name" class="input" placeholder="z.B. Meine Handschrift" style="width:100%; margin-bottom:12px; font-size:16px; padding:12px" />
           <div style="display:flex; gap:8px; justify-content:flex-end">
             <button class="btn btn-ghost" id="btn-new-cancel" style="padding:10px 20px">Abbrechen</button>
             <button class="btn btn-primary" id="btn-new-confirm" style="padding:10px 20px">Erstellen</button>
           </div>
         </div>
-      </div>
-
-      <!-- Anleitung -->
-      <div class="card" style="max-width:700px; margin:12px auto 0; padding:24px; background:var(--surface); border:1px dashed var(--border)">
-        <h3 style="margin:0 0 12px; font-size:16px; color:var(--accent)">So funktioniert's</h3>
-        <ol style="margin:0; padding-left:20px; font-size:14px; color:var(--text-muted); line-height:1.8">
-          <li><strong>Profil erstellen</strong> &mdash; Gib deiner Schrift einen Namen</li>
-          <li><strong>Template erzeugen</strong> &mdash; Lade das PDF herunter und drucke es aus</li>
-          <li><strong>Ausf&uuml;llen</strong> &mdash; Schreibe jeden Buchstaben in die Felder</li>
-          <li><strong>Fotos hochladen</strong> &mdash; Fotografiere beide Seiten und lade sie hoch</li>
-          <li><strong>Text umwandeln</strong> &mdash; Tippe deinen Text ein und exportiere als PDF/PNG</li>
-        </ol>
       </div>
     </div>
 
@@ -67,7 +49,7 @@
           <div style="flex:1; min-width:150px">
             <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Profilname" />
           </div>
-          <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">Profil l&ouml;schen</button>
+          <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">L&ouml;schen</button>
         </div>
 
         <!-- Tabs -->
@@ -80,15 +62,14 @@
         <!-- Tab: Vorlagen -->
         <div class="tab-panel active" id="tab-templates">
           <div class="stack">
-            <div class="card" style="padding:18px 22px; background:var(--accent-soft); border:1px solid rgba(0,212,255,0.15)">
-              <p style="margin:0; font-size:14px; color:var(--accent)">
-                <strong>Anleitung:</strong> Erzeuge ein Paar, lade das PDF herunter, drucke es aus, f&uuml;lle jeden Buchstaben aus und lade die Fotos beider Seiten hoch. Mehr Paare = mehr Variation in deiner Schrift.
-              </p>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+              <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
+              <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
             </div>
             <div id="pair-status" class="status" style="display:none"></div>
-            <div id="pairs-list" class="stack"></div>
+            <div id="variants-list" class="stack"></div>
             <div style="margin-top:8px">
-              <button class="btn btn-primary" id="btn-pair-add">+ Neues Paar</button>
+              <button class="btn btn-primary" id="btn-variant-add">+ Variante hinzuf&uuml;gen</button>
             </div>
           </div>
         </div>
@@ -99,21 +80,7 @@
             <section class="card stack">
               <div>
                 <label class="field" for="text">Dein Text</label>
-                <textarea id="text" class="textarea" placeholder="Hallo Welt!
-
-- Erster Stichpunkt
-- Zweiter Stichpunkt
-
-1. Nummerierte Liste
-2. Zweiter Punkt
-
-Leerzeilen erzeugen Absaetze."></textarea>
-              </div>
-              <div style="padding:10px 14px; background:var(--surface-muted); border-radius:10px; font-size:13px; color:var(--text-muted); line-height:1.7">
-                <strong style="color:var(--text)">Formatierung:</strong>
-                Stichpunkte mit <code style="background:var(--accent-soft); padding:2px 5px; border-radius:4px">-</code> oder <code style="background:var(--accent-soft); padding:2px 5px; border-radius:4px">*</code> &middot;
-                Nummeriert mit <code style="background:var(--accent-soft); padding:2px 5px; border-radius:4px">1.</code> <code style="background:var(--accent-soft); padding:2px 5px; border-radius:4px">2.</code> &middot;
-                Leerzeile = Absatz
+                <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
               </div>
               <div class="toolbar">
                 <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
@@ -142,10 +109,6 @@ Leerzeilen erzeugen Absaetze."></textarea>
                 <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
               </div>
               <div>
-                <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
-                <input id="s-thickness" type="range" min="0.6" max="2.2" step="0.05" value="1.0" style="width:100%" />
-              </div>
-              <div>
                 <label class="field" for="s-sheet">Blatt</label>
                 <select id="s-sheet" class="select">
                   <option value="liniert">Liniert</option>
@@ -155,10 +118,9 @@ Leerzeilen erzeugen Absaetze."></textarea>
               </div>
               <div>
                 <label class="field" for="s-ink">Tinte</label>
-                <input id="s-ink" class="input" type="color" value="#16306b" style="height:44px; padding:4px 8px" />
+                <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
               </div>
             </div>
-            <p class="muted" style="margin-top:14px; font-size:13px">&Auml;nderungen werden automatisch gespeichert und beim n&auml;chsten Rendern verwendet.</p>
           </div>
         </div>
       </div>
@@ -167,8 +129,8 @@ Leerzeilen erzeugen Absaetze."></textarea>
 
   <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
 
-  <script src="/js/common.js?v=9"></script>
-  <script src="/js/api.js?v=9"></script>
-  <script src="/js/handwriting.js?v=9"></script>
+  <script src="/js/common.js?v=10"></script>
+  <script src="/js/api.js?v=10"></script>
+  <script src="/js/handwriting.js?v=10"></script>
 </body>
 </html>
