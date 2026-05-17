@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>YouTube Splitter</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e30;
+      --text: #e8eaff;
+      --muted: #6b6f90;
+      --accent: #ff3d3d;
+      --accent2: #ff7043;
+      --ok: #00e68a;
+      --err: #ff4060;
+      --radius: 14px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; line-height: 1.6;
+    }
+    a { color: var(--accent); text-decoration: none; }
+
+    /* Nav */
+    nav {
+      background: rgba(10,10,15,0.9);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex; align-items: center; height: 60px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .logo {
+      font-size: 18px; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .logo span { font-size: 20px; margin-right: 8px; }
+
+    /* Layout */
+    main { max-width: 820px; margin: 0 auto; padding: 48px 24px 80px; }
+    .stack > * + * { margin-top: 24px; }
+
+    h1 { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
+    h1 em { font-style: normal; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .subtitle { color: var(--muted); font-size: 16px; margin-top: 8px; }
+
+    /* Card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    /* Input */
+    .input-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    input[type="url"], input[type="text"], input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      padding: 10px 14px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="url"] { flex: 1; min-width: 240px; }
+    input:focus { border-color: var(--accent); }
+
+    /* Buttons */
+    .btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.5; cursor: default; }
+    .btn-soft {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-soft:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .btn-danger { background: transparent; border: 1px solid var(--err); color: var(--err); }
+
+    /* Progress */
+    .progress-wrap { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.4s ease; }
+
+    /* Video Player */
+    .player-box {
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .player-box video { width: 100%; max-height: 400px; display: block; }
+    .player-bar {
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      border-top: 1px solid var(--border);
+      font-size: 13px; color: var(--muted);
+    }
+    .time-display { color: var(--accent); font-variant-numeric: tabular-nums; font-weight: 600; }
+    kbd {
+      display: inline-block;
+      background: var(--border);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--text);
+    }
+
+    /* Timeline */
+    .timeline {
+      position: relative; height: 32px;
+      background: rgba(255,61,61,0.06);
+      cursor: pointer;
+      border-top: 1px solid var(--border);
+    }
+    .timeline-progress {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      background: var(--accent); opacity: 0.2;
+      pointer-events: none;
+    }
+    .timeline-mark {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 6px rgba(255,61,61,0.8);
+      pointer-events: none;
+    }
+
+    /* Tabs */
+    .tabs { display: flex; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .tab {
+      flex: 1; padding: 10px; text-align: center; cursor: pointer;
+      background: var(--bg); color: var(--muted); border: none;
+      font-size: 14px; font-weight: 500; transition: all 0.2s;
+    }
+    .tab.active { background: rgba(255,61,61,0.12); color: var(--accent); }
+    .tab:disabled { opacity: 0.35; cursor: default; }
+
+    /* Mark list */
+    .mark-list { display: flex; flex-direction: column; gap: 8px; }
+    .mark-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+    .mark-time { font-size: 13px; color: var(--accent); font-variant-numeric: tabular-nums; min-width: 65px; }
+    .mark-item input[type="text"] { flex: 1; border: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 2px 4px; }
+    .mark-end { font-size: 12px; color: var(--muted); min-width: 65px; text-align: right; }
+    .btn-x { background: none; border: none; color: var(--err); cursor: pointer; font-size: 20px; padding: 0 4px; line-height: 1; }
+
+    /* Parts */
+    .parts-list { display: flex; flex-direction: column; gap: 10px; }
+    .part-item {
+      display: flex; align-items: center; gap: 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+    }
+    .part-num {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,61,61,0.1); border: 1px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--accent); flex-shrink: 0;
+    }
+    .part-info { flex: 1; }
+    .part-name { font-weight: 600; font-size: 15px; }
+    .part-time { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* Status badge */
+    .badge-ok { color: var(--ok); font-size: 13px; }
+    .badge-err { color: var(--err); font-size: 13px; }
+
+    .hidden { display: none !important; }
+    .section-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo"><span>▶</span>YouTube Splitter</div>
+  </nav>
+
+  <main>
+    <div class="stack">
+
+      <!-- Header -->
+      <div>
+        <h1>Video downloaden &amp; in <em>Parts schneiden</em></h1>
+        <p class="subtitle">YouTube-Link eingeben → Video herunterladen → manuell oder zeitbasiert aufteilen → Parts einzeln downloaden</p>
+      </div>
+
+      <!-- Step 1 -->
+      <div class="card">
+        <div class="section-title">1. YouTube-Link eingeben</div>
+        <div class="input-row">
+          <input id="yt-url" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+          <button class="btn" id="btn-dl" onclick="startDownload()">Herunterladen</button>
+        </div>
+        <div id="dl-status" class="hidden" style="margin-top:14px">
+          <div style="display:flex; gap:12px; align-items:center; font-size:14px">
+            <span id="status-text" style="color:var(--muted)">Lade herunter…</span>
+            <span id="status-title" style="font-weight:600"></span>
+          </div>
+          <div class="progress-wrap"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        </div>
+        <div id="dl-error" class="hidden badge-err" style="margin-top:10px"></div>
+      </div>
+
+      <!-- Step 2: Player + Split -->
+      <div id="player-section" class="hidden">
+        <div class="stack">
+
+          <!-- Video info -->
+          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap">
+            <div style="flex:1">
+              <div style="font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:1px">Bereit</div>
+              <div id="video-title" style="font-size:20px; font-weight:700; margin-top:4px"></div>
+            </div>
+            <div id="chapters-badge" class="hidden" style="background:rgba(0,230,138,0.1); color:var(--ok); border:1px solid var(--ok); border-radius:20px; padding:4px 14px; font-size:13px; font-weight:600">✓ YouTube-Kapitel gefunden</div>
+          </div>
+
+          <!-- Player -->
+          <div class="card" style="padding:0">
+            <div class="player-box">
+              <video id="vid" controls preload="metadata"></video>
+              <div class="timeline" id="timeline">
+                <div class="timeline-progress" id="tl-progress"></div>
+              </div>
+            </div>
+            <div class="player-bar">
+              <span><kbd>M</kbd> = Schnittmarke setzen &nbsp;|&nbsp; <kbd>Space</kbd> = Play/Pause</span>
+              <div style="flex:1"></div>
+              <span class="time-display" id="cur-time">0:00:00</span>
+              <span style="color:var(--muted)">/</span>
+              <span id="dur-display" style="font-variant-numeric:tabular-nums">0:00:00</span>
+            </div>
+          </div>
+
+          <!-- Split Mode -->
+          <div class="card">
+            <div class="section-title">2. Schnitt-Modus wählen</div>
+            <div class="tabs">
+              <button class="tab active" id="tab-manual" onclick="setMode('manual')">Manuell (M-Taste)</button>
+              <button class="tab" id="tab-time" onclick="setMode('time')">Zeitbasiert</button>
+              <button class="tab" id="tab-chapters" onclick="setMode('chapters')" disabled>YouTube-Kapitel</button>
+            </div>
+
+            <!-- Manual -->
+            <div id="mode-manual" style="margin-top:16px">
+              <div class="stack">
+                <p style="font-size:14px; color:var(--muted)">Schau das Video und drücke <kbd>M</kbd> um eine Schnittmarke zu setzen. Jede Marke = Beginn eines neuen Parts.</p>
+                <div style="display:flex; gap:8px; flex-wrap:wrap">
+                  <button class="btn btn-soft" onclick="addMark()">+ Marke jetzt setzen (M)</button>
+                  <button class="btn btn-danger" onclick="clearMarks()">Alle löschen</button>
+                </div>
+                <div class="mark-list" id="mark-list">
+                  <p style="font-size:14px; color:var(--muted); padding:12px 0; text-align:center">Noch keine Marken. Drücke <kbd>M</kbd> im Video.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Time-based -->
+            <div id="mode-time" class="hidden" style="margin-top:16px">
+              <div class="stack">
+                <p style="font-size:14px; color:var(--muted)">Video wird automatisch in gleich große Teile aufgeteilt.</p>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap">
+                  <span style="font-size:14px">Alle</span>
+                  <input type="number" id="interval" min="0.5" max="60" step="0.5" value="2" style="width:80px" />
+                  <span style="font-size:14px">Minuten</span>
+                  <button class="btn btn-soft" onclick="generateTimeMarks()">Vorschau</button>
+                </div>
+                <div class="mark-list" id="time-mark-list">
+                  <p style="font-size:14px; color:var(--muted); padding:12px 0; text-align:center">Klicke "Vorschau" um die Parts zu sehen.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chapters -->
+            <div id="mode-chapters" class="hidden" style="margin-top:16px">
+              <div class="mark-list" id="chapters-list"></div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:14px; margin-top:20px; flex-wrap:wrap">
+              <button class="btn" id="btn-split" onclick="doSplit()">Video aufteilen ✂</button>
+              <span id="split-status" style="font-size:14px; color:var(--muted)"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Step 3: Download Parts -->
+      <div id="parts-section" class="hidden">
+        <div class="card">
+          <div style="display:flex; align-items:center; margin-bottom:16px">
+            <div class="section-title" style="margin:0; flex:1">3. Parts herunterladen</div>
+            <button class="btn btn-soft" onclick="downloadAll()">Alle herunterladen</button>
+          </div>
+          <div class="parts-list" id="parts-list"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

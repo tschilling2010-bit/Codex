@@ -19,4 +19,4 @@ services:
     disk:
       name: hefterpro-data
       mountPath: /var/data/hefterpro
-      sizeGB: 10
+      sizeGB: 1

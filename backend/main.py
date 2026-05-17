@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .routers import handwriting, hefter, projects, youtube
+from .routers import handwriting, hefter, projects
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,7 +44,6 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
 app.include_router(handwriting.router, prefix="/api/handwriting", tags=["handwriting"])
 app.include_router(hefter.router, prefix="/api/hefter", tags=["hefter"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
-app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
 
 
 @app.get("/api/health")
