@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HefterPro — YouTube Splitter</title>
+  <link rel="icon" href="/assets/favicon.png" type="image/png" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <style>
+    /* ---- YouTube Splitter page styles ---- */
+    .yt-player-wrap {
+      position: relative;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .yt-player-wrap video {
+      width: 100%;
+      max-height: 420px;
+      display: block;
+    }
+    .yt-timeline {
+      position: relative;
+      height: 36px;
+      background: var(--surface-muted);
+      border-radius: 0 0 var(--radius) var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      border-top: 1px solid var(--border);
+    }
+    .yt-timeline-progress {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      background: var(--accent);
+      opacity: 0.25;
+      pointer-events: none;
+      transition: width 0.1s linear;
+    }
+    .yt-timeline-mark {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 3px;
+      background: #ff4060;
+      pointer-events: none;
+      box-shadow: 0 0 6px rgba(255,64,96,0.7);
+    }
+    .yt-timeline-mark::after {
+      content: attr(data-label);
+      position: absolute;
+      top: 2px;
+      left: 5px;
+      font-size: 10px;
+      color: #fff;
+      white-space: nowrap;
+      background: rgba(0,0,0,0.5);
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+    .mark-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .mark-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+    }
+    .mark-item .mark-time {
+      font-size: 13px;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+      min-width: 60px;
+    }
+    .mark-item input[type="text"] {
+      flex: 1;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-size: 14px;
+      padding: 2px 4px;
+      outline: none;
+    }
+    .mark-item input[type="text"]:focus { border-color: var(--accent); }
+    .mark-item .btn-icon {
+      background: none;
+      border: none;
+      color: var(--err);
+      cursor: pointer;
+      font-size: 18px;
+      padding: 2px 6px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .mark-item .btn-icon:hover { background: var(--err-bg); }
+
+    .parts-list { display: flex; flex-direction: column; gap: 10px; }
+    .part-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+    }
+    .part-item .part-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--accent);
+      flex-shrink: 0;
+    }
+    .part-item .part-info { flex: 1; }
+    .part-item .part-name { font-size: 15px; font-weight: 600; }
+    .part-item .part-time { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    .kbd {
+      display: inline-block;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 1px 7px;
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--accent);
+    }
+
+    .mode-tabs { display: flex; gap: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+    .mode-tab {
+      flex: 1; padding: 10px; text-align: center; cursor: pointer;
+      background: var(--surface-muted); color: var(--text-muted);
+      font-size: 14px; font-weight: 500; transition: all 0.2s;
+      border: none;
+    }
+    .mode-tab.active { background: var(--accent-soft); color: var(--accent); }
+
+    .progress-bar-wrap {
+      height: 6px;
+      background: var(--surface-muted);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 0.4s ease;
+      box-shadow: var(--accent-glow);
+    }
+
+    #player-section { display: none; }
+    #parts-section { display: none; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <div class="container nav-inner">
+      <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
+      <nav class="nav-links">
+        <a href="/">Dashboard</a>
+        <a href="/handwriting.html">Handschrift</a>
+        <a href="/hefter.html">Hefterblatt</a>
+        <a href="/youtube.html" style="color:var(--accent)">YouTube</a>
+        <a href="/downloads.html">Downloads</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding-top:48px; padding-bottom:64px">
+    <div class="stack-lg">
+
+      <!-- Header -->
+      <div class="page-header">
+        <span class="eyebrow">YouTube Splitter</span>
+        <h2>Video downloaden &amp; in Parts aufteilen</h2>
+        <p>Füge einen YouTube-Link ein, lade das Video herunter und schneide es in sinnvolle Kurzvideos – automatisch oder manuell.</p>
+      </div>
+
+      <!-- Step 1: URL Input -->
+      <div class="card" id="url-section">
+        <div class="stack">
+          <h3 style="font-size:17px; margin-bottom:4px">1. YouTube-Link eingeben</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap">
+            <input
+              id="yt-url"
+              class="input"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=..."
+              style="flex:1; min-width:260px"
+            />
+            <button class="btn" id="btn-download" onclick="startDownload()">
+              Herunterladen
+            </button>
+          </div>
+          <div id="download-status" class="hidden">
+            <div style="display:flex; align-items:center; gap:12px; margin-top:4px">
+              <span id="status-text" style="font-size:14px; color:var(--text-muted)">Wird gedownloadet…</span>
+              <span id="status-title" style="font-size:14px; font-weight:600; color:var(--text)"></span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div id="download-error" class="hidden" style="color:var(--err); font-size:14px; margin-top:4px"></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Player + Split Mode -->
+      <div id="player-section">
+        <div class="stack-lg">
+
+          <!-- Video title -->
+          <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
+            <div style="flex:1">
+              <span class="eyebrow">Bereit zum Schneiden</span>
+              <h3 id="video-title" style="font-size:18px; margin-top:4px"></h3>
+            </div>
+            <div id="chapters-badge" class="hidden" style="background:var(--ok-bg); color:var(--ok); border:1px solid var(--ok); border-radius:20px; padding:4px 14px; font-size:13px; font-weight:600">
+              ✓ YouTube-Kapitel gefunden
+            </div>
+          </div>
+
+          <!-- Video Player -->
+          <div class="card" style="padding:0">
+            <div class="yt-player-wrap">
+              <video id="video-player" controls preload="metadata">
+                Dein Browser unterstützt kein Video.
+              </video>
+              <div class="yt-timeline" id="yt-timeline" title="Klicke, um zur Stelle zu springen">
+                <div class="yt-timeline-progress" id="timeline-progress"></div>
+              </div>
+            </div>
+            <div style="padding:14px 16px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; border-top:1px solid var(--border)">
+              <span style="font-size:13px; color:var(--text-muted)">
+                <span class="kbd">M</span> oder <span class="kbd">Leertaste→Mark</span> = Schnittmarke setzen &nbsp;|&nbsp;
+                <span class="kbd">Space</span> = Pause/Play
+              </span>
+              <div style="flex:1"></div>
+              <span id="current-time-display" style="font-size:14px; color:var(--accent); font-variant-numeric:tabular-nums">0:00:00</span>
+              <span style="color:var(--text-muted)">/</span>
+              <span id="duration-display" style="font-size:14px; color:var(--text-muted); font-variant-numeric:tabular-nums">0:00:00</span>
+            </div>
+          </div>
+
+          <!-- Split Mode -->
+          <div class="card">
+            <div class="stack">
+              <h3 style="font-size:17px">2. Schnitt-Modus wählen</h3>
+
+              <div class="mode-tabs">
+                <button class="mode-tab active" id="tab-manual" onclick="setMode('manual')">Manuell (Video anschauen)</button>
+                <button class="mode-tab" id="tab-time" onclick="setMode('time')">Zeitbasiert (alle N Minuten)</button>
+                <button class="mode-tab" id="tab-chapters" onclick="setMode('chapters')">YouTube-Kapitel</button>
+              </div>
+
+              <!-- Manual mode -->
+              <div id="mode-manual">
+                <div class="stack">
+                  <p style="font-size:14px; color:var(--text-muted)">
+                    Schau das Video und drücke <span class="kbd">M</span> um eine Schnittmarke zu setzen.
+                    Jede Marke wird der Beginn eines neuen Parts. Gib jedem Part einen Namen.
+                  </p>
+                  <div style="display:flex; gap:10px; flex-wrap:wrap">
+                    <button class="btn btn-soft" onclick="addMarkAtCurrentTime()">
+                      + Marke jetzt setzen (M)
+                    </button>
+                    <button class="btn btn-soft" style="color:var(--err); border-color:var(--err)" onclick="clearMarks()">
+                      Alle löschen
+                    </button>
+                  </div>
+                  <div class="mark-list" id="mark-list">
+                    <p style="font-size:14px; color:var(--text-muted); text-align:center; padding:16px 0">
+                      Noch keine Marken gesetzt. Drücke <span class="kbd">M</span> während des Videos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Time-based mode -->
+              <div id="mode-time" class="hidden">
+                <div class="stack">
+                  <p style="font-size:14px; color:var(--text-muted)">
+                    Das Video wird automatisch in gleichmäßige Teile aufgeteilt.
+                  </p>
+                  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+                    <label style="font-size:14px">Alle</label>
+                    <input
+                      id="time-interval"
+                      type="number"
+                      min="0.5" max="60" step="0.5" value="2"
+                      class="input"
+                      style="width:90px"
+                    />
+                    <label style="font-size:14px">Minuten schneiden</label>
+                    <button class="btn btn-soft" onclick="generateTimeMarks()">Vorschau generieren</button>
+                  </div>
+                  <div class="mark-list" id="time-mark-list">
+                    <p style="font-size:14px; color:var(--text-muted); text-align:center; padding:16px 0">
+                      Klicke auf "Vorschau generieren" um die Parts zu sehen.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Chapters mode -->
+              <div id="mode-chapters" class="hidden">
+                <div class="stack">
+                  <div id="chapters-available">
+                    <p style="font-size:14px; color:var(--text-muted)">
+                      Dieses Video hat YouTube-Kapitel. Diese werden direkt als Schnittmarken verwendet.
+                    </p>
+                    <div class="mark-list" id="chapters-list"></div>
+                  </div>
+                  <div id="chapters-unavailable" class="hidden">
+                    <p style="font-size:14px; color:var(--text-muted)">
+                      Dieses Video hat keine YouTube-Kapitel. Wähle einen anderen Modus.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; gap:12px; margin-top:8px">
+                <button class="btn" id="btn-split" onclick="doSplit()" style="min-width:160px">
+                  Video aufteilen
+                </button>
+                <span id="split-status" style="font-size:14px; color:var(--text-muted); display:flex; align-items:center"></span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Step 3: Parts Download -->
+      <div id="parts-section">
+        <div class="card">
+          <div class="stack">
+            <div style="display:flex; align-items:center; gap:16px">
+              <h3 style="font-size:17px; flex:1">3. Parts herunterladen</h3>
+              <button class="btn btn-soft" onclick="downloadAllParts()">Alle herunterladen</button>
+            </div>
+            <div class="parts-list" id="parts-list"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site">
+    <div class="container">HefterPro · made for students</div>
+  </footer>
+
+  <script src="/js/youtube.js"></script>
+</body>
+</html>
