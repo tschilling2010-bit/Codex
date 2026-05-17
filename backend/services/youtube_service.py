@@ -8,6 +8,12 @@ import subprocess
 import uuid
 from pathlib import Path
 
+try:
+    import static_ffmpeg
+    static_ffmpeg.add_paths()
+except Exception:
+    pass  # ffmpeg already on PATH (local dev)
+
 from .. import config
 
 log = logging.getLogger(__name__)
