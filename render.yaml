@@ -3,7 +3,7 @@ services:
     name: hefterpro
     runtime: python
     branch: main
-    buildCommand: pip install -r requirements.txt
+    buildCommand: apt-get update -y && apt-get install -y ffmpeg && pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
@@ -19,4 +19,4 @@ services:
     disk:
       name: hefterpro-data
       mountPath: /var/data/hefterpro
-      sizeGB: 1
+      sizeGB: 10
