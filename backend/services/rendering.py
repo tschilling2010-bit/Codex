@@ -124,17 +124,6 @@ class GlyphRenderer:
         new_w = max(1, int(round(w * scale)))
         return glyph.resize((new_w, target_h), Image.LANCZOS)
 
-    def _normalize_stroke(self, glyph: Image.Image, scale: float) -> Image.Image:
-        """Equalize stroke thickness across different glyph sizes."""
-        if scale > 0.95:
-            return glyph
-        alpha = glyph.split()[-1]
-        boost = (1.0 - scale) * 1.8
-        size = max(3, int(boost * 2) | 1)
-        alpha = alpha.filter(ImageFilter.MaxFilter(size))
-        glyph.putalpha(alpha)
-        return glyph
-
     def _get_glyph(self, ch: str) -> Optional[Tuple[Image.Image, int]]:
         """Return (glyph_image, above_baseline_px) or None."""
         glyph = self.profile.pick(ch, self.rng)
@@ -144,7 +133,6 @@ class GlyphRenderer:
         target_h = max(1, int(self.glyph_height * scale))
         above_px = max(1, int(self.glyph_height * top))
         glyph = self._scale_glyph_to(glyph.convert("RGBA"), target_h)
-        glyph = self._normalize_stroke(glyph, scale)
         glyph = self._adjust_thickness(glyph)
         glyph = self._tint_glyph(glyph)
         return glyph, above_px

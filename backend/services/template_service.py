@@ -376,59 +376,6 @@ def _otsu(hist: List[int]) -> int:
 
 
 TARGET_GLYPH_H = 140
-TARGET_STROKE_PX = 5
-
-
-def _zhang_suen(binary):
-    import numpy as np
-    skel = binary.copy()
-    while True:
-        removed = False
-        for sub in (0, 1):
-            P = skel
-            P2 = np.roll(P,  1, axis=0)
-            P3 = np.roll(np.roll(P,  1, axis=0), -1, axis=1)
-            P4 = np.roll(P, -1, axis=1)
-            P5 = np.roll(np.roll(P, -1, axis=0), -1, axis=1)
-            P6 = np.roll(P, -1, axis=0)
-            P7 = np.roll(np.roll(P, -1, axis=0),  1, axis=1)
-            P8 = np.roll(P,  1, axis=1)
-            P9 = np.roll(np.roll(P,  1, axis=0),  1, axis=1)
-
-            B = (P2.astype(np.int8) + P3 + P4 + P5 + P6 + P7 + P8 + P9)
-            seq = np.stack([P2, P3, P4, P5, P6, P7, P8, P9, P2], axis=-1)
-            trans = ((~seq[..., :-1]) & seq[..., 1:]).sum(axis=-1)
-
-            common = P & (B >= 2) & (B <= 6) & (trans == 1)
-            if sub == 0:
-                cond = common & ~(P2 & P4 & P6) & ~(P4 & P6 & P8)
-            else:
-                cond = common & ~(P2 & P4 & P8) & ~(P2 & P6 & P8)
-
-            if cond.any():
-                skel = skel & ~cond
-                removed = True
-        if not removed:
-            break
-    return skel
-
-
-def _dilate_disk(mask, radius: int):
-    import numpy as np
-    r = max(1, int(radius))
-    yy, xx = np.ogrid[-r:r + 1, -r:r + 1]
-    disk = xx * xx + yy * yy <= r * r
-
-    h, w = mask.shape
-    out = np.zeros_like(mask)
-    ys, xs = np.nonzero(mask)
-    for y, x in zip(ys, xs):
-        y0 = max(0, y - r); y1 = min(h, y + r + 1)
-        x0 = max(0, x - r); x1 = min(w, x + r + 1)
-        dy0 = y0 - (y - r); dy1 = dy0 + (y1 - y0)
-        dx0 = x0 - (x - r); dx1 = dx0 + (x1 - x0)
-        out[y0:y1, x0:x1] |= disk[dy0:dy1, dx0:dx1]
-    return out
 
 
 def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
@@ -444,43 +391,40 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     thr = _otsu(blurred.histogram())
     thr = min(thr, 175)
 
-    binary_img = blurred.point(lambda v: 255 if v < thr else 0).convert("L")
-    bbox = binary_img.getbbox()
-    if bbox is None:
+    arr = np.array(blurred, dtype=np.float32)
+    ink_alpha = np.clip((thr - arr) / max(thr * 0.35, 1.0), 0.0, 1.0)
+
+    binary = (ink_alpha > 0.15).astype(np.uint8)
+    bbox_coords = np.argwhere(binary)
+    if bbox_coords.shape[0] < 30:
         return None
 
-    iw, ih = inner.size
-    minx, miny, maxx, maxy = bbox
+    miny, minx = bbox_coords.min(axis=0)
+    maxy, maxx = bbox_coords.max(axis=0)
+
     if (maxx - minx) * (maxy - miny) < 80:
         return None
 
-    pad = max(6, min(maxx - minx, maxy - miny) // 10)
+    pad = max(4, min(maxx - minx, maxy - miny) // 10)
+    iw, ih = inner.size
     minx = max(0, minx - pad); miny = max(0, miny - pad)
-    maxx = min(iw, maxx + pad); maxy = min(ih, maxy + pad)
+    maxx = min(iw - 1, maxx + pad); maxy = min(ih - 1, maxy + pad)
 
-    cropped = binary_img.crop((minx, miny, maxx, maxy))
+    cropped = ink_alpha[miny:maxy + 1, minx:maxx + 1]
 
-    cw, ch = cropped.size
+    ch, cw = cropped.shape
     if ch <= 0:
         return None
     scale = TARGET_GLYPH_H / ch
     new_w = max(4, int(round(cw * scale)))
-    resized = cropped.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
-    arr = np.array(resized, dtype=np.uint8) > 127
 
-    closed = arr | (
-        np.roll(arr,  1, axis=0) & np.roll(arr, -1, axis=0) &
-        np.roll(arr,  1, axis=1) & np.roll(arr, -1, axis=1)
-    )
+    alpha_img = Image.fromarray((cropped * 255).astype("uint8"), "L")
+    alpha_img = alpha_img.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
+    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.5))
 
-    skeleton = _zhang_suen(closed)
-    if not skeleton.any():
-        return None
-
-    uniform = _dilate_disk(skeleton, TARGET_STROKE_PX)
-
-    alpha_img = Image.fromarray((uniform * 255).astype("uint8"), "L")
-    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=1.0))
+    alpha_arr = np.array(alpha_img, dtype=np.uint8)
+    alpha_arr = np.clip(alpha_arr.astype(np.float32) * 1.4, 0, 255).astype(np.uint8)
+    alpha_img = Image.fromarray(alpha_arr, "L")
 
     rgba = Image.new("RGBA", alpha_img.size, (0, 0, 0, 0))
     solid = Image.new("RGBA", alpha_img.size, (0, 0, 0, 255))
