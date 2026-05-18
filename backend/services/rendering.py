@@ -42,32 +42,25 @@ def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
 
 
 def make_sheet_background(sheet_type: str) -> Image.Image:
-    paper = (253, 252, 249)
+    paper = (255, 255, 255)
     img = Image.new("RGB", (config.PAGE_WIDTH_PX, config.PAGE_HEIGHT_PX), paper)
     draw = ImageDraw.Draw(img)
     w, h = img.size
 
     if sheet_type == "liniert":
-        top = config.mm_to_px(TOP_BASELINE_MM)
-        bottom = h - config.mm_to_px(BOTTOM_MARGIN_MM)
         step = config.mm_to_px(LINE_STEP_MM)
-        left = config.mm_to_px(18)
-        right = w - config.mm_to_px(12)
+        top = config.mm_to_px(12)
+        bottom = h - config.mm_to_px(8)
+        color = (218, 225, 235)
         for y in range(top, bottom + 1, step):
-            draw.line([(left, y), (right, y)], fill=(201, 217, 235), width=1)
-        margin_x = config.mm_to_px(30)
-        draw.line(
-            [(margin_x, config.mm_to_px(15)), (margin_x, h - config.mm_to_px(15))],
-            fill=(228, 148, 153), width=1,
-        )
+            draw.line([(0, y), (w, y)], fill=color, width=1)
     elif sheet_type == "kariert":
         step = config.mm_to_px(5)
-        color = (206, 220, 238)
-        pad = config.mm_to_px(12)
-        for x in range(pad, w - pad, step):
-            draw.line([(x, pad), (x, h - pad)], fill=color, width=1)
-        for y in range(pad, h - pad, step):
-            draw.line([(pad, y), (w - pad, y)], fill=color, width=1)
+        color = (220, 228, 238)
+        for x in range(0, w, step):
+            draw.line([(x, 0), (x, h)], fill=color, width=1)
+        for y in range(0, h, step):
+            draw.line([(0, y), (w, y)], fill=color, width=1)
     return img
 
 
@@ -246,9 +239,18 @@ class GlyphRenderer:
                 for g, above_px in glyphs:
                     dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                     paste_y = baseline - above_px + line_dy + dy
+                    paste_y = max(0, paste_y)
+                    gw, gh = g.size
+                    if paste_y + gh > self.page_h:
+                        gh = self.page_h - paste_y
+                        if gh > 0:
+                            g = g.crop((0, 0, gw, gh))
+                        else:
+                            x += gw
+                            continue
                     pages[-1].paste(g, (x, paste_y), g)
-                    kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
-                    x += g.size[0] + kerning
+                    kerning = int(gw * self.rng.uniform(-0.15, -0.03))
+                    x += gw + kerning
 
                 first_word_on_line = False
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro — Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=10" />
+  <link rel="stylesheet" href="/css/styles.css?v=11" />
 </head>
 <body>
   <header class="nav">
@@ -102,23 +102,36 @@
 
         <!-- Tab: Einstellungen -->
         <div class="tab-panel" id="tab-settings">
-          <div class="card">
-            <div class="field-row">
-              <div>
-                <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
-                <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+          <div class="grid cols-2">
+            <div class="card">
+              <div class="field-row">
+                <div>
+                  <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
+                  <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+                </div>
+                <div>
+                  <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
+                  <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
+                </div>
               </div>
-              <div>
-                <label class="field" for="s-sheet">Blatt</label>
-                <select id="s-sheet" class="select">
-                  <option value="liniert">Liniert</option>
-                  <option value="kariert">Kariert</option>
-                  <option value="blanko">Blanko</option>
-                </select>
+              <div class="field-row" style="margin-top:16px">
+                <div>
+                  <label class="field" for="s-ink">Tintenfarbe</label>
+                  <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
+                </div>
+                <div>
+                  <label class="field" for="s-sheet">Blattart</label>
+                  <select id="s-sheet" class="select">
+                    <option value="liniert">Liniert</option>
+                    <option value="kariert">Kariert</option>
+                    <option value="blanko">Blanko</option>
+                  </select>
+                </div>
               </div>
-              <div>
-                <label class="field" for="s-ink">Tinte</label>
-                <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
+            </div>
+            <div class="card" style="display:flex; align-items:center; justify-content:center; min-height:180px">
+              <div id="settings-preview" style="text-align:center">
+                <p class="muted" style="font-size:13px">Vorschau wird geladen…</p>
               </div>
             </div>
           </div>
@@ -129,8 +142,8 @@
 
   <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
 
-  <script src="/js/common.js?v=10"></script>
-  <script src="/js/api.js?v=10"></script>
-  <script src="/js/handwriting.js?v=10"></script>
+  <script src="/js/common.js?v=11"></script>
+  <script src="/js/api.js?v=11"></script>
+  <script src="/js/handwriting.js?v=11"></script>
 </body>
 </html>

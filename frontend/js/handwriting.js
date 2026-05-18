@@ -105,11 +105,15 @@
   // ---- Settings ----
   function applySettingsToUI(s) {
     var sz = getEl("s-size"), sv = getEl("s-size-val");
+    var th = getEl("s-thickness"), tv = getEl("s-thickness-val");
     var sh = getEl("s-sheet"), ink = getEl("s-ink");
     if (sz) sz.value = s.size_scale;
     if (sv) sv.textContent = fmtScale(s.size_scale);
+    if (th) th.value = s.thickness;
+    if (tv) tv.textContent = fmtScale(s.thickness);
     if (sh) sh.value = s.sheet_type;
     if (ink) ink.value = s.ink_color;
+    refreshSettingsPreview();
   }
 
   function updateRenderButton() {
@@ -235,14 +239,33 @@
     clearTimeout(saveSettingsTimer);
     saveSettingsTimer = setTimeout(function () {
       if (!state.activeId) return;
-      var sz = getEl("s-size"), sh = getEl("s-sheet"), ink = getEl("s-ink");
+      var sz = getEl("s-size"), th = getEl("s-thickness"), sh = getEl("s-sheet"), ink = getEl("s-ink");
       API.updateProfileSettings(state.activeId, {
         size_scale: sz ? parseFloat(sz.value) : 1.0,
-        thickness: 1.0,
+        thickness: th ? parseFloat(th.value) : 1.0,
         sheet_type: sh ? sh.value : "liniert",
         ink_color: ink ? ink.value : "#000000",
-      }).then(function (p) { state.profile = p; }).catch(function () {});
+      }).then(function (p) { state.profile = p; refreshSettingsPreview(); }).catch(function () {});
     }, 400);
+  }
+
+  var previewTimer;
+  function refreshSettingsPreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      if (!state.activeId || !state.profile || state.profile.glyph_count === 0) {
+        var el = getEl("settings-preview");
+        if (el) el.innerHTML = '<p class="muted" style="font-size:13px">Lade Vorlagen hoch um eine Vorschau zu sehen.</p>';
+        return;
+      }
+      API.render({ text: "Ag", profile_id: state.activeId })
+        .then(function (res) {
+          var el = getEl("settings-preview");
+          if (!el || !res.preview_urls || !res.preview_urls.length) return;
+          el.innerHTML = '<img src="' + res.preview_urls[0] + '" alt="Vorschau" style="max-height:160px; border-radius:8px; border:1px solid var(--border)" />';
+        })
+        .catch(function () {});
+    }, 500);
   }
 
   // ---- Inline new-profile form ----
@@ -295,6 +318,11 @@
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
+      autoSaveSettings();
+    });
+    on(getEl("s-thickness"), "input", function () {
+      var v = getEl("s-thickness-val");
+      if (v) v.textContent = fmtScale(getEl("s-thickness").value);
       autoSaveSettings();
     });
     on(getEl("s-sheet"), "change", autoSaveSettings);
