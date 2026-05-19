@@ -30,7 +30,7 @@ class RenderOptions:
 
 LINE_STEP_MM = 10.0
 TEXT_HEIGHT_MM = 6.5
-TOP_BASELINE_MM = 18
+TOP_MARGIN_MM = 15
 LEFT_MARGIN_MM = 15
 RIGHT_MARGIN_MM = 12
 BOTTOM_MARGIN_MM = 15
@@ -41,22 +41,33 @@ def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
     return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))  # type: ignore
 
 
-def make_sheet_background(sheet_type: str) -> Image.Image:
+def _compute_baselines(first_baseline: int, line_step: int,
+                       page_h: int, bottom_margin: int,
+                       descender_space: int) -> List[int]:
+    """Compute all baseline y-positions for one page."""
+    max_y = page_h - bottom_margin - descender_space
+    baselines = []
+    y = first_baseline
+    while y <= max_y:
+        baselines.append(y)
+        y += line_step
+    return baselines
+
+
+def make_sheet_background(sheet_type: str,
+                          baselines: Optional[List[int]] = None) -> Image.Image:
     paper = (255, 255, 255)
     img = Image.new("RGB", (config.PAGE_WIDTH_PX, config.PAGE_HEIGHT_PX), paper)
     draw = ImageDraw.Draw(img)
     w, h = img.size
 
-    if sheet_type == "liniert":
-        step = config.mm_to_px(LINE_STEP_MM)
-        top = config.mm_to_px(12)
-        bottom = h - config.mm_to_px(8)
-        color = (218, 225, 235)
-        for y in range(top, bottom + 1, step):
+    if sheet_type == "liniert" and baselines:
+        color = (210, 218, 230)
+        for y in baselines:
             draw.line([(0, y), (w, y)], fill=color, width=1)
     elif sheet_type == "kariert":
         step = config.mm_to_px(5)
-        color = (220, 228, 238)
+        color = (215, 222, 232)
         for x in range(0, w, step):
             draw.line([(x, 0), (x, h)], fill=color, width=1)
         for y in range(0, h, step):
@@ -82,10 +93,17 @@ class GlyphRenderer:
         self.margin_left = config.mm_to_px(LEFT_MARGIN_MM)
         self.margin_right = config.mm_to_px(RIGHT_MARGIN_MM)
         self.margin_bottom = config.mm_to_px(BOTTOM_MARGIN_MM)
-        self.first_baseline = config.mm_to_px(TOP_BASELINE_MM)
-        self.line_step = int(config.mm_to_px(LINE_STEP_MM) * self.size_scale)
 
+        self.line_step = int(config.mm_to_px(LINE_STEP_MM) * self.size_scale)
         self.glyph_height = int(config.mm_to_px(TEXT_HEIGHT_MM) * self.size_scale)
+        self.descender_space = int(self.glyph_height * 0.35)
+
+        self.first_baseline = config.mm_to_px(TOP_MARGIN_MM) + self.glyph_height
+        self.baselines = _compute_baselines(
+            self.first_baseline, self.line_step,
+            self.page_h, self.margin_bottom, self.descender_space,
+        )
+
         self.bullet_indent = config.mm_to_px(10)
         self.rng = random.Random()
 
@@ -135,13 +153,9 @@ class GlyphRenderer:
         return base + self.rng.randint(-2, 4)
 
     def _new_page(self) -> Image.Image:
-        return make_sheet_background(self.options.sheet_type)
+        return make_sheet_background(self.options.sheet_type, self.baselines)
 
     def _parse_line(self, line: str) -> Tuple[str, str, int]:
-        """Return (line_type, content, indent_level).
-
-        line_type is 'bullet', 'numbered', or 'text'.
-        """
         stripped = line.lstrip()
         indent_chars = len(line) - len(stripped)
         indent_level = indent_chars // 2
@@ -171,22 +185,23 @@ class GlyphRenderer:
             return [self._new_page()]
 
         pages: List[Image.Image] = [self._new_page()]
-        baseline = self.first_baseline
-        descender_space = int(self.glyph_height * 0.30)
-        max_y = self.page_h - self.margin_bottom - descender_space
+        line_idx = 0
+
+        def current_baseline():
+            return self.baselines[line_idx % len(self.baselines)]
 
         def advance():
-            nonlocal baseline
-            baseline += self.line_step
-            if baseline > max_y:
+            nonlocal line_idx
+            line_idx += 1
+            if line_idx % len(self.baselines) == 0:
                 pages.append(self._new_page())
-                baseline = self.first_baseline
 
         for raw_line in text.replace("\r\n", "\n").split("\n"):
             if not raw_line.strip():
                 advance()
                 continue
 
+            baseline = current_baseline()
             line_type, content, indent_level = self._parse_line(raw_line)
             extra_indent = self.bullet_indent * indent_level
             if line_type == "bullet":
@@ -229,6 +244,7 @@ class GlyphRenderer:
 
                 if x + space + word_w > self.page_w - self.margin_right:
                     advance()
+                    baseline = current_baseline()
                     x = x_start
                     line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
                     space = 0
@@ -239,18 +255,9 @@ class GlyphRenderer:
                 for g, above_px in glyphs:
                     dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                     paste_y = baseline - above_px + line_dy + dy
-                    paste_y = max(0, paste_y)
-                    gw, gh = g.size
-                    if paste_y + gh > self.page_h:
-                        gh = self.page_h - paste_y
-                        if gh > 0:
-                            g = g.crop((0, 0, gw, gh))
-                        else:
-                            x += gw
-                            continue
-                    pages[-1].paste(g, (x, paste_y), g)
-                    kerning = int(gw * self.rng.uniform(-0.15, -0.03))
-                    x += gw + kerning
+                    pages[-1].paste(g, (x, max(0, paste_y)), g)
+                    kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
+                    x += g.size[0] + kerning
 
                 first_word_on_line = False
 
