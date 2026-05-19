@@ -128,6 +128,8 @@
     var link = getEl("template-download");
     if (!link || !state.activeId) return;
     link.href = "/api/handwriting/profile/" + state.activeId + "/pair/0/pdf";
+    var backup = getEl("btn-backup");
+    if (backup) backup.href = API.backupProfileUrl(state.activeId);
   }
 
   // ---- Variants ----
@@ -298,6 +300,19 @@
     on(getEl("btn-new-confirm"), "click", submitNewProfile);
     on(getEl("new-profile-name"), "keydown", function (e) {
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
+    });
+
+    on(getEl("btn-restore"), "change", function () {
+      var input = getEl("btn-restore");
+      if (!input || !input.files || !input.files[0]) return;
+      var file = input.files[0];
+      input.value = "";
+      API.restoreProfile(file).then(function (res) {
+        alert("Profil wiederhergestellt!");
+        return loadProfiles();
+      }).then(function () {
+        showList();
+      }).catch(function (e) { alert("Fehler: " + e.message); });
     });
 
     on(getEl("btn-back"), "click", function () {

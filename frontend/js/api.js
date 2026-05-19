@@ -47,6 +47,14 @@ var API = (function () {
     deleteProfile: function (id) {
       return request("/api/handwriting/profile/" + id, { method: "DELETE" });
     },
+    backupProfileUrl: function (id) {
+      return "/api/handwriting/profile/" + id + "/backup";
+    },
+    restoreProfile: function (file) {
+      var fd = new FormData();
+      fd.append("file", file);
+      return request("/api/handwriting/profile/restore", { method: "POST", form: fd });
+    },
 
     pairPdfUrl: function (profileId, pairIndex) {
       return "/api/handwriting/profile/" + profileId + "/pair/" + pairIndex + "/pdf";

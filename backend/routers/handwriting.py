@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 import uuid
+import zipfile
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -80,6 +83,83 @@ def profile_delete(profile_id: str) -> dict:
     if not fonts.delete_user_profile(profile_id):
         raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
     return {"deleted": profile_id}
+
+
+@router.get("/profile/{profile_id}/backup")
+def profile_backup(profile_id: str) -> Response:
+    """Download entire profile (meta + glyphs + templates) as ZIP."""
+    profile_dir = config.PROFILES_DIR / profile_id
+    template_dir = config.TEMPLATES_DIR / profile_id
+    if not profile_dir.exists():
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for base_dir, prefix in [(profile_dir, "profile"), (template_dir, "templates")]:
+            if not base_dir.exists():
+                continue
+            for fpath in sorted(base_dir.rglob("*")):
+                if fpath.is_file():
+                    arcname = f"{prefix}/{fpath.relative_to(base_dir)}"
+                    zf.write(fpath, arcname)
+    buf.seek(0)
+
+    meta = fonts.get_profile(profile_id)
+    name = (meta or {}).get("name", profile_id)
+    filename = f"hefterpro-{name}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/profile/restore")
+async def profile_restore(file: UploadFile = File(...)) -> dict:
+    """Restore a profile from a backup ZIP."""
+    data = await file.read()
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Ungültige ZIP-Datei.")
+
+    meta_entry = None
+    for name in zf.namelist():
+        if name == "profile/meta.json" or name.endswith("/meta.json"):
+            if "profile/" in name:
+                meta_entry = name
+                break
+    if meta_entry is None:
+        raise HTTPException(status_code=400, detail="Kein Profil in der ZIP gefunden.")
+
+    meta = json.loads(zf.read(meta_entry))
+    profile_id = meta.get("id")
+    if not profile_id:
+        profile_id = uuid.uuid4().hex[:10]
+        meta["id"] = profile_id
+
+    profile_dir = config.PROFILES_DIR / profile_id
+    template_dir = config.TEMPLATES_DIR / profile_id
+
+    for entry in zf.namelist():
+        if entry.endswith("/"):
+            continue
+        if entry.startswith("profile/"):
+            rel = entry[len("profile/"):]
+            out = profile_dir / rel
+        elif entry.startswith("templates/"):
+            rel = entry[len("templates/"):]
+            out = template_dir / rel
+        else:
+            continue
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(zf.read(entry))
+
+    zf.close()
+    updated = fonts.get_profile(profile_id)
+    if updated is None:
+        raise HTTPException(status_code=500, detail="Wiederherstellung fehlgeschlagen.")
+    return {"profile": updated, "profile_id": profile_id}
 
 
 # ---------------------------------------------------------------------------

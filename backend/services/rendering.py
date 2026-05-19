@@ -30,10 +30,10 @@ class RenderOptions:
 
 LINE_STEP_MM = 10.0
 TEXT_HEIGHT_MM = 6.5
-TOP_BASELINE_MM = 35
-LEFT_MARGIN_MM = 33
-RIGHT_MARGIN_MM = 18
-BOTTOM_MARGIN_MM = 22
+TOP_BASELINE_MM = 18
+LEFT_MARGIN_MM = 15
+RIGHT_MARGIN_MM = 12
+BOTTOM_MARGIN_MM = 15
 
 
 def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
