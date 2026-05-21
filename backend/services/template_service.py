@@ -384,17 +384,20 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     gray = cell.convert("L")
     w, h = gray.size
 
-    border = max(2, int(min(w, h) * 0.05))
+    border = max(2, int(min(w, h) * 0.08))
     inner = gray.crop((border, border, w - border, h - border))
 
-    blurred = inner.filter(ImageFilter.GaussianBlur(radius=0.6))
+    blurred = inner.filter(ImageFilter.GaussianBlur(radius=0.3))
     thr = _otsu(blurred.histogram())
     thr = min(thr, 175)
 
     arr = np.array(blurred, dtype=np.float32)
-    ink_alpha = np.clip((thr - arr) / max(thr * 0.35, 1.0), 0.0, 1.0)
+    ink_alpha = np.clip((thr - arr) / max(thr * 0.2, 1.0), 0.0, 1.0)
 
-    binary = (ink_alpha > 0.15).astype(np.uint8)
+    binary_img = Image.fromarray(((ink_alpha > 0.15).astype(np.uint8) * 255), "L")
+    binary_img = binary_img.filter(ImageFilter.MaxFilter(3))
+    binary_img = binary_img.filter(ImageFilter.MinFilter(3))
+    binary = (np.array(binary_img) > 127).astype(np.uint8)
     bbox_coords = np.argwhere(binary)
     if bbox_coords.shape[0] < 30:
         return None
@@ -402,10 +405,10 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
     miny, minx = bbox_coords.min(axis=0)
     maxy, maxx = bbox_coords.max(axis=0)
 
-    if (maxx - minx) * (maxy - miny) < 80:
+    if (maxx - minx) * (maxy - miny) < 40:
         return None
 
-    pad = max(4, min(maxx - minx, maxy - miny) // 10)
+    pad = max(4, min(maxx - minx, maxy - miny) // 15)
     iw, ih = inner.size
     minx = max(0, minx - pad); miny = max(0, miny - pad)
     maxx = min(iw - 1, maxx + pad); maxy = min(ih - 1, maxy + pad)
@@ -420,10 +423,10 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
 
     alpha_img = Image.fromarray((cropped * 255).astype("uint8"), "L")
     alpha_img = alpha_img.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
-    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.5))
+    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.3))
 
     alpha_arr = np.array(alpha_img, dtype=np.uint8)
-    alpha_arr = np.clip(alpha_arr.astype(np.float32) * 1.4, 0, 255).astype(np.uint8)
+    alpha_arr = np.clip(alpha_arr.astype(np.float32) * 1.8, 0, 255).astype(np.uint8)
     alpha_img = Image.fromarray(alpha_arr, "L")
 
     rgba = Image.new("RGBA", alpha_img.size, (0, 0, 0, 0))

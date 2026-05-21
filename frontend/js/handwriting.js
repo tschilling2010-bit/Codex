@@ -9,7 +9,15 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     try { bindUI(); } catch (e) { console.error("bindUI error:", e); }
-    loadProfiles().catch(function (e) { console.error("loadProfiles error:", e); });
+    loadProfiles().then(function () {
+      if (state.profiles.length === 0) {
+        ProfileCache.restoreAll(function (count) {
+          if (count > 0) {
+            loadProfiles();
+          }
+        });
+      }
+    }).catch(function (e) { console.error("loadProfiles error:", e); });
   });
 
   // ---- Views ----
@@ -20,11 +28,32 @@
     if (vl) vl.style.display = "";
     if (vd) vd.style.display = "none";
     hideNewProfileForm();
+    closeSettingsPanel();
   }
   function showDetail() {
     var vl = getEl("view-list"), vd = getEl("view-detail");
     if (vl) vl.style.display = "none";
     if (vd) vd.style.display = "";
+  }
+
+  // ---- Settings panel (slide-in) ----
+  function openSettingsPanel() {
+    var panel = getEl("settings-panel");
+    var overlay = getEl("settings-overlay");
+    if (panel) panel.classList.add("open");
+    if (overlay) overlay.classList.add("visible");
+  }
+  function closeSettingsPanel() {
+    var panel = getEl("settings-panel");
+    var overlay = getEl("settings-overlay");
+    if (panel) panel.classList.remove("open");
+    if (overlay) overlay.classList.remove("visible");
+  }
+
+  // ---- Collapsible settings ----
+  function toggleCollapsible() {
+    var el = getEl("settings-collapsible");
+    if (el) el.classList.toggle("open");
   }
 
   // ---- Profiles ----
@@ -76,7 +105,6 @@
         updateTemplateLink();
         updateRenderButton();
       });
-      activateTab("templates");
     }).catch(function (e) {
       alert("Fehler: " + e.message);
     });
@@ -90,18 +118,6 @@
       .then(function (p) { state.profile = p; });
   }
 
-  // ---- Tabs ----
-  function activateTab(name) {
-    var detail = getEl("view-detail");
-    if (!detail) return;
-    qa(".tab-btn", detail).forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-tab") === name);
-    });
-    qa(".tab-panel", detail).forEach(function (p) {
-      p.classList.toggle("active", p.id === "tab-" + name);
-    });
-  }
-
   // ---- Settings ----
   function applySettingsToUI(s) {
     var sz = getEl("s-size"), sv = getEl("s-size-val");
@@ -113,7 +129,6 @@
     if (tv) tv.textContent = fmtScale(s.thickness);
     if (sh) sh.value = s.sheet_type;
     if (ink) ink.value = s.ink_color;
-    refreshSettingsPreview();
   }
 
   function updateRenderButton() {
@@ -128,8 +143,6 @@
     var link = getEl("template-download");
     if (!link || !state.activeId) return;
     link.href = "/api/handwriting/profile/" + state.activeId + "/pair/0/pdf";
-    var backup = getEl("btn-backup");
-    if (backup) backup.href = API.backupProfileUrl(state.activeId);
   }
 
   // ---- Variants ----
@@ -196,6 +209,7 @@
     if (!files[1] || !files[2]) return;
     var reset = showSpinner(btn, "Extrahiere…");
     msg(getEl("pair-status"), "Variante " + (idx + 1) + ": Buchstaben werden extrahiert…");
+    if (getEl("pair-status")) getEl("pair-status").style.display = "";
     API.uploadPair(state.activeId, idx, files[1], files[2])
       .then(function (res) {
         state.profile = res.profile;
@@ -203,6 +217,7 @@
         renderVariants();
         updateRenderButton();
         msg(getEl("pair-status"), "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen extrahiert!", "ok");
+        ProfileCache.save(state.activeId, function () {});
       })
       .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
@@ -234,7 +249,10 @@
       var el = getEl("profile-name");
       var name = el ? el.value.trim() : "";
       if (!name || !state.activeId) return;
-      API.renameProfile(state.activeId, name).then(function (p) { state.profile = p; }).catch(function () {});
+      API.renameProfile(state.activeId, name).then(function (p) {
+        state.profile = p;
+        ProfileCache.save(state.activeId, function () {});
+      }).catch(function () {});
     }, 600);
   }
   function autoSaveSettings() {
@@ -247,27 +265,11 @@
         thickness: th ? parseFloat(th.value) : 1.0,
         sheet_type: sh ? sh.value : "liniert",
         ink_color: ink ? ink.value : "#000000",
-      }).then(function (p) { state.profile = p; refreshSettingsPreview(); }).catch(function () {});
+      }).then(function (p) {
+        state.profile = p;
+        ProfileCache.save(state.activeId, function () {});
+      }).catch(function () {});
     }, 400);
-  }
-
-  var previewTimer;
-  function refreshSettingsPreview() {
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(function () {
-      if (!state.activeId || !state.profile || state.profile.glyph_count === 0) {
-        var el = getEl("settings-preview");
-        if (el) el.innerHTML = '<p class="muted" style="font-size:13px">Lade Vorlagen hoch um eine Vorschau zu sehen.</p>';
-        return;
-      }
-      API.render({ text: "Ag", profile_id: state.activeId })
-        .then(function (res) {
-          var el = getEl("settings-preview");
-          if (!el || !res.preview_urls || !res.preview_urls.length) return;
-          el.innerHTML = '<img src="' + res.preview_urls[0] + '" alt="Vorschau" style="max-height:160px; border-radius:8px; border:1px solid var(--border)" />';
-        })
-        .catch(function () {});
-    }, 500);
   }
 
   // ---- Inline new-profile form ----
@@ -302,19 +304,6 @@
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
 
-    on(getEl("btn-restore"), "change", function () {
-      var input = getEl("btn-restore");
-      if (!input || !input.files || !input.files[0]) return;
-      var file = input.files[0];
-      input.value = "";
-      API.restoreProfile(file).then(function (res) {
-        alert("Profil wiederhergestellt!");
-        return loadProfiles();
-      }).then(function () {
-        showList();
-      }).catch(function (e) { alert("Fehler: " + e.message); });
-    });
-
     on(getEl("btn-back"), "click", function () {
       loadProfiles().then(showList);
     });
@@ -323,6 +312,7 @@
       if (!state.activeId) return;
       var pName = state.profile ? state.profile.name : state.activeId;
       if (!confirm(pName + " wirklich löschen?")) return;
+      ProfileCache.remove(state.activeId, function () {});
       API.deleteProfile(state.activeId).catch(function () {}).then(function () {
         return loadProfiles();
       }).then(showList);
@@ -330,6 +320,15 @@
 
     on(getEl("profile-name"), "input", autoSaveName);
 
+    // Gear button opens slide-in template panel
+    on(getEl("btn-gear"), "click", openSettingsPanel);
+    on(getEl("btn-panel-close"), "click", closeSettingsPanel);
+    on(getEl("settings-overlay"), "click", closeSettingsPanel);
+
+    // Collapsible settings toggle
+    on(getEl("settings-toggle"), "click", toggleCollapsible);
+
+    // Settings sliders and inputs
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
@@ -344,10 +343,6 @@
     on(getEl("s-ink"), "change", autoSaveSettings);
 
     on(getEl("btn-variant-add"), "click", onAddVariant);
-
-    qa(".tab-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () { activateTab(btn.getAttribute("data-tab")); });
-    });
 
     on(getEl("btn-render"), "click", renderText);
     on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });
