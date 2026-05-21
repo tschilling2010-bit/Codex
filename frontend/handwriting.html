@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HefterPro — Handschrift</title>
+  <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=13" />
+  <link rel="stylesheet" href="/css/styles.css?v=14" />
 </head>
 <body>
   <header class="nav">
@@ -18,8 +18,7 @@
 
     <!-- ======================== VIEW 1: Profile List ======================== -->
     <div id="view-list" class="stack-lg">
-      <div class="page-header">
-        <span class="eyebrow">Handschrift</span>
+      <div class="page-header" style="padding-bottom:8px">
         <h2>Meine Schriften</h2>
       </div>
 
@@ -43,108 +42,110 @@
 
     <!-- ======================== VIEW 2: Profile Detail ======================== -->
     <div id="view-detail" style="display:none">
-      <div class="stack-lg">
-        <div class="detail-header" style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
-          <button class="btn btn-ghost" id="btn-back" style="padding:8px 16px">&larr; Zur&uuml;ck</button>
-          <div style="flex:1; min-width:150px">
-            <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Profilname" />
+
+      <!-- Top bar: back, profile name, gear, delete -->
+      <div class="detail-top-bar">
+        <button class="btn btn-ghost" id="btn-back" style="padding:8px 16px">&larr; Zur&uuml;ck</button>
+        <div style="flex:1; min-width:150px">
+          <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Profilname" />
+        </div>
+        <button class="gear-btn" id="btn-gear" title="Vorlagen &amp; Einstellungen">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="10" r="3"/>
+            <path d="M16.47 12.47a1.5 1.5 0 0 0 .3 1.65l.05.06a1.82 1.82 0 1 1-2.57 2.57l-.06-.06a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.91 1.37v.17a1.82 1.82 0 1 1-3.64 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.06.06a1.82 1.82 0 1 1-2.57-2.57l.06-.06a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.91h-.17a1.82 1.82 0 1 1 0-3.64h.09a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.06-.06a1.82 1.82 0 1 1 2.57-2.57l.06.06a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .91-1.37v-.17a1.82 1.82 0 1 1 3.64 0v.09a1.5 1.5 0 0 0 .91 1.37 1.5 1.5 0 0 0 1.65-.3l.06-.06a1.82 1.82 0 1 1 2.57 2.57l-.06.06a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.91h.17a1.82 1.82 0 0 1 0 3.64h-.09a1.5 1.5 0 0 0-1.37.91z"/>
+          </svg>
+        </button>
+        <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">L&ouml;schen</button>
+      </div>
+
+      <!-- Two-column main area -->
+      <div class="two-col-layout">
+
+        <!-- LEFT: Text input, render, export, status -->
+        <section class="card stack col-left">
+          <div>
+            <label class="field" for="text">Dein Text</label>
+            <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
           </div>
-          <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">L&ouml;schen</button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="tab-bar">
-          <button class="tab-btn active" data-tab="templates">Vorlagen</button>
-          <button class="tab-btn" data-tab="convert">Text umwandeln</button>
-          <button class="tab-btn" data-tab="settings">Einstellungen</button>
-        </div>
-
-        <!-- Tab: Vorlagen -->
-        <div class="tab-panel active" id="tab-templates">
-          <div class="stack">
-            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
-              <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
-              <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
-            </div>
-            <div id="pair-status" class="status" style="display:none"></div>
-            <div id="variants-list" class="stack"></div>
-            <div style="margin-top:8px">
-              <button class="btn btn-primary" id="btn-variant-add">+ Variante hinzuf&uuml;gen</button>
-            </div>
+          <div class="toolbar">
+            <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
+            <div class="toolbar-spacer"></div>
+            <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
+            <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
+            <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
           </div>
-        </div>
+          <div id="status" class="status">Bereit.</div>
+        </section>
 
-        <!-- Tab: Text umwandeln -->
-        <div class="tab-panel" id="tab-convert">
-          <div class="grid cols-2">
-            <section class="card stack">
-              <div>
-                <label class="field" for="text">Dein Text</label>
-                <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
-              </div>
-              <div class="toolbar">
-                <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
-                <div class="toolbar-spacer"></div>
-                <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
-                <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
-                <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
-              </div>
-              <div id="status" class="status">Bereit.</div>
-            </section>
-            <section class="stack">
-              <h3 style="margin:0; font-size:18px">Vorschau</h3>
-              <div id="preview" class="preview-wrap">
-                <div class="empty-state">Text eingeben und &bdquo;Rendern&ldquo; klicken.</div>
-              </div>
-            </section>
+        <!-- RIGHT: Preview -->
+        <section class="col-right">
+          <h3 style="margin:0 0 12px; font-size:18px">Vorschau</h3>
+          <div id="preview" class="preview-wrap">
+            <div class="empty-state">Text eingeben und &bdquo;Rendern&ldquo; klicken.</div>
           </div>
-        </div>
+        </section>
+      </div>
 
-        <!-- Tab: Einstellungen -->
-        <div class="tab-panel" id="tab-settings">
-          <div class="grid cols-2">
-            <div class="card">
-              <div class="field-row">
-                <div>
-                  <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
-                  <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
-                </div>
-                <div>
-                  <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
-                  <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
-                </div>
-              </div>
-              <div class="field-row" style="margin-top:16px">
-                <div>
-                  <label class="field" for="s-ink">Tintenfarbe</label>
-                  <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
-                </div>
-                <div>
-                  <label class="field" for="s-sheet">Blattart</label>
-                  <select id="s-sheet" class="select">
-                    <option value="liniert">Liniert</option>
-                    <option value="kariert">Kariert</option>
-                    <option value="blanko">Blanko</option>
-                  </select>
-                </div>
-              </div>
+      <!-- Collapsible Einstellungen below main area -->
+      <div class="collapsible" id="settings-collapsible">
+        <div class="collapsible-header" id="settings-toggle">
+          <span class="collapsible-icon">&#9654;</span>
+          <span>Einstellungen</span>
+        </div>
+        <div class="collapsible-content">
+          <div class="settings-row">
+            <div class="settings-field">
+              <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
+              <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
             </div>
-            <div class="card" style="display:flex; align-items:center; justify-content:center; min-height:180px">
-              <div id="settings-preview" style="text-align:center">
-                <p class="muted" style="font-size:13px">Vorschau wird geladen…</p>
-              </div>
+            <div class="settings-field">
+              <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
+              <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
+            </div>
+            <div class="settings-field">
+              <label class="field" for="s-ink">Tintenfarbe</label>
+              <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
+            </div>
+            <div class="settings-field">
+              <label class="field" for="s-sheet">Blattart</label>
+              <select id="s-sheet" class="select">
+                <option value="liniert">Liniert</option>
+                <option value="kariert">Kariert</option>
+                <option value="blanko">Blanko</option>
+              </select>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Settings panel (slide-in from right, for Vorlagen / templates) -->
+      <div class="settings-panel-overlay" id="settings-overlay"></div>
+      <div class="settings-panel" id="settings-panel">
+        <div class="settings-panel-header">
+          <h3 style="margin:0; font-size:18px">Vorlagen</h3>
+          <button class="btn btn-ghost settings-panel-close" id="btn-panel-close">&times;</button>
+        </div>
+        <div class="settings-panel-body stack">
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+            <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
+            <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
+          </div>
+          <div id="pair-status" class="status" style="display:none"></div>
+          <div id="variants-list" class="stack"></div>
+          <div style="margin-top:8px">
+            <button class="btn btn-primary" id="btn-variant-add">+ Variante hinzuf&uuml;gen</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 
   <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
 
-  <script src="/js/common.js?v=13"></script>
-  <script src="/js/api.js?v=13"></script>
-  <script src="/js/persist.js?v=13"></script>
-  <script src="/js/handwriting.js?v=13"></script>
+  <script src="/js/common.js?v=14"></script>
+  <script src="/js/api.js?v=14"></script>
+  <script src="/js/persist.js?v=14"></script>
+  <script src="/js/handwriting.js?v=14"></script>
 </body>
 </html>

@@ -34,6 +34,7 @@ TOP_MARGIN_MM = 15
 LEFT_MARGIN_MM = 15
 RIGHT_MARGIN_MM = 12
 BOTTOM_MARGIN_MM = 15
+HEADER_LINES = 1
 
 
 def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
@@ -44,7 +45,6 @@ def _hex_to_rgb(value: str) -> Tuple[int, int, int]:
 def _compute_baselines(first_baseline: int, line_step: int,
                        page_h: int, bottom_margin: int,
                        descender_space: int) -> List[int]:
-    """Compute all baseline y-positions for one page."""
     max_y = page_h - bottom_margin - descender_space
     baselines = []
     y = first_baseline
@@ -76,8 +76,6 @@ def make_sheet_background(sheet_type: str,
 
 
 class GlyphRenderer:
-    """Renders text using extracted glyph images from a user profile."""
-
     BULLET_CHARS = {"•", "·", "-", "*", "–"}
 
     def __init__(self, profile: font_lib.GlyphProfile, options: RenderOptions):
@@ -103,6 +101,8 @@ class GlyphRenderer:
             self.first_baseline, self.line_step,
             self.page_h, self.margin_bottom, self.descender_space,
         )
+        self.lines_per_page = len(self.baselines)
+        self.first_text_line = HEADER_LINES
 
         self.bullet_indent = config.mm_to_px(10)
         self.rng = random.Random()
@@ -136,7 +136,6 @@ class GlyphRenderer:
         return glyph.resize((new_w, target_h), Image.LANCZOS)
 
     def _get_glyph(self, ch: str) -> Optional[Tuple[Image.Image, int]]:
-        """Return (glyph_image, above_baseline_px) or None."""
         glyph = self.profile.pick(ch, self.rng)
         if glyph is None:
             return None
@@ -179,35 +178,59 @@ class GlyphRenderer:
         by = baseline - int(self.glyph_height * 0.30)
         draw.ellipse([bx - r, by - r, bx + r, by + r], fill=self.color)
 
+    def _measure_word(self, word: str) -> Tuple[List[Tuple[Image.Image, int]], int]:
+        glyphs = []
+        for ch in word:
+            result = self._get_glyph(ch)
+            if result is not None:
+                glyphs.append(result)
+        w = 0
+        for i_g, (g, _) in enumerate(glyphs):
+            w += g.size[0]
+            if i_g < len(glyphs) - 1:
+                w += int(g.size[0] * -0.08)
+        return glyphs, w
+
+    def _lines_remaining(self, line_idx: int) -> int:
+        return self.lines_per_page - (line_idx % self.lines_per_page)
+
     def render(self, text: str) -> List[Image.Image]:
         text = text.strip("\n")
         if not text:
             return [self._new_page()]
 
         pages: List[Image.Image] = [self._new_page()]
-        line_idx = 0
+        line_idx = self.first_text_line
+        is_first_page = True
 
-        def current_baseline():
-            return self.baselines[line_idx % len(self.baselines)]
+        def baseline():
+            return self.baselines[line_idx % self.lines_per_page]
+
+        def new_page():
+            nonlocal line_idx, is_first_page
+            remainder = self.lines_per_page - (line_idx % self.lines_per_page)
+            line_idx += remainder + self.first_text_line
+            pages.append(self._new_page())
+            is_first_page = False
 
         def advance():
             nonlocal line_idx
             line_idx += 1
-            if line_idx % len(self.baselines) == 0:
-                pages.append(self._new_page())
+            if line_idx % self.lines_per_page == 0:
+                new_page()
 
-        for raw_line in text.replace("\r\n", "\n").split("\n"):
+        paragraphs = text.replace("\r\n", "\n").split("\n")
+
+        for para_i, raw_line in enumerate(paragraphs):
             if not raw_line.strip():
                 advance()
                 continue
 
-            baseline = current_baseline()
             line_type, content, indent_level = self._parse_line(raw_line)
             extra_indent = self.bullet_indent * indent_level
             if line_type == "bullet":
                 indent = self.bullet_indent + extra_indent
                 x_start = self.margin_left + indent
-                self._draw_bullet(pages[-1], baseline, extra_indent)
             elif line_type == "numbered":
                 indent = self.bullet_indent + extra_indent
                 x_start = self.margin_left + extra_indent
@@ -216,50 +239,51 @@ class GlyphRenderer:
                 x_start = self.margin_left
 
             words = content.split(" ")
-            line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
-            x = x_start
-            first_word_on_line = True
+            usable_w = self.page_w - self.margin_right - x_start
 
+            render_lines: List[List[Tuple[List[Tuple[Image.Image, int]], int]]] = [[]]
+            cur_x = 0
             for word in words:
                 if not word:
-                    x += self._space_width()
+                    cur_x += self._space_width()
                     continue
-
-                glyphs = []
-                for ch in word:
-                    result = self._get_glyph(ch)
-                    if result is not None:
-                        glyphs.append(result)
-
+                glyphs, word_w = self._measure_word(word)
                 if not glyphs:
                     continue
-
-                word_w = 0
-                for i_g, (g, _) in enumerate(glyphs):
-                    word_w += g.size[0]
-                    if i_g < len(glyphs) - 1:
-                        word_w += int(g.size[0] * -0.08)
-
-                space = 0 if first_word_on_line else self._space_width()
-
-                if x + space + word_w > self.page_w - self.margin_right:
-                    advance()
-                    baseline = current_baseline()
-                    x = x_start
-                    line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
+                space = 0 if cur_x == 0 else self._space_width()
+                if cur_x + space + word_w > usable_w and cur_x > 0:
+                    render_lines.append([])
+                    cur_x = 0
                     space = 0
-                    first_word_on_line = True
+                render_lines[-1].append((glyphs, space))
+                cur_x += space + word_w
 
-                x += space
+            lines_needed = len(render_lines)
+            lines_left = self._lines_remaining(line_idx)
 
-                for g, above_px in glyphs:
-                    dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
-                    paste_y = baseline - above_px + line_dy + dy
-                    pages[-1].paste(g, (x, max(0, paste_y)), g)
-                    kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
-                    x += g.size[0] + kerning
+            if lines_needed > lines_left and lines_left < self.lines_per_page - self.first_text_line:
+                new_page()
 
-                first_word_on_line = False
+            for rl_i, rl in enumerate(render_lines):
+                bl = baseline()
+
+                if rl_i == 0 and line_type == "bullet":
+                    self._draw_bullet(pages[-1], bl, extra_indent)
+
+                line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
+                x = x_start
+
+                for glyphs, space in rl:
+                    x += space
+                    for g, above_px in glyphs:
+                        dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
+                        paste_y = bl - above_px + line_dy + dy
+                        pages[-1].paste(g, (x, max(0, paste_y)), g)
+                        kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
+                        x += g.size[0] + kerning
+
+                if rl_i < lines_needed - 1:
+                    advance()
 
             advance()
 

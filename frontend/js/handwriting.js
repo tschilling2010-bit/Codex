@@ -28,11 +28,32 @@
     if (vl) vl.style.display = "";
     if (vd) vd.style.display = "none";
     hideNewProfileForm();
+    closeSettingsPanel();
   }
   function showDetail() {
     var vl = getEl("view-list"), vd = getEl("view-detail");
     if (vl) vl.style.display = "none";
     if (vd) vd.style.display = "";
+  }
+
+  // ---- Settings panel (slide-in) ----
+  function openSettingsPanel() {
+    var panel = getEl("settings-panel");
+    var overlay = getEl("settings-overlay");
+    if (panel) panel.classList.add("open");
+    if (overlay) overlay.classList.add("visible");
+  }
+  function closeSettingsPanel() {
+    var panel = getEl("settings-panel");
+    var overlay = getEl("settings-overlay");
+    if (panel) panel.classList.remove("open");
+    if (overlay) overlay.classList.remove("visible");
+  }
+
+  // ---- Collapsible settings ----
+  function toggleCollapsible() {
+    var el = getEl("settings-collapsible");
+    if (el) el.classList.toggle("open");
   }
 
   // ---- Profiles ----
@@ -84,7 +105,6 @@
         updateTemplateLink();
         updateRenderButton();
       });
-      activateTab("templates");
     }).catch(function (e) {
       alert("Fehler: " + e.message);
     });
@@ -98,18 +118,6 @@
       .then(function (p) { state.profile = p; });
   }
 
-  // ---- Tabs ----
-  function activateTab(name) {
-    var detail = getEl("view-detail");
-    if (!detail) return;
-    qa(".tab-btn", detail).forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-tab") === name);
-    });
-    qa(".tab-panel", detail).forEach(function (p) {
-      p.classList.toggle("active", p.id === "tab-" + name);
-    });
-  }
-
   // ---- Settings ----
   function applySettingsToUI(s) {
     var sz = getEl("s-size"), sv = getEl("s-size-val");
@@ -121,7 +129,6 @@
     if (tv) tv.textContent = fmtScale(s.thickness);
     if (sh) sh.value = s.sheet_type;
     if (ink) ink.value = s.ink_color;
-    refreshSettingsPreview();
   }
 
   function updateRenderButton() {
@@ -202,6 +209,7 @@
     if (!files[1] || !files[2]) return;
     var reset = showSpinner(btn, "Extrahiere…");
     msg(getEl("pair-status"), "Variante " + (idx + 1) + ": Buchstaben werden extrahiert…");
+    if (getEl("pair-status")) getEl("pair-status").style.display = "";
     API.uploadPair(state.activeId, idx, files[1], files[2])
       .then(function (res) {
         state.profile = res.profile;
@@ -259,29 +267,9 @@
         ink_color: ink ? ink.value : "#000000",
       }).then(function (p) {
         state.profile = p;
-        refreshSettingsPreview();
         ProfileCache.save(state.activeId, function () {});
       }).catch(function () {});
     }, 400);
-  }
-
-  var previewTimer;
-  function refreshSettingsPreview() {
-    clearTimeout(previewTimer);
-    previewTimer = setTimeout(function () {
-      if (!state.activeId || !state.profile || state.profile.glyph_count === 0) {
-        var el = getEl("settings-preview");
-        if (el) el.innerHTML = '<p class="muted" style="font-size:13px">Lade Vorlagen hoch um eine Vorschau zu sehen.</p>';
-        return;
-      }
-      API.render({ text: "Ag", profile_id: state.activeId })
-        .then(function (res) {
-          var el = getEl("settings-preview");
-          if (!el || !res.preview_urls || !res.preview_urls.length) return;
-          el.innerHTML = '<img src="' + res.preview_urls[0] + '" alt="Vorschau" style="max-height:160px; border-radius:8px; border:1px solid var(--border)" />';
-        })
-        .catch(function () {});
-    }, 500);
   }
 
   // ---- Inline new-profile form ----
@@ -332,6 +320,15 @@
 
     on(getEl("profile-name"), "input", autoSaveName);
 
+    // Gear button opens slide-in template panel
+    on(getEl("btn-gear"), "click", openSettingsPanel);
+    on(getEl("btn-panel-close"), "click", closeSettingsPanel);
+    on(getEl("settings-overlay"), "click", closeSettingsPanel);
+
+    // Collapsible settings toggle
+    on(getEl("settings-toggle"), "click", toggleCollapsible);
+
+    // Settings sliders and inputs
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
@@ -346,10 +343,6 @@
     on(getEl("s-ink"), "change", autoSaveSettings);
 
     on(getEl("btn-variant-add"), "click", onAddVariant);
-
-    qa(".tab-btn").forEach(function (btn) {
-      btn.addEventListener("click", function () { activateTab(btn.getAttribute("data-tab")); });
-    });
 
     on(getEl("btn-render"), "click", renderText);
     on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });

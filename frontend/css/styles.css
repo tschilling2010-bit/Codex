@@ -355,3 +355,180 @@ footer.site {
 .card.neon-pulse {
   animation: neon-border-pulse 3s ease-in-out infinite;
 }
+
+/* ============================================================
+   v14 — Redesign: two-column layout, collapsible, settings panel
+   ============================================================ */
+
+/* ------------------------------------------------- Detail top bar */
+
+.detail-top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+
+/* ------------------------------------------------- Two-column layout */
+
+.two-col-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.col-left { min-width: 0; }
+.col-right { min-width: 0; }
+
+@media (max-width: 860px) {
+  .two-col-layout { grid-template-columns: 1fr; }
+}
+
+/* ------------------------------------------------- Collapsible */
+
+.collapsible {
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: background 0.15s var(--ease);
+}
+.collapsible-header:hover {
+  background: var(--surface-muted);
+}
+
+.collapsible-icon {
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 0.25s var(--ease);
+  color: var(--accent);
+}
+
+.collapsible-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s var(--ease), padding 0.35s var(--ease);
+  padding: 0 24px;
+}
+
+.collapsible.open .collapsible-icon {
+  transform: rotate(90deg);
+}
+
+.collapsible.open .collapsible-content {
+  max-height: 400px;
+  padding: 0 24px 20px;
+}
+
+/* Settings row (horizontal controls) */
+
+.settings-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.settings-field {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+
+/* ------------------------------------------------- Gear button */
+
+.gear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s var(--ease);
+  flex-shrink: 0;
+}
+.gear-btn:hover {
+  color: var(--accent);
+  border-color: rgba(0, 212, 255, 0.3);
+  background: var(--surface);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+.gear-btn:active {
+  transform: scale(0.93);
+}
+
+/* ------------------------------------------------- Settings panel (slide-in) */
+
+.settings-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s var(--ease);
+}
+.settings-panel-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 90vw;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.6);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.35s var(--ease);
+}
+.settings-panel.open {
+  transform: translateX(0);
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-panel-close {
+  font-size: 22px;
+  line-height: 1;
+  padding: 6px 12px;
+  min-width: unset;
+}
+
+.settings-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
