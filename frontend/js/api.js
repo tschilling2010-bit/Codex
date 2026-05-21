@@ -78,6 +78,12 @@ var API = (function () {
     render: function (payload) {
       return request("/api/handwriting/render", { method: "POST", body: payload });
     },
+    highlight: function (projectId, highlights) {
+      return request("/api/handwriting/highlight", {
+        method: "POST",
+        body: { project_id: projectId, highlights: highlights }
+      });
+    },
     exportHandwriting: function (projectId, format) {
       var url = format === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image";
       return request(url, { method: "POST", body: { project_id: projectId, format: format } });

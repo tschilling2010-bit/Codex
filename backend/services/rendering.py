@@ -194,12 +194,13 @@ class GlyphRenderer:
     def _lines_remaining(self, line_idx: int) -> int:
         return self.lines_per_page - (line_idx % self.lines_per_page)
 
-    def render(self, text: str) -> List[Image.Image]:
+    def render(self, text: str) -> Tuple[List[Image.Image], List[dict]]:
         text = text.strip("\n")
         if not text:
-            return [self._new_page()]
+            return [self._new_page()], []
 
         pages: List[Image.Image] = [self._new_page()]
+        word_map: List[dict] = []
         line_idx = self.first_text_line
         is_first_page = True
 
@@ -241,7 +242,7 @@ class GlyphRenderer:
             words = content.split(" ")
             usable_w = self.page_w - self.margin_right - x_start
 
-            render_lines: List[List[Tuple[List[Tuple[Image.Image, int]], int]]] = [[]]
+            render_lines: List[List[Tuple[List[Tuple[Image.Image, int]], int, str]]] = [[]]
             cur_x = 0
             for word in words:
                 if not word:
@@ -255,7 +256,7 @@ class GlyphRenderer:
                     render_lines.append([])
                     cur_x = 0
                     space = 0
-                render_lines[-1].append((glyphs, space))
+                render_lines[-1].append((glyphs, space, word))
                 cur_x += space + word_w
 
             lines_needed = len(render_lines)
@@ -273,28 +274,38 @@ class GlyphRenderer:
                 line_dy = int(self.rng.uniform(-0.8, 0.8) * self.jitter)
                 x = x_start
 
-                for glyphs, space in rl:
+                for glyphs, space, word_text in rl:
                     x += space
+                    word_start_x = x
                     for g, above_px in glyphs:
                         dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                         paste_y = bl - above_px + line_dy + dy
                         pages[-1].paste(g, (x, max(0, paste_y)), g)
                         kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
                         x += g.size[0] + kerning
+                    if glyphs:
+                        word_map.append({
+                            "text": word_text,
+                            "page": len(pages) - 1,
+                            "x": word_start_x,
+                            "y": bl - self.glyph_height,
+                            "w": max(1, x - word_start_x),
+                            "h": self.glyph_height + self.descender_space,
+                        })
 
                 if rl_i < lines_needed - 1:
                     advance()
 
             advance()
 
-        return pages
+        return pages, word_map
 
 
 def render_text(
     text: str,
     profile_id: str,
     options: Optional[RenderOptions] = None,
-) -> List[Image.Image]:
+) -> Tuple[List[Image.Image], List[dict]]:
     opts = options or RenderOptions(profile_id=profile_id)
 
     glyph_profile = font_lib.get_glyph_profile(profile_id)
@@ -302,3 +313,33 @@ def render_text(
         raise ValueError("Kein gültiges Profil gefunden. Bitte erstelle zuerst ein Handschrift-Profil.")
 
     return GlyphRenderer(glyph_profile, opts).render(text)
+
+
+def apply_highlights(
+    pages: List[Image.Image],
+    highlights: List[dict],
+    word_map: List[dict],
+) -> List[Image.Image]:
+    by_page: dict = {}
+    for h in highlights:
+        idx = h.get("word_index", -1)
+        if idx < 0 or idx >= len(word_map):
+            continue
+        wb = word_map[idx]
+        by_page.setdefault(wb["page"], []).append((wb, h.get("color", "#FFFF00")))
+
+    result: List[Image.Image] = []
+    for i, page in enumerate(pages):
+        if i not in by_page:
+            result.append(page.copy())
+            continue
+        page_rgba = page.convert("RGBA")
+        overlay = Image.new("RGBA", page.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+        for wb, color in by_page[i]:
+            r, g, b = _hex_to_rgb(color)
+            x1, y1 = wb["x"], wb["y"]
+            x2, y2 = x1 + wb["w"], y1 + wb["h"]
+            draw.rectangle([x1, y1, x2, y2], fill=(r, g, b, 80))
+        result.append(Image.alpha_composite(page_rgba, overlay).convert("RGB"))
+    return result

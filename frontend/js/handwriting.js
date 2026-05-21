@@ -1,7 +1,12 @@
 (function () {
   "use strict";
   var MAX_VARIANTS = 4;
-  var state = { profiles: [], activeId: null, profile: null, projectId: null, variantFiles: {} };
+  var state = {
+    profiles: [], activeId: null, profile: null,
+    projectId: null, variantFiles: {},
+    wordMap: [], pageWidth: 0, pageHeight: 0,
+    highlights: {}, activeHlColor: null
+  };
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -12,9 +17,7 @@
     loadProfiles().then(function () {
       if (state.profiles.length === 0) {
         ProfileCache.restoreAll(function (count) {
-          if (count > 0) {
-            loadProfiles();
-          }
+          if (count > 0) { loadProfiles(); }
         });
       }
     }).catch(function (e) { console.error("loadProfiles error:", e); });
@@ -82,7 +85,6 @@
         "<h3>" + escapeHtml(p.name) + "</h3>" +
         "<p>" + badge + "</p></a>";
     }).join("");
-
     qa(".card.interactive", grid).forEach(function (card) {
       card.addEventListener("click", function (e) {
         e.preventDefault();
@@ -94,6 +96,9 @@
   function openProfile(id) {
     state.activeId = id;
     state.variantFiles = {};
+    state.highlights = {};
+    state.activeHlColor = null;
+    clearHlSelection();
     return API.getProfile(id).then(function (p) {
       state.profile = p;
       showDetail();
@@ -160,9 +165,7 @@
     }
     list.innerHTML = html.join("");
     bindVariantCards(list);
-    if (addBtn) {
-      addBtn.disabled = pairs.length >= MAX_VARIANTS;
-    }
+    if (addBtn) addBtn.disabled = pairs.length >= MAX_VARIANTS;
   }
 
   function variantCardHTML(pair) {
@@ -172,7 +175,6 @@
     var statusHtml = done
       ? '<span style="color:var(--ok);font-size:13px;font-weight:600">' + pair.glyph_count + " Glyphen</span>"
       : '<span class="muted" style="font-size:13px">Noch nicht hochgeladen</span>';
-
     return '<div class="variant-card card" data-variant="' + idx + '" style="padding:18px 22px">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
       "<strong>Variante " + num + "</strong>" + statusHtml + "</div>" +
@@ -295,6 +297,102 @@
     createProfile(name);
   }
 
+  // ---- Highlight ----
+  function clearHlSelection() {
+    qa(".hl-color").forEach(function (b) { b.classList.remove("active"); });
+    state.activeHlColor = null;
+  }
+
+  function onHlColorClick(e) {
+    var btn = e.currentTarget;
+    var color = btn.getAttribute("data-color");
+    if (state.activeHlColor === color) {
+      clearHlSelection();
+      return;
+    }
+    qa(".hl-color").forEach(function (b) { b.classList.remove("active"); });
+    btn.classList.add("active");
+    state.activeHlColor = color;
+  }
+
+  function onWordClick(e) {
+    if (!state.activeHlColor) return;
+    var el = e.currentTarget;
+    var idx = parseInt(el.getAttribute("data-word-idx"), 10);
+    if (isNaN(idx)) return;
+
+    var current = state.highlights[idx];
+    if (current === state.activeHlColor) {
+      delete state.highlights[idx];
+      el.style.background = "";
+    } else {
+      state.highlights[idx] = state.activeHlColor;
+      el.style.background = hexToRgba(state.activeHlColor, 0.35);
+    }
+  }
+
+  function hexToRgba(hex, alpha) {
+    hex = hex.replace("#", "");
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+  }
+
+  function clearAllHighlights() {
+    state.highlights = {};
+    qa(".word-overlay").forEach(function (el) {
+      el.style.background = "";
+    });
+  }
+
+  function getHighlightList() {
+    var list = [];
+    var keys = Object.keys(state.highlights);
+    for (var i = 0; i < keys.length; i++) {
+      list.push({ word_index: parseInt(keys[i], 10), color: state.highlights[keys[i]] });
+    }
+    return list;
+  }
+
+  function applyHighlightsToServer() {
+    var hl = getHighlightList();
+    if (hl.length === 0 || !state.projectId) return Promise.resolve();
+    return API.highlight(state.projectId, hl).then(function (res) {
+      renderPreview(res.preview_urls);
+      reapplyOverlays();
+    });
+  }
+
+  function reapplyOverlays() {
+    if (!state.wordMap.length || !state.pageWidth) return;
+    var containers = qa(".page-container");
+    containers.forEach(function (container, pageIdx) {
+      var existing = qa(".word-overlay", container);
+      existing.forEach(function (el) { el.parentNode.removeChild(el); });
+      buildWordOverlays(container, pageIdx);
+    });
+  }
+
+  function buildWordOverlays(container, pageIdx) {
+    for (var i = 0; i < state.wordMap.length; i++) {
+      var wb = state.wordMap[i];
+      if (wb.page !== pageIdx) continue;
+      var div = document.createElement("div");
+      div.className = "word-overlay";
+      div.setAttribute("data-word-idx", String(i));
+      div.style.left = (wb.x / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.top = (wb.y / state.pageHeight * 100).toFixed(3) + "%";
+      div.style.width = (wb.w / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.height = (wb.h / state.pageHeight * 100).toFixed(3) + "%";
+      if (state.highlights[i]) {
+        div.style.background = hexToRgba(state.highlights[i], 0.35);
+      }
+      div.addEventListener("click", onWordClick);
+      container.appendChild(div);
+    }
+  }
+
   // ---- Bind UI ----
   function bindUI() {
     on(getEl("btn-new-profile"), "click", showNewProfileForm);
@@ -320,15 +418,11 @@
 
     on(getEl("profile-name"), "input", autoSaveName);
 
-    // Gear button opens slide-in template panel
     on(getEl("btn-gear"), "click", openSettingsPanel);
     on(getEl("btn-panel-close"), "click", closeSettingsPanel);
     on(getEl("settings-overlay"), "click", closeSettingsPanel);
-
-    // Collapsible settings toggle
     on(getEl("settings-toggle"), "click", toggleCollapsible);
 
-    // Settings sliders and inputs
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
@@ -348,6 +442,12 @@
     on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });
     on(getEl("btn-png"), "click", function () { doExport("png"); });
     on(getEl("btn-jpg"), "click", function () { doExport("jpg"); });
+
+    // Highlight
+    qa(".hl-color").forEach(function (btn) {
+      btn.addEventListener("click", onHlColorClick);
+    });
+    on(getEl("btn-hl-clear"), "click", clearAllHighlights);
   }
 
   function createProfile(name) {
@@ -365,10 +465,18 @@
     var btn = getEl("btn-render");
     var reset = showSpinner(btn, "Rendere…");
     msg(getEl("status"), "Handschrift wird erzeugt…");
+    state.highlights = {};
+    state.activeHlColor = null;
+    clearHlSelection();
     API.render({ text: text, profile_id: state.activeId })
       .then(function (res) {
         state.projectId = res.project_id;
+        state.wordMap = res.word_map || [];
+        state.pageWidth = res.page_width || 1;
+        state.pageHeight = res.page_height || 1;
         renderPreview(res.preview_urls);
+        var hlBar = getEl("highlight-bar");
+        if (hlBar) hlBar.style.display = state.wordMap.length > 0 ? "" : "none";
         [getEl("btn-pdf"), getEl("btn-png"), getEl("btn-jpg")].forEach(function (b) { if (b) b.disabled = false; });
         msg(getEl("status"), "Fertig — " + res.pages + " Seite(n).", "ok");
       })
@@ -379,9 +487,22 @@
   function renderPreview(urls) {
     var el = getEl("preview");
     if (!el) return;
-    el.innerHTML = urls.length
-      ? urls.map(function (u) { return '<div class="page-shadow"><img src="' + u + '" alt="Vorschau" /></div>'; }).join("")
-      : '<div class="empty-state">Keine Seiten.</div>';
+    if (!urls.length) {
+      el.innerHTML = '<div class="empty-state">Keine Seiten.</div>';
+      return;
+    }
+    el.innerHTML = urls.map(function (u, i) {
+      return '<div class="page-container" data-page="' + i + '">' +
+        '<img src="' + u + '" alt="Seite ' + (i + 1) + '" />' +
+        '</div>';
+    }).join("");
+
+    if (state.wordMap.length > 0 && state.pageWidth > 0) {
+      qa(".page-container", el).forEach(function (container) {
+        var pageIdx = parseInt(container.getAttribute("data-page"), 10);
+        buildWordOverlays(container, pageIdx);
+      });
+    }
   }
 
   function doExport(fmt) {
@@ -389,7 +510,12 @@
     var btnMap = { pdf: "btn-pdf", png: "btn-png", jpg: "btn-jpg" };
     var btn = getEl(btnMap[fmt]);
     var reset = showSpinner(btn, fmt.toUpperCase());
-    API.exportHandwriting(state.projectId, fmt)
+    var pre = getHighlightList().length > 0
+      ? applyHighlightsToServer()
+      : Promise.resolve();
+    pre.then(function () {
+      return API.exportHandwriting(state.projectId, fmt);
+    })
       .then(function (res) {
         var a = document.createElement("a");
         a.href = res.url;

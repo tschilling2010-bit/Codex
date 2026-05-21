@@ -17,6 +17,7 @@ from .. import config
 from ..models.schemas import (
     ExportRequest,
     ExportResponse,
+    HighlightRequest,
     ProfileCreateRequest,
     ProfileInfo,
     ProfileRenameRequest,
@@ -25,7 +26,7 @@ from ..models.schemas import (
     RenderResponse,
 )
 from ..services import export, fonts, projects, template_service
-from ..services.rendering import RenderOptions, render_text
+from ..services.rendering import RenderOptions, apply_highlights, render_text
 
 log = logging.getLogger(__name__)
 router = APIRouter()
@@ -294,12 +295,52 @@ def render(req: RenderRequest) -> RenderResponse:
         size_scale=req.size_scale if req.size_scale is not None else settings["size_scale"],
         thickness=req.thickness if req.thickness is not None else settings["thickness"],
     )
-    pages = render_text(req.text, profile_id=req.profile_id, options=options)
+    pages, word_map = render_text(req.text, profile_id=req.profile_id, options=options)
     title = req.text.strip().split("\n")[0][:40] or "Handschrift"
     project = projects.new_project("handwriting", title)
     preview_urls = projects.save_pages(project, pages)
+    projects.save_original_pages(project, pages)
+    projects.save_word_map(project.id, word_map)
     return RenderResponse(
-        project_id=project.id, pages=len(pages), preview_urls=preview_urls
+        project_id=project.id,
+        pages=len(pages),
+        preview_urls=preview_urls,
+        word_map=word_map,
+        page_width=config.PAGE_WIDTH_PX,
+        page_height=config.PAGE_HEIGHT_PX,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Highlighting
+# ---------------------------------------------------------------------------
+
+
+@router.post("/highlight", response_model=RenderResponse)
+def highlight(req: HighlightRequest) -> RenderResponse:
+    project = projects.load_meta(req.project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
+
+    word_map = projects.load_word_map(req.project_id)
+    if not word_map:
+        raise HTTPException(status_code=400, detail="Keine Wort-Positionen vorhanden.")
+
+    original_pages = projects.load_original_pages(req.project_id)
+    if not original_pages:
+        raise HTTPException(status_code=400, detail="Keine Seiten vorhanden.")
+
+    highlights = [h.model_dump() for h in req.highlights]
+    highlighted = apply_highlights(original_pages, highlights, word_map)
+    preview_urls = projects.save_pages(project, highlighted)
+
+    return RenderResponse(
+        project_id=req.project_id,
+        pages=len(highlighted),
+        preview_urls=preview_urls,
+        word_map=word_map,
+        page_width=config.PAGE_WIDTH_PX,
+        page_height=config.PAGE_HEIGHT_PX,
     )
 
 

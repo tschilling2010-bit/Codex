@@ -20,10 +20,32 @@ class RenderRequest(BaseModel):
     thickness: Optional[float] = Field(None, ge=0.5, le=2.5)
 
 
+class WordBoxSchema(BaseModel):
+    text: str
+    page: int
+    x: int
+    y: int
+    w: int
+    h: int
+
+
 class RenderResponse(BaseModel):
     project_id: str
     pages: int
     preview_urls: List[str]
+    word_map: List[WordBoxSchema] = []
+    page_width: int = 0
+    page_height: int = 0
+
+
+class HighlightItem(BaseModel):
+    word_index: int
+    color: str = "#FFFF00"
+
+
+class HighlightRequest(BaseModel):
+    project_id: str
+    highlights: List[HighlightItem]
 
 
 class ExportRequest(BaseModel):

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=14" />
+  <link rel="stylesheet" href="/css/styles.css?v=15" />
 </head>
 <body>
   <header class="nav">
@@ -73,6 +73,15 @@
             <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
             <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
             <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
+          </div>
+          <div id="highlight-bar" class="highlight-bar" style="display:none">
+            <span class="field" style="margin:0;font-size:12px">Markieren:</span>
+            <button class="hl-color" data-color="#FFFF00" style="background:#FFFF00" title="Gelb"></button>
+            <button class="hl-color" data-color="#90EE90" style="background:#90EE90" title="Gr&uuml;n"></button>
+            <button class="hl-color" data-color="#FFB6C1" style="background:#FFB6C1" title="Rosa"></button>
+            <button class="hl-color" data-color="#87CEEB" style="background:#87CEEB" title="Blau"></button>
+            <button class="hl-color" data-color="#FFA500" style="background:#FFA500" title="Orange"></button>
+            <button class="btn btn-ghost" id="btn-hl-clear" style="padding:6px 12px;font-size:12px">Alle entfernen</button>
           </div>
           <div id="status" class="status">Bereit.</div>
         </section>
@@ -143,9 +152,9 @@
 
   <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
 
-  <script src="/js/common.js?v=14"></script>
-  <script src="/js/api.js?v=14"></script>
-  <script src="/js/persist.js?v=14"></script>
-  <script src="/js/handwriting.js?v=14"></script>
+  <script src="/js/common.js?v=15"></script>
+  <script src="/js/api.js?v=15"></script>
+  <script src="/js/persist.js?v=15"></script>
+  <script src="/js/handwriting.js?v=15"></script>
 </body>
 </html>

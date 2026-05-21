@@ -104,6 +104,46 @@ def save_pages(project: Project, pages: List[Image.Image]) -> List[str]:
     return urls
 
 
+def save_original_pages(project: Project, pages: List[Image.Image]) -> None:
+    folder = _project_dir(project.id) / "pages-original"
+    folder.mkdir(parents=True, exist_ok=True)
+    for f in folder.glob("*.png"):
+        f.unlink()
+    for i, p in enumerate(pages, start=1):
+        path = folder / f"page-{i:02d}.png"
+        if p.mode != "RGB":
+            bg = Image.new("RGB", p.size, "white")
+            if "A" in p.mode:
+                bg.paste(p, mask=p.split()[-1])
+            else:
+                bg.paste(p)
+            bg.save(path, "PNG")
+        else:
+            p.save(path, "PNG")
+
+
+def load_original_pages(project_id: str) -> List[Image.Image]:
+    folder = _project_dir(project_id) / "pages-original"
+    if not folder.exists():
+        folder = _project_dir(project_id) / "pages"
+    pages: List[Image.Image] = []
+    for path in sorted(folder.glob("*.png")):
+        pages.append(Image.open(path).convert("RGB"))
+    return pages
+
+
+def save_word_map(project_id: str, word_map: list) -> None:
+    path = _project_dir(project_id) / "word-map.json"
+    path.write_text(json.dumps(word_map, ensure_ascii=False))
+
+
+def load_word_map(project_id: str) -> list:
+    path = _project_dir(project_id) / "word-map.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text())
+
+
 def page_file(project_id: str, page_number: int) -> Optional[Path]:
     path = _project_dir(project_id) / "pages" / f"page-{page_number:02d}.png"
     return path if path.exists() else None
