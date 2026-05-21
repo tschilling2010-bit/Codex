@@ -41,6 +41,7 @@ class RenderResponse(BaseModel):
 class HighlightItem(BaseModel):
     word_index: int
     color: str = "#FFFF00"
+    mode: str = "marker"
 
 
 class HighlightRequest(BaseModel):

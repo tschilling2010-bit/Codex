@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=15" />
+  <link rel="stylesheet" href="/css/styles.css?v=16" />
 </head>
 <body>
   <header class="nav">
@@ -14,147 +14,145 @@
     </div>
   </header>
 
-  <main class="container" style="padding-top:40px; padding-bottom:64px">
+  <main class="container" style="padding-top:32px; padding-bottom:64px">
 
-    <!-- ======================== VIEW 1: Profile List ======================== -->
-    <div id="view-list" class="stack-lg">
-      <div class="page-header" style="padding-bottom:8px">
-        <h2>Meine Schriften</h2>
-      </div>
-
-      <div id="profile-grid" class="grid cols-3"></div>
-
-      <div style="text-align:center; padding:12px 0">
-        <button class="btn btn-primary" id="btn-new-profile" style="padding:14px 32px; font-size:15px">+ Neue Schrift</button>
-      </div>
-
-      <div id="new-profile-form" style="display:none; max-width:400px; margin:0 auto; padding:8px 0">
-        <div class="card" style="padding:20px">
-          <h3 style="margin:0 0 12px 0; font-size:17px">Neue Schrift</h3>
-          <input id="new-profile-name" class="input" placeholder="z.B. Meine Handschrift" style="width:100%; margin-bottom:12px; font-size:16px; padding:12px" />
-          <div style="display:flex; gap:8px; justify-content:flex-end">
-            <button class="btn btn-ghost" id="btn-new-cancel" style="padding:10px 20px">Abbrechen</button>
-            <button class="btn btn-primary" id="btn-new-confirm" style="padding:10px 20px">Erstellen</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ======================== VIEW 2: Profile Detail ======================== -->
-    <div id="view-detail" style="display:none">
-
-      <!-- Top bar: back, profile name, gear, delete -->
-      <div class="detail-top-bar">
-        <button class="btn btn-ghost" id="btn-back" style="padding:8px 16px">&larr; Zur&uuml;ck</button>
-        <div style="flex:1; min-width:150px">
-          <input id="profile-name" class="input" style="font-size:20px; font-weight:700; border:none; padding:8px 0; background:transparent; width:100%" placeholder="Profilname" />
-        </div>
-        <button class="gear-btn" id="btn-gear" title="Vorlagen &amp; Einstellungen">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="10" cy="10" r="3"/>
-            <path d="M16.47 12.47a1.5 1.5 0 0 0 .3 1.65l.05.06a1.82 1.82 0 1 1-2.57 2.57l-.06-.06a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.91 1.37v.17a1.82 1.82 0 1 1-3.64 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.06.06a1.82 1.82 0 1 1-2.57-2.57l.06-.06a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.91h-.17a1.82 1.82 0 1 1 0-3.64h.09a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.06-.06a1.82 1.82 0 1 1 2.57-2.57l.06.06a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .91-1.37v-.17a1.82 1.82 0 1 1 3.64 0v.09a1.5 1.5 0 0 0 .91 1.37 1.5 1.5 0 0 0 1.65-.3l.06-.06a1.82 1.82 0 1 1 2.57 2.57l-.06.06a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.91h.17a1.82 1.82 0 0 1 0 3.64h-.09a1.5 1.5 0 0 0-1.37.91z"/>
-          </svg>
+    <!-- Editor top bar -->
+    <div class="editor-top">
+      <div class="profile-selector" id="profile-selector">
+        <button class="profile-btn" id="profile-btn" type="button">
+          <span id="profile-btn-name">Schrift w&auml;hlen&hellip;</span>
+          <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1.5l5 5 5-5"/></svg>
         </button>
-        <button class="btn btn-soft" id="btn-delete" style="color:var(--err)">L&ouml;schen</button>
-      </div>
-
-      <!-- Two-column main area -->
-      <div class="two-col-layout">
-
-        <!-- LEFT: Text input, render, export, status -->
-        <section class="card stack col-left">
-          <div>
-            <label class="field" for="text">Dein Text</label>
-            <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
-          </div>
-          <div class="toolbar">
-            <button class="btn btn-primary" id="btn-render" disabled>Rendern</button>
-            <div class="toolbar-spacer"></div>
-            <button class="btn btn-soft" id="btn-pdf" disabled>PDF</button>
-            <button class="btn btn-soft" id="btn-png" disabled>PNG</button>
-            <button class="btn btn-soft" id="btn-jpg" disabled>JPG</button>
-          </div>
-          <div id="highlight-bar" class="highlight-bar" style="display:none">
-            <span class="field" style="margin:0;font-size:12px">Markieren:</span>
-            <button class="hl-color" data-color="#FFFF00" style="background:#FFFF00" title="Gelb"></button>
-            <button class="hl-color" data-color="#90EE90" style="background:#90EE90" title="Gr&uuml;n"></button>
-            <button class="hl-color" data-color="#FFB6C1" style="background:#FFB6C1" title="Rosa"></button>
-            <button class="hl-color" data-color="#87CEEB" style="background:#87CEEB" title="Blau"></button>
-            <button class="hl-color" data-color="#FFA500" style="background:#FFA500" title="Orange"></button>
-            <button class="btn btn-ghost" id="btn-hl-clear" style="padding:6px 12px;font-size:12px">Alle entfernen</button>
-          </div>
-          <div id="status" class="status">Bereit.</div>
-        </section>
-
-        <!-- RIGHT: Preview -->
-        <section class="col-right">
-          <h3 style="margin:0 0 12px; font-size:18px">Vorschau</h3>
-          <div id="preview" class="preview-wrap">
-            <div class="empty-state">Text eingeben und &bdquo;Rendern&ldquo; klicken.</div>
-          </div>
-        </section>
-      </div>
-
-      <!-- Collapsible Einstellungen below main area -->
-      <div class="collapsible" id="settings-collapsible">
-        <div class="collapsible-header" id="settings-toggle">
-          <span class="collapsible-icon">&#9654;</span>
-          <span>Einstellungen</span>
-        </div>
-        <div class="collapsible-content">
-          <div class="settings-row">
-            <div class="settings-field">
-              <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
-              <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
-            </div>
-            <div class="settings-field">
-              <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
-              <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
-            </div>
-            <div class="settings-field">
-              <label class="field" for="s-ink">Tintenfarbe</label>
-              <input id="s-ink" class="input" type="color" value="#000000" style="height:44px; padding:4px 8px" />
-            </div>
-            <div class="settings-field">
-              <label class="field" for="s-sheet">Blattart</label>
-              <select id="s-sheet" class="select">
-                <option value="liniert">Liniert</option>
-                <option value="kariert">Kariert</option>
-                <option value="blanko">Blanko</option>
-              </select>
+        <div class="profile-dropdown" id="profile-dropdown" style="display:none">
+          <div id="profile-dropdown-list"></div>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item dropdown-add" id="btn-add-profile" type="button">+ Neue Schrift</button>
+          <div id="new-profile-inline" style="display:none;padding:8px 12px">
+            <input id="new-profile-name" class="input" placeholder="z.B. Meine Handschrift" style="font-size:14px;padding:8px 10px;margin-bottom:6px" />
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary" id="btn-new-confirm" type="button" style="padding:6px 16px;font-size:13px">Erstellen</button>
+              <button class="btn btn-ghost" id="btn-new-cancel" type="button" style="padding:6px 12px;font-size:13px">&times;</button>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Settings panel (slide-in from right, for Vorlagen / templates) -->
-      <div class="settings-panel-overlay" id="settings-overlay"></div>
-      <div class="settings-panel" id="settings-panel">
-        <div class="settings-panel-header">
-          <h3 style="margin:0; font-size:18px">Vorlagen</h3>
-          <button class="btn btn-ghost settings-panel-close" id="btn-panel-close">&times;</button>
-        </div>
-        <div class="settings-panel-body stack">
-          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
-            <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
-            <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
-          </div>
-          <div id="pair-status" class="status" style="display:none"></div>
-          <div id="variants-list" class="stack"></div>
-          <div style="margin-top:8px">
-            <button class="btn btn-primary" id="btn-variant-add">+ Variante hinzuf&uuml;gen</button>
-          </div>
-        </div>
-      </div>
-
+      <button class="gear-btn" id="btn-gear" type="button" title="Vorlagen &amp; Einstellungen">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="10" cy="10" r="3"/>
+          <path d="M16.47 12.47a1.5 1.5 0 0 0 .3 1.65l.05.06a1.82 1.82 0 1 1-2.57 2.57l-.06-.06a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.91 1.37v.17a1.82 1.82 0 1 1-3.64 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.06.06a1.82 1.82 0 1 1-2.57-2.57l.06-.06a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.91h-.17a1.82 1.82 0 1 1 0-3.64h.09a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.06-.06a1.82 1.82 0 1 1 2.57-2.57l.06.06a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .91-1.37v-.17a1.82 1.82 0 1 1 3.64 0v.09a1.5 1.5 0 0 0 .91 1.37 1.5 1.5 0 0 0 1.65-.3l.06-.06a1.82 1.82 0 1 1 2.57 2.57l-.06.06a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.91h.17a1.82 1.82 0 0 1 0 3.64h-.09a1.5 1.5 0 0 0-1.37.91z"/>
+        </svg>
+      </button>
+      <button class="btn btn-soft btn-sm" id="btn-delete" type="button" style="color:var(--err)">L&ouml;schen</button>
     </div>
+
+    <!-- Two-column layout -->
+    <div class="two-col-layout">
+
+      <!-- LEFT: Text input, render, highlight, export -->
+      <section class="card stack col-left">
+        <div>
+          <label class="field" for="text">Dein Text</label>
+          <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn-primary" id="btn-render" type="button" disabled>Rendern</button>
+          <div class="toolbar-spacer"></div>
+          <button class="btn btn-soft" id="btn-pdf" type="button" disabled>PDF</button>
+          <button class="btn btn-soft" id="btn-png" type="button" disabled>PNG</button>
+          <button class="btn btn-soft" id="btn-jpg" type="button" disabled>JPG</button>
+        </div>
+
+        <!-- Highlight bar -->
+        <div id="highlight-bar" class="highlight-bar" style="display:none">
+          <div class="hl-mode-toggle">
+            <button class="hl-mode-btn active" data-mode="marker" type="button">Marker</button>
+            <button class="hl-mode-btn" data-mode="text" type="button">Buchstaben</button>
+          </div>
+          <div class="hl-color-row">
+            <button class="hl-color" data-color="#FFFF00" style="background:#FFFF00" title="Gelb" type="button"></button>
+            <button class="hl-color" data-color="#90EE90" style="background:#90EE90" title="Gr&uuml;n" type="button"></button>
+            <button class="hl-color" data-color="#FFB6C1" style="background:#FFB6C1" title="Rosa" type="button"></button>
+            <button class="hl-color" data-color="#87CEEB" style="background:#87CEEB" title="Blau" type="button"></button>
+            <button class="hl-color" data-color="#FFA500" style="background:#FFA500" title="Orange" type="button"></button>
+            <span class="hl-sep"></span>
+            <div id="hl-favorites" class="hl-favorites"></div>
+            <input type="color" id="hl-custom-color" class="hl-custom-input" value="#FF0000" title="Eigene Farbe" />
+            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Aktuelle Farbe als Favorit speichern">&#9733;</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" id="btn-hl-clear" type="button">Alle entfernen</button>
+        </div>
+
+        <div id="status" class="status">Bereit.</div>
+      </section>
+
+      <!-- RIGHT: Preview -->
+      <section class="col-right">
+        <h3 style="margin:0 0 12px; font-size:18px">Vorschau</h3>
+        <div id="preview" class="preview-wrap">
+          <div class="empty-state">Text eingeben und &bdquo;Rendern&ldquo; klicken.</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Collapsible Einstellungen -->
+    <div class="collapsible" id="settings-collapsible">
+      <div class="collapsible-header" id="settings-toggle">
+        <span class="collapsible-icon">&#9654;</span>
+        <span>Einstellungen</span>
+      </div>
+      <div class="collapsible-content">
+        <div class="settings-row">
+          <div class="settings-field">
+            <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
+            <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
+          </div>
+          <div class="settings-field">
+            <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
+            <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
+          </div>
+          <div class="settings-field">
+            <label class="field" for="s-ink">Tintenfarbe</label>
+            <input id="s-ink" class="input" type="color" value="#000000" style="height:40px; padding:4px 8px" />
+          </div>
+          <div class="settings-field">
+            <label class="field" for="s-sheet">Blattart</label>
+            <select id="s-sheet" class="select">
+              <option value="liniert">Liniert</option>
+              <option value="kariert">Kariert</option>
+              <option value="blanko">Blanko</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings panel (slide-in from right, for Vorlagen / templates) -->
+    <div class="settings-panel-overlay" id="settings-overlay"></div>
+    <div class="settings-panel" id="settings-panel">
+      <div class="settings-panel-header">
+        <h3 style="margin:0; font-size:18px">Vorlagen</h3>
+        <button class="btn btn-ghost settings-panel-close" id="btn-panel-close" type="button">&times;</button>
+      </div>
+      <div class="settings-panel-body stack">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
+          <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
+          <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
+        </div>
+        <div id="pair-status" class="status" style="display:none"></div>
+        <div id="variants-list" class="stack"></div>
+        <div style="margin-top:8px">
+          <button class="btn btn-primary" id="btn-variant-add" type="button">+ Variante hinzuf&uuml;gen</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 
   <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
 
-  <script src="/js/common.js?v=15"></script>
-  <script src="/js/api.js?v=15"></script>
-  <script src="/js/persist.js?v=15"></script>
-  <script src="/js/handwriting.js?v=15"></script>
+  <script src="/js/common.js?v=16"></script>
+  <script src="/js/api.js?v=16"></script>
+  <script src="/js/persist.js?v=16"></script>
+  <script src="/js/handwriting.js?v=16"></script>
 </body>
 </html>

@@ -1,18 +1,23 @@
 (function () {
   "use strict";
   var MAX_VARIANTS = 4;
+  var HL_FAV_KEY = "hefterpro_hl_favs";
   var state = {
     profiles: [], activeId: null, profile: null,
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
-    highlights: {}, activeHlColor: null
+    highlights: {}, activeHlColor: null, hlMode: "marker",
+    hlFavorites: []
   };
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
   function on(el, evt, fn) { if (el) el.addEventListener(evt, fn); }
 
+  // ---- Init ----
   document.addEventListener("DOMContentLoaded", function () {
+    loadHlFavorites();
+    renderHlFavorites();
     try { bindUI(); } catch (e) { console.error("bindUI error:", e); }
     loadProfiles().then(function () {
       if (state.profiles.length === 0) {
@@ -23,23 +28,123 @@
     }).catch(function (e) { console.error("loadProfiles error:", e); });
   });
 
-  // ---- Views ----
-  function showList() {
-    state.activeId = null;
-    state.profile = null;
-    var vl = getEl("view-list"), vd = getEl("view-detail");
-    if (vl) vl.style.display = "";
-    if (vd) vd.style.display = "none";
-    hideNewProfileForm();
-    closeSettingsPanel();
+  // ---- Profile dropdown ----
+  var dropdownOpen = false;
+  function toggleDropdown() {
+    dropdownOpen = !dropdownOpen;
+    var dd = getEl("profile-dropdown");
+    if (dd) dd.style.display = dropdownOpen ? "" : "none";
+    if (dropdownOpen) renderDropdownList();
   }
-  function showDetail() {
-    var vl = getEl("view-list"), vd = getEl("view-detail");
-    if (vl) vl.style.display = "none";
-    if (vd) vd.style.display = "";
+  function closeDropdown() {
+    dropdownOpen = false;
+    var dd = getEl("profile-dropdown");
+    if (dd) dd.style.display = "none";
+    var inl = getEl("new-profile-inline");
+    if (inl) inl.style.display = "none";
   }
 
-  // ---- Settings panel (slide-in) ----
+  function renderDropdownList() {
+    var list = getEl("profile-dropdown-list");
+    if (!list) return;
+    if (state.profiles.length === 0) {
+      list.innerHTML = '<div style="padding:8px 14px;color:var(--text-muted);font-size:13px">Keine Schriften</div>';
+      return;
+    }
+    list.innerHTML = state.profiles.map(function (p) {
+      var cls = "dropdown-item" + (p.id === state.activeId ? " active" : "");
+      var badge = p.glyph_count > 0 ? " (" + p.glyph_count + ")" : "";
+      return '<button class="' + cls + '" data-id="' + p.id + '" type="button">' +
+        escapeHtml(p.name) + '<span class="muted" style="font-size:12px">' + badge + '</span></button>';
+    }).join("");
+    qa(".dropdown-item[data-id]", list).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        closeDropdown();
+        selectProfile(btn.getAttribute("data-id"));
+      });
+    });
+  }
+
+  function showInlineNew() {
+    var inl = getEl("new-profile-inline");
+    var inp = getEl("new-profile-name");
+    if (inl) inl.style.display = "";
+    if (inp) { inp.value = ""; inp.focus(); }
+  }
+  function submitNewProfile() {
+    var inp = getEl("new-profile-name");
+    var name = inp ? inp.value.trim() : "";
+    if (!name) return;
+    closeDropdown();
+    API.createProfile(name).then(function (p) {
+      return loadProfiles().then(function () { selectProfile(p.id); });
+    }).catch(function (e) { alert("Fehler: " + e.message); });
+  }
+
+  // ---- Profiles ----
+  function loadProfiles() {
+    return API.listProfiles().then(function (list) {
+      state.profiles = list;
+      if (list.length > 0 && !state.activeId) {
+        selectProfile(list[0].id);
+      } else if (state.activeId) {
+        updateProfileBtnName();
+      }
+      if (list.length === 0) {
+        updateProfileBtnName();
+        updateRenderButton();
+      }
+    }).catch(function () {});
+  }
+
+  function selectProfile(id) {
+    state.activeId = id;
+    state.variantFiles = {};
+    state.highlights = {};
+    state.activeHlColor = null;
+    state.projectId = null;
+    clearHlSelection();
+    hideHighlightBar();
+    clearPreview();
+    return API.getProfile(id).then(function (p) {
+      state.profile = p;
+      updateProfileBtnName();
+      applySettingsToUI(p.settings);
+      ensureFirstVariant().then(function () {
+        renderVariants();
+        updateTemplateLink();
+        updateRenderButton();
+      });
+    }).catch(function (e) { alert("Fehler: " + e.message); });
+  }
+
+  function updateProfileBtnName() {
+    var el = getEl("profile-btn-name");
+    if (!el) return;
+    if (state.profile) {
+      el.textContent = state.profile.name;
+    } else if (state.profiles.length === 0) {
+      el.textContent = "Schrift erstellen…";
+    } else {
+      el.textContent = "Schrift wählen…";
+    }
+  }
+
+  function clearPreview() {
+    var el = getEl("preview");
+    if (el) el.innerHTML = '<div class="empty-state">Text eingeben und „Rendern“ klicken.</div>';
+    [getEl("btn-pdf"), getEl("btn-png"), getEl("btn-jpg")].forEach(function (b) { if (b) b.disabled = true; });
+  }
+
+  function ensureFirstVariant() {
+    var pairs = (state.profile && state.profile.pairs) || [];
+    if (pairs.length > 0) return Promise.resolve();
+    return API.createPair(state.activeId, 0)
+      .then(function () { return API.getProfile(state.activeId); })
+      .then(function (p) { state.profile = p; });
+  }
+
+  // ---- Settings panel ----
   function openSettingsPanel() {
     var panel = getEl("settings-panel");
     var overlay = getEl("settings-overlay");
@@ -53,74 +158,9 @@
     if (overlay) overlay.classList.remove("visible");
   }
 
-  // ---- Collapsible settings ----
   function toggleCollapsible() {
     var el = getEl("settings-collapsible");
     if (el) el.classList.toggle("open");
-  }
-
-  // ---- Profiles ----
-  function loadProfiles() {
-    var grid = getEl("profile-grid");
-    return API.listProfiles().then(function (list) {
-      state.profiles = list;
-      renderProfileGrid();
-    }).catch(function (e) {
-      if (grid) grid.innerHTML = '<p class="muted">Fehler: ' + escapeHtml(e.message) + "</p>";
-    });
-  }
-
-  function renderProfileGrid() {
-    var grid = getEl("profile-grid");
-    if (!grid) return;
-    if (state.profiles.length === 0) {
-      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">Noch keine Schriften erstellt.</div>';
-      return;
-    }
-    grid.innerHTML = state.profiles.map(function (p) {
-      var badge = p.glyph_count > 0
-        ? '<span style="color:var(--ok);font-size:13px">' + p.glyph_count + " Glyphen</span>"
-        : '<span class="muted" style="font-size:13px">Keine Vorlagen</span>';
-      return '<a class="card interactive" data-id="' + p.id + '" href="#">' +
-        "<h3>" + escapeHtml(p.name) + "</h3>" +
-        "<p>" + badge + "</p></a>";
-    }).join("");
-    qa(".card.interactive", grid).forEach(function (card) {
-      card.addEventListener("click", function (e) {
-        e.preventDefault();
-        openProfile(card.getAttribute("data-id"));
-      });
-    });
-  }
-
-  function openProfile(id) {
-    state.activeId = id;
-    state.variantFiles = {};
-    state.highlights = {};
-    state.activeHlColor = null;
-    clearHlSelection();
-    return API.getProfile(id).then(function (p) {
-      state.profile = p;
-      showDetail();
-      var nameEl = getEl("profile-name");
-      if (nameEl) nameEl.value = p.name;
-      applySettingsToUI(p.settings);
-      ensureFirstVariant().then(function () {
-        renderVariants();
-        updateTemplateLink();
-        updateRenderButton();
-      });
-    }).catch(function (e) {
-      alert("Fehler: " + e.message);
-    });
-  }
-
-  function ensureFirstVariant() {
-    var pairs = (state.profile && state.profile.pairs) || [];
-    if (pairs.length > 0) return Promise.resolve();
-    return API.createPair(state.activeId, 0)
-      .then(function () { return API.getProfile(state.activeId); })
-      .then(function (p) { state.profile = p; });
   }
 
   // ---- Settings ----
@@ -157,34 +197,28 @@
     if (!list || !state.profile) return;
     var pairs = state.profile.pairs || [];
     var html = [];
-    for (var i = 0; i < pairs.length; i++) {
-      html.push(variantCardHTML(pairs[i]));
-    }
-    if (html.length === 0) {
-      html.push('<div class="empty-state">Keine Varianten vorhanden.</div>');
-    }
+    for (var i = 0; i < pairs.length; i++) { html.push(variantCardHTML(pairs[i])); }
+    if (html.length === 0) html.push('<div class="empty-state">Keine Varianten vorhanden.</div>');
     list.innerHTML = html.join("");
     bindVariantCards(list);
     if (addBtn) addBtn.disabled = pairs.length >= MAX_VARIANTS;
   }
 
   function variantCardHTML(pair) {
-    var idx = pair.index;
-    var num = idx + 1;
+    var idx = pair.index, num = idx + 1;
     var done = !!pair.uploaded_at;
     var statusHtml = done
       ? '<span style="color:var(--ok);font-size:13px;font-weight:600">' + pair.glyph_count + " Glyphen</span>"
       : '<span class="muted" style="font-size:13px">Noch nicht hochgeladen</span>';
-    return '<div class="variant-card card" data-variant="' + idx + '" style="padding:18px 22px">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">' +
+    return '<div class="variant-card card" data-variant="' + idx + '" style="padding:16px 20px">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">' +
       "<strong>Variante " + num + "</strong>" + statusHtml + "</div>" +
       '<div class="field-row">' +
-      '<div style="flex:1"><label class="field">Seite 1 (Buchstaben)</label>' +
-      '<input type="file" class="var-page1" accept="image/*" style="font-size:16px;padding:4px 0;width:100%" /></div>' +
-      '<div style="flex:1"><label class="field">Seite 2 (Sonderzeichen)</label>' +
-      '<input type="file" class="var-page2" accept="image/*" style="font-size:16px;padding:4px 0;width:100%" /></div></div>' +
-      '<div style="margin-top:12px"><button class="btn btn-primary btn-var-upload" disabled>Hochladen</button></div>' +
-      "</div>";
+      '<div style="flex:1"><label class="field">Seite 1</label>' +
+      '<input type="file" class="var-page1" accept="image/*" style="font-size:15px;width:100%" /></div>' +
+      '<div style="flex:1"><label class="field">Seite 2</label>' +
+      '<input type="file" class="var-page2" accept="image/*" style="font-size:15px;width:100%" /></div></div>' +
+      '<div style="margin-top:10px"><button class="btn btn-primary btn-sm btn-var-upload" disabled>Hochladen</button></div></div>';
   }
 
   function bindVariantCards(root) {
@@ -210,18 +244,19 @@
     var files = state.variantFiles[idx] || {};
     if (!files[1] || !files[2]) return;
     var reset = showSpinner(btn, "Extrahiere…");
-    msg(getEl("pair-status"), "Variante " + (idx + 1) + ": Buchstaben werden extrahiert…");
-    if (getEl("pair-status")) getEl("pair-status").style.display = "";
+    var ps = getEl("pair-status");
+    msg(ps, "Variante " + (idx + 1) + ": wird extrahiert…");
+    if (ps) ps.style.display = "";
     API.uploadPair(state.activeId, idx, files[1], files[2])
       .then(function (res) {
         state.profile = res.profile;
         state.variantFiles[idx] = {};
         renderVariants();
         updateRenderButton();
-        msg(getEl("pair-status"), "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen extrahiert!", "ok");
+        msg(ps, "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen!", "ok");
         ProfileCache.save(state.activeId, function () {});
       })
-      .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
+      .catch(function (e) { msg(ps, "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
@@ -238,25 +273,13 @@
     var reset = showSpinner(btn, "Erstelle…");
     API.createPair(state.activeId, free)
       .then(function () { return API.getProfile(state.activeId); })
-      .then(function (p) { state.profile = p; renderVariants(); msg(getEl("pair-status"), "Variante " + (free + 1) + " erstellt.", "ok"); })
+      .then(function (p) { state.profile = p; renderVariants(); })
       .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
   // ---- Auto-save ----
   var saveNameTimer, saveSettingsTimer;
-  function autoSaveName() {
-    clearTimeout(saveNameTimer);
-    saveNameTimer = setTimeout(function () {
-      var el = getEl("profile-name");
-      var name = el ? el.value.trim() : "";
-      if (!name || !state.activeId) return;
-      API.renameProfile(state.activeId, name).then(function (p) {
-        state.profile = p;
-        ProfileCache.save(state.activeId, function () {});
-      }).catch(function () {});
-    }, 600);
-  }
   function autoSaveSettings() {
     clearTimeout(saveSettingsTimer);
     saveSettingsTimer = setTimeout(function () {
@@ -274,33 +297,15 @@
     }, 400);
   }
 
-  // ---- Inline new-profile form ----
-  function showNewProfileForm() {
-    var form = getEl("new-profile-form");
-    var inp = getEl("new-profile-name");
-    var btn = getEl("btn-new-profile");
-    if (form) form.style.display = "";
-    if (btn) btn.style.display = "none";
-    if (inp) { inp.value = ""; inp.focus(); }
-  }
-  function hideNewProfileForm() {
-    var form = getEl("new-profile-form");
-    var btn = getEl("btn-new-profile");
-    if (form) form.style.display = "none";
-    if (btn) btn.style.display = "";
-  }
-  function submitNewProfile() {
-    var inp = getEl("new-profile-name");
-    var name = inp ? inp.value.trim() : "";
-    if (!name) return;
-    hideNewProfileForm();
-    createProfile(name);
+  // ---- Highlight system ----
+  function clearHlSelection() {
+    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
+    state.activeHlColor = null;
   }
 
-  // ---- Highlight ----
-  function clearHlSelection() {
-    qa(".hl-color").forEach(function (b) { b.classList.remove("active"); });
-    state.activeHlColor = null;
+  function hideHighlightBar() {
+    var bar = getEl("highlight-bar");
+    if (bar) bar.style.display = "none";
   }
 
   function onHlColorClick(e) {
@@ -310,25 +315,67 @@
       clearHlSelection();
       return;
     }
-    qa(".hl-color").forEach(function (b) { b.classList.remove("active"); });
+    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     btn.classList.add("active");
     state.activeHlColor = color;
   }
 
-  function onWordClick(e) {
-    if (!state.activeHlColor) return;
-    var el = e.currentTarget;
-    var idx = parseInt(el.getAttribute("data-word-idx"), 10);
-    if (isNaN(idx)) return;
+  function onHlModeClick(e) {
+    var btn = e.currentTarget;
+    var mode = btn.getAttribute("data-mode");
+    state.hlMode = mode;
+    qa(".hl-mode-btn").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-mode") === mode);
+    });
+  }
 
-    var current = state.highlights[idx];
-    if (current === state.activeHlColor) {
-      delete state.highlights[idx];
-      el.style.background = "";
-    } else {
-      state.highlights[idx] = state.activeHlColor;
-      el.style.background = hexToRgba(state.activeHlColor, 0.35);
+  function onHlCustomColor() {
+    var inp = getEl("hl-custom-color");
+    if (!inp) return;
+    var color = inp.value;
+    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
+    state.activeHlColor = color;
+  }
+
+  function onAddFavorite() {
+    var color = state.activeHlColor;
+    if (!color) {
+      var inp = getEl("hl-custom-color");
+      color = inp ? inp.value : null;
     }
+    if (!color) return;
+    if (state.hlFavorites.indexOf(color) >= 0) return;
+    state.hlFavorites.push(color);
+    saveHlFavorites();
+    renderHlFavorites();
+  }
+
+  function loadHlFavorites() {
+    try {
+      var raw = localStorage.getItem(HL_FAV_KEY);
+      state.hlFavorites = raw ? JSON.parse(raw) : [];
+    } catch (e) { state.hlFavorites = []; }
+  }
+  function saveHlFavorites() {
+    try { localStorage.setItem(HL_FAV_KEY, JSON.stringify(state.hlFavorites)); } catch (e) {}
+  }
+
+  function renderHlFavorites() {
+    var container = getEl("hl-favorites");
+    if (!container) return;
+    container.innerHTML = state.hlFavorites.map(function (c) {
+      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Favorit" type="button"></button>';
+    }).join("");
+    qa(".hl-fav", container).forEach(function (btn) {
+      btn.addEventListener("click", onHlColorClick);
+      btn.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        var color = btn.getAttribute("data-color");
+        state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
+        saveHlFavorites();
+        renderHlFavorites();
+      });
+    });
   }
 
   function hexToRgba(hex, alpha) {
@@ -339,18 +386,95 @@
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
+  function onWordClick(e) {
+    if (!state.activeHlColor) return;
+    var el = e.currentTarget;
+    var idx = parseInt(el.getAttribute("data-word-idx"), 10);
+    if (isNaN(idx)) return;
+
+    var current = state.highlights[idx];
+    if (current && current.color === state.activeHlColor && current.mode === state.hlMode) {
+      delete state.highlights[idx];
+    } else {
+      state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
+    }
+    refreshHlRegions();
+  }
+
   function clearAllHighlights() {
     state.highlights = {};
-    qa(".word-overlay").forEach(function (el) {
-      el.style.background = "";
-    });
+    refreshHlRegions();
+  }
+
+  function refreshHlRegions() {
+    qa(".hl-region").forEach(function (el) { el.parentNode.removeChild(el); });
+    qa(".word-overlay").forEach(function (el) { el.style.background = ""; });
+    if (!state.wordMap.length || !state.pageWidth) return;
+
+    var regions = computeMergedRegions();
+    var containers = qa(".page-container");
+
+    for (var r = 0; r < regions.length; r++) {
+      var reg = regions[r];
+      var container = containers[reg.page];
+      if (!container) continue;
+      var div = document.createElement("div");
+      div.className = "hl-region";
+      div.style.left = (reg.x / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.top = (reg.y / state.pageHeight * 100).toFixed(3) + "%";
+      div.style.width = (reg.w / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.height = (reg.h / state.pageHeight * 100).toFixed(3) + "%";
+      if (reg.mode === "marker") {
+        div.style.background = hexToRgba(reg.color, 0.3);
+      } else {
+        div.style.background = hexToRgba(reg.color, 0.15);
+        div.style.borderBottom = "2px solid " + reg.color;
+      }
+      container.appendChild(div);
+    }
+  }
+
+  function computeMergedRegions() {
+    var keys = Object.keys(state.highlights);
+    if (keys.length === 0) return [];
+
+    var entries = [];
+    for (var i = 0; i < keys.length; i++) {
+      var idx = parseInt(keys[i], 10);
+      var hl = state.highlights[idx];
+      var wb = state.wordMap[idx];
+      if (!wb) continue;
+      entries.push({ idx: idx, wb: wb, color: hl.color, mode: hl.mode });
+    }
+    entries.sort(function (a, b) { return a.idx - b.idx; });
+
+    var regions = [];
+    var cur = null;
+    for (var j = 0; j < entries.length; j++) {
+      var e = entries[j];
+      if (cur && cur.color === e.color && cur.mode === e.mode &&
+          cur.y === e.wb.y && e.idx === cur.lastIdx + 1 && cur.mode === "marker") {
+        cur.w = e.wb.x + e.wb.w - cur.x;
+        cur.lastIdx = e.idx;
+      } else {
+        if (cur) regions.push(cur);
+        cur = {
+          page: e.wb.page, x: e.wb.x, y: e.wb.y, w: e.wb.w, h: e.wb.h,
+          color: e.color, mode: e.mode, lastIdx: e.idx
+        };
+      }
+    }
+    if (cur) regions.push(cur);
+    return regions;
   }
 
   function getHighlightList() {
     var list = [];
     var keys = Object.keys(state.highlights);
     for (var i = 0; i < keys.length; i++) {
-      list.push({ word_index: parseInt(keys[i], 10), color: state.highlights[keys[i]] });
+      var idx = parseInt(keys[i], 10);
+      var hl = state.highlights[idx];
+      list.push({ word_index: idx, color: hl.color, mode: hl.mode });
     }
     return list;
   }
@@ -358,52 +482,25 @@
   function applyHighlightsToServer() {
     var hl = getHighlightList();
     if (hl.length === 0 || !state.projectId) return Promise.resolve();
-    return API.highlight(state.projectId, hl).then(function (res) {
-      renderPreview(res.preview_urls);
-      reapplyOverlays();
-    });
-  }
-
-  function reapplyOverlays() {
-    if (!state.wordMap.length || !state.pageWidth) return;
-    var containers = qa(".page-container");
-    containers.forEach(function (container, pageIdx) {
-      var existing = qa(".word-overlay", container);
-      existing.forEach(function (el) { el.parentNode.removeChild(el); });
-      buildWordOverlays(container, pageIdx);
-    });
-  }
-
-  function buildWordOverlays(container, pageIdx) {
-    for (var i = 0; i < state.wordMap.length; i++) {
-      var wb = state.wordMap[i];
-      if (wb.page !== pageIdx) continue;
-      var div = document.createElement("div");
-      div.className = "word-overlay";
-      div.setAttribute("data-word-idx", String(i));
-      div.style.left = (wb.x / state.pageWidth * 100).toFixed(3) + "%";
-      div.style.top = (wb.y / state.pageHeight * 100).toFixed(3) + "%";
-      div.style.width = (wb.w / state.pageWidth * 100).toFixed(3) + "%";
-      div.style.height = (wb.h / state.pageHeight * 100).toFixed(3) + "%";
-      if (state.highlights[i]) {
-        div.style.background = hexToRgba(state.highlights[i], 0.35);
-      }
-      div.addEventListener("click", onWordClick);
-      container.appendChild(div);
-    }
+    return API.highlight(state.projectId, hl);
   }
 
   // ---- Bind UI ----
   function bindUI() {
-    on(getEl("btn-new-profile"), "click", showNewProfileForm);
-    on(getEl("btn-new-cancel"), "click", hideNewProfileForm);
+    on(getEl("profile-btn"), "click", toggleDropdown);
+    on(getEl("btn-add-profile"), "click", showInlineNew);
     on(getEl("btn-new-confirm"), "click", submitNewProfile);
+    on(getEl("btn-new-cancel"), "click", function () {
+      var inl = getEl("new-profile-inline");
+      if (inl) inl.style.display = "none";
+    });
     on(getEl("new-profile-name"), "keydown", function (e) {
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
 
-    on(getEl("btn-back"), "click", function () {
-      loadProfiles().then(showList);
+    document.addEventListener("click", function (e) {
+      var sel = getEl("profile-selector");
+      if (sel && !sel.contains(e.target) && dropdownOpen) closeDropdown();
     });
 
     on(getEl("btn-delete"), "click", function () {
@@ -412,11 +509,11 @@
       if (!confirm(pName + " wirklich löschen?")) return;
       ProfileCache.remove(state.activeId, function () {});
       API.deleteProfile(state.activeId).catch(function () {}).then(function () {
+        state.activeId = null;
+        state.profile = null;
         return loadProfiles();
-      }).then(showList);
+      });
     });
-
-    on(getEl("profile-name"), "input", autoSaveName);
 
     on(getEl("btn-gear"), "click", openSettingsPanel);
     on(getEl("btn-panel-close"), "click", closeSettingsPanel);
@@ -437,23 +534,17 @@
     on(getEl("s-ink"), "change", autoSaveSettings);
 
     on(getEl("btn-variant-add"), "click", onAddVariant);
-
     on(getEl("btn-render"), "click", renderText);
     on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });
     on(getEl("btn-png"), "click", function () { doExport("png"); });
     on(getEl("btn-jpg"), "click", function () { doExport("jpg"); });
 
     // Highlight
-    qa(".hl-color").forEach(function (btn) {
-      btn.addEventListener("click", onHlColorClick);
-    });
+    qa(".hl-color").forEach(function (btn) { btn.addEventListener("click", onHlColorClick); });
+    qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
+    on(getEl("hl-custom-color"), "input", onHlCustomColor);
+    on(getEl("btn-hl-add-fav"), "click", onAddFavorite);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
-  }
-
-  function createProfile(name) {
-    API.createProfile(name).then(function (p) {
-      return loadProfiles().then(function () { return openProfile(p.id); });
-    }).catch(function (e) { alert("Fehler: " + e.message); });
   }
 
   // ---- Render ----
@@ -492,9 +583,7 @@
       return;
     }
     el.innerHTML = urls.map(function (u, i) {
-      return '<div class="page-container" data-page="' + i + '">' +
-        '<img src="' + u + '" alt="Seite ' + (i + 1) + '" />' +
-        '</div>';
+      return '<div class="page-container" data-page="' + i + '"><img src="' + u + '" alt="Seite ' + (i + 1) + '" /></div>';
     }).join("");
 
     if (state.wordMap.length > 0 && state.pageWidth > 0) {
@@ -505,29 +594,42 @@
     }
   }
 
+  function buildWordOverlays(container, pageIdx) {
+    for (var i = 0; i < state.wordMap.length; i++) {
+      var wb = state.wordMap[i];
+      if (wb.page !== pageIdx) continue;
+      var div = document.createElement("div");
+      div.className = "word-overlay";
+      div.setAttribute("data-word-idx", String(i));
+      div.style.left = (wb.x / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.top = (wb.y / state.pageHeight * 100).toFixed(3) + "%";
+      div.style.width = (wb.w / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.height = (wb.h / state.pageHeight * 100).toFixed(3) + "%";
+      div.addEventListener("click", onWordClick);
+      container.appendChild(div);
+    }
+  }
+
   function doExport(fmt) {
     if (!state.projectId) return;
     var btnMap = { pdf: "btn-pdf", png: "btn-png", jpg: "btn-jpg" };
     var btn = getEl(btnMap[fmt]);
     var reset = showSpinner(btn, fmt.toUpperCase());
-    var pre = getHighlightList().length > 0
-      ? applyHighlightsToServer()
-      : Promise.resolve();
+    var pre = getHighlightList().length > 0 ? applyHighlightsToServer() : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
-    })
-      .then(function (res) {
-        var a = document.createElement("a");
-        a.href = res.url;
-        a.download = "";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        msg(getEl("status"), "Export fertig.", "ok");
-      })
-      .catch(function (e) { msg(getEl("status"), "Export: " + e.message, "err"); })
-      .finally(function () { reset(); });
+    }).then(function (res) {
+      var a = document.createElement("a");
+      a.href = res.url;
+      a.download = "";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      msg(getEl("status"), "Export fertig.", "ok");
+    }).catch(function (e) {
+      msg(getEl("status"), "Export: " + e.message, "err");
+    }).finally(function () { reset(); });
   }
 
   // ---- Utils ----

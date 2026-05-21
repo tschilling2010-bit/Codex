@@ -320,26 +320,70 @@ def apply_highlights(
     highlights: List[dict],
     word_map: List[dict],
 ) -> List[Image.Image]:
+    import numpy as np
+
     by_page: dict = {}
     for h in highlights:
         idx = h.get("word_index", -1)
         if idx < 0 or idx >= len(word_map):
             continue
         wb = word_map[idx]
-        by_page.setdefault(wb["page"], []).append((wb, h.get("color", "#FFFF00")))
+        color = h.get("color", "#FFFF00")
+        mode = h.get("mode", "marker")
+        by_page.setdefault(wb["page"], []).append((idx, wb, color, mode))
 
     result: List[Image.Image] = []
     for i, page in enumerate(pages):
         if i not in by_page:
             result.append(page.copy())
             continue
-        page_rgba = page.convert("RGBA")
-        overlay = Image.new("RGBA", page.size, (0, 0, 0, 0))
-        draw = ImageDraw.Draw(overlay)
-        for wb, color in by_page[i]:
-            r, g, b = _hex_to_rgb(color)
-            x1, y1 = wb["x"], wb["y"]
-            x2, y2 = x1 + wb["w"], y1 + wb["h"]
-            draw.rectangle([x1, y1, x2, y2], fill=(r, g, b, 80))
-        result.append(Image.alpha_composite(page_rgba, overlay).convert("RGB"))
+
+        items = by_page[i]
+        markers = [(idx, wb, c) for idx, wb, c, m in items if m == "marker"]
+        texts = [(idx, wb, c) for idx, wb, c, m in items if m == "text"]
+
+        out = page.copy()
+
+        if markers:
+            by_line: dict = {}
+            for idx, wb, color in markers:
+                by_line.setdefault((wb["y"], color), []).append((idx, wb))
+            page_rgba = out.convert("RGBA")
+            overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+            for (_y, color), group in by_line.items():
+                group.sort(key=lambda g: g[0])
+                rects = [dict(group[0][1])]
+                for j in range(1, len(group)):
+                    cur = rects[-1]
+                    nxt = group[j][1]
+                    if group[j][0] == group[j - 1][0] + 1:
+                        cur["w"] = nxt["x"] + nxt["w"] - cur["x"]
+                    else:
+                        rects.append(dict(nxt))
+                r, g, b = _hex_to_rgb(color)
+                for rc in rects:
+                    draw.rectangle(
+                        [rc["x"], rc["y"], rc["x"] + rc["w"], rc["y"] + rc["h"]],
+                        fill=(r, g, b, 90),
+                    )
+            out = Image.alpha_composite(page_rgba, overlay).convert("RGB")
+
+        if texts:
+            arr = np.array(out)
+            h_px, w_px = arr.shape[:2]
+            for _idx, wb, color in texts:
+                r, g, b = _hex_to_rgb(color)
+                x1 = max(0, wb["x"])
+                y1 = max(0, wb["y"])
+                x2 = min(w_px, wb["x"] + wb["w"])
+                y2 = min(h_px, wb["y"] + wb["h"])
+                region = arr[y1:y2, x1:x2].copy()
+                gray = region.mean(axis=2)
+                mask = gray < 160
+                region[mask] = [r, g, b]
+                arr[y1:y2, x1:x2] = region
+            out = Image.fromarray(arr)
+
+        result.append(out)
     return result
