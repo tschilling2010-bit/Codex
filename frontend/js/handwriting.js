@@ -9,7 +9,15 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     try { bindUI(); } catch (e) { console.error("bindUI error:", e); }
-    loadProfiles().catch(function (e) { console.error("loadProfiles error:", e); });
+    loadProfiles().then(function () {
+      if (state.profiles.length === 0) {
+        ProfileCache.restoreAll(function (count) {
+          if (count > 0) {
+            loadProfiles();
+          }
+        });
+      }
+    }).catch(function (e) { console.error("loadProfiles error:", e); });
   });
 
   // ---- Views ----
@@ -128,8 +136,6 @@
     var link = getEl("template-download");
     if (!link || !state.activeId) return;
     link.href = "/api/handwriting/profile/" + state.activeId + "/pair/0/pdf";
-    var backup = getEl("btn-backup");
-    if (backup) backup.href = API.backupProfileUrl(state.activeId);
   }
 
   // ---- Variants ----
@@ -203,6 +209,7 @@
         renderVariants();
         updateRenderButton();
         msg(getEl("pair-status"), "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen extrahiert!", "ok");
+        ProfileCache.save(state.activeId, function () {});
       })
       .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
@@ -234,7 +241,10 @@
       var el = getEl("profile-name");
       var name = el ? el.value.trim() : "";
       if (!name || !state.activeId) return;
-      API.renameProfile(state.activeId, name).then(function (p) { state.profile = p; }).catch(function () {});
+      API.renameProfile(state.activeId, name).then(function (p) {
+        state.profile = p;
+        ProfileCache.save(state.activeId, function () {});
+      }).catch(function () {});
     }, 600);
   }
   function autoSaveSettings() {
@@ -247,7 +257,11 @@
         thickness: th ? parseFloat(th.value) : 1.0,
         sheet_type: sh ? sh.value : "liniert",
         ink_color: ink ? ink.value : "#000000",
-      }).then(function (p) { state.profile = p; refreshSettingsPreview(); }).catch(function () {});
+      }).then(function (p) {
+        state.profile = p;
+        refreshSettingsPreview();
+        ProfileCache.save(state.activeId, function () {});
+      }).catch(function () {});
     }, 400);
   }
 
@@ -302,19 +316,6 @@
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
 
-    on(getEl("btn-restore"), "change", function () {
-      var input = getEl("btn-restore");
-      if (!input || !input.files || !input.files[0]) return;
-      var file = input.files[0];
-      input.value = "";
-      API.restoreProfile(file).then(function (res) {
-        alert("Profil wiederhergestellt!");
-        return loadProfiles();
-      }).then(function () {
-        showList();
-      }).catch(function (e) { alert("Fehler: " + e.message); });
-    });
-
     on(getEl("btn-back"), "click", function () {
       loadProfiles().then(showList);
     });
@@ -323,6 +324,7 @@
       if (!state.activeId) return;
       var pName = state.profile ? state.profile.name : state.activeId;
       if (!confirm(pName + " wirklich löschen?")) return;
+      ProfileCache.remove(state.activeId, function () {});
       API.deleteProfile(state.activeId).catch(function () {}).then(function () {
         return loadProfiles();
       }).then(showList);
