@@ -127,6 +127,12 @@ class GlyphRenderer:
         solid.putalpha(alpha)
         return solid
 
+    def _smooth_glyph(self, glyph: Image.Image) -> Image.Image:
+        alpha = glyph.split()[-1]
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.7))
+        glyph.putalpha(alpha)
+        return glyph
+
     def _scale_glyph_to(self, glyph: Image.Image, target_h: int) -> Image.Image:
         w, h = glyph.size
         if h <= 0:
@@ -145,6 +151,7 @@ class GlyphRenderer:
         glyph = self._scale_glyph_to(glyph.convert("RGBA"), target_h)
         glyph = self._adjust_thickness(glyph)
         glyph = self._tint_glyph(glyph)
+        glyph = self._smooth_glyph(glyph)
         return glyph, above_px
 
     def _space_width(self) -> int:
@@ -365,7 +372,7 @@ def apply_highlights(
                 for rc in rects:
                     draw.rectangle(
                         [rc["x"], rc["y"], rc["x"] + rc["w"], rc["y"] + rc["h"]],
-                        fill=(r, g, b, 90),
+                        fill=(r, g, b, 120),
                     )
             out = Image.alpha_composite(page_rgba, overlay).convert("RGB")
 

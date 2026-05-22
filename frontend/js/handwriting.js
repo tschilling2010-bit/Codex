@@ -388,14 +388,20 @@
     var container = getEl("hl-favorites");
     if (!container) return;
     container.innerHTML = state.hlFavorites.map(function (c) {
-      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Rechtsklick = entfernen" type="button"></button>';
+      return '<div class="hl-fav-wrap">' +
+        '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" type="button"></button>' +
+        '<button class="hl-fav-del" data-color="' + c + '" type="button">&times;</button>' +
+        '</div>';
     }).join("");
     qa(".hl-fav", container).forEach(function (btn) {
       btn.addEventListener("click", onHlColorClick);
-      btn.addEventListener("contextmenu", function (e) {
-        e.preventDefault();
+    });
+    qa(".hl-fav-del", container).forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
         var color = btn.getAttribute("data-color");
         state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
+        if (state.activeHlColor === color) clearHlSelection();
         saveHlFavorites();
         renderHlFavorites();
       });
@@ -452,11 +458,11 @@
       div.style.height = ((reg.h + PAD * 2) / state.pageHeight * 100).toFixed(3) + "%";
       if (reg.mode === "marker") {
         div.className = "hl-region hl-marker";
-        div.style.background = hexToRgba(reg.color, 0.45);
+        div.style.background = hexToRgba(reg.color, 0.55);
       } else {
         div.className = "hl-region hl-text";
-        div.style.background = hexToRgba(reg.color, 0.1);
-        div.style.borderBottom = "3px solid " + reg.color;
+        div.style.background = hexToRgba(reg.color, 0.18);
+        div.style.borderBottom = "4px solid " + reg.color;
       }
       container.appendChild(div);
     }
