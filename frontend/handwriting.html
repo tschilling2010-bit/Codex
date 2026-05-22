@@ -66,22 +66,19 @@
 
         <!-- Highlight bar (appears after render) -->
         <div id="highlight-bar" class="highlight-bar" style="display:none">
-          <div class="hl-mode-toggle">
-            <button class="hl-mode-btn active" data-mode="marker" type="button">Marker</button>
-            <button class="hl-mode-btn" data-mode="text" type="button">Buchstaben</button>
+          <div class="hl-top-row">
+            <div class="hl-mode-toggle">
+              <button class="hl-mode-btn active" data-mode="marker" type="button">Marker</button>
+              <button class="hl-mode-btn" data-mode="text" type="button">Buchstaben</button>
+            </div>
+            <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
           </div>
           <div class="hl-color-row">
-            <button class="hl-color" data-color="#FFFF00" style="background:#FFFF00" title="Gelb" type="button"></button>
-            <button class="hl-color" data-color="#90EE90" style="background:#90EE90" title="Gr&uuml;n" type="button"></button>
-            <button class="hl-color" data-color="#FFB6C1" style="background:#FFB6C1" title="Rosa" type="button"></button>
-            <button class="hl-color" data-color="#87CEEB" style="background:#87CEEB" title="Blau" type="button"></button>
-            <button class="hl-color" data-color="#FFA500" style="background:#FFA500" title="Orange" type="button"></button>
-            <span class="hl-sep"></span>
             <div id="hl-favorites" class="hl-favorites"></div>
-            <input type="color" id="hl-custom-color" class="hl-custom-input" value="#FF0000" title="Eigene Farbe" />
-            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Als Favorit speichern">&#9733;</button>
+            <input type="color" id="hl-custom-color" class="hl-custom-input" value="#FFD600" title="Farbe w&auml;hlen" />
+            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Farbe speichern">+</button>
           </div>
-          <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
+          <div id="hl-hint" class="hl-hint">Farbe w&auml;hlen und + dr&uuml;cken</div>
         </div>
 
         <div id="status" class="status-inline"></div>

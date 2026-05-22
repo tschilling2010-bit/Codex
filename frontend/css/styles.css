@@ -560,11 +560,13 @@ footer.site {
 /* ------------------------------------------------- Highlight bar */
 
 .highlight-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 0;
-  flex-wrap: wrap;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 0 4px;
+  border-top: 1px solid var(--border);
+}
+
+.hl-top-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
 
 .hl-mode-toggle {
@@ -596,69 +598,75 @@ footer.site {
 .hl-color-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .hl-color {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2.5px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
-  transition: transform 0.15s var(--ease), box-shadow 0.15s;
+  transition: transform 0.15s var(--ease), box-shadow 0.15s, border-color 0.15s;
   padding: 0;
   flex-shrink: 0;
 }
 .hl-color:hover {
   transform: scale(1.15);
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.35);
 }
 .hl-color.active {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.4);
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.5), 0 0 12px currentColor;
   transform: scale(1.2);
 }
 
-.hl-sep {
-  width: 1px;
-  height: 20px;
-  background: var(--border);
-  margin: 0 2px;
-  flex-shrink: 0;
-}
-
-.hl-favorites { display: flex; gap: 5px; }
+.hl-favorites { display: flex; gap: 8px; }
 
 .hl-custom-input {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 2px solid var(--border);
   padding: 0;
   cursor: pointer;
   background: transparent;
   flex-shrink: 0;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.hl-custom-input:hover {
+  border-color: rgba(0, 212, 255, 0.4);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
 }
 .hl-custom-input::-webkit-color-swatch-wrapper { padding: 2px; }
 .hl-custom-input::-webkit-color-swatch { border-radius: 50%; border: none; }
 
 .hl-fav-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  border: 1px dashed var(--border);
+  border: 2px dashed var(--border);
   background: transparent;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.15s;
+  transition: all 0.2s var(--ease);
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
-.hl-fav-btn:hover { color: var(--accent); border-color: var(--accent); }
+.hl-fav-btn:hover {
+  color: var(--accent); border-color: var(--accent);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.hl-hint {
+  font-size: 12px; color: var(--text-muted); opacity: 0.6;
+}
 
 /* ------------------------------------------------- Word overlays on preview */
 
@@ -674,17 +682,25 @@ footer.site {
 .word-overlay {
   position: absolute;
   cursor: pointer;
-  border-radius: 2px;
-  transition: background 0.12s;
+  border-radius: 3px;
+  transition: background 0.15s, box-shadow 0.15s;
   z-index: 2;
 }
-.word-overlay:hover { background: rgba(255, 255, 0, 0.1); }
+.word-overlay:hover { background: rgba(0, 180, 255, 0.08); box-shadow: 0 0 0 2px rgba(0, 180, 255, 0.15); }
 
 .hl-region {
   position: absolute;
-  border-radius: 3px;
   z-index: 1;
   pointer-events: none;
+  transition: opacity 0.2s;
+}
+.hl-region.hl-marker {
+  border-radius: 4px;
+  mix-blend-mode: multiply;
+}
+.hl-region.hl-text {
+  border-radius: 2px;
+  border-bottom: 2.5px solid var(--hl-color, currentColor);
 }
 
 /* ============================================================

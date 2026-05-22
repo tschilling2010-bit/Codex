@@ -331,6 +331,7 @@
     var color = inp.value;
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     state.activeHlColor = color;
+    inp.style.boxShadow = "0 0 0 3px " + hexToRgba(color, 0.5);
   }
 
   function onAddFavorite() {
@@ -344,6 +345,10 @@
     state.hlFavorites.push(color);
     saveHlFavorites();
     renderHlFavorites();
+    state.activeHlColor = color;
+    qa(".hl-fav", getEl("hl-favorites")).forEach(function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-color") === color);
+    });
   }
 
   function loadHlFavorites() {
@@ -360,7 +365,7 @@
     var container = getEl("hl-favorites");
     if (!container) return;
     container.innerHTML = state.hlFavorites.map(function (c) {
-      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Favorit" type="button"></button>';
+      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Rechtsklick zum Entfernen" type="button"></button>';
     }).join("");
     qa(".hl-fav", container).forEach(function (btn) {
       btn.addEventListener("click", onHlColorClick);
@@ -372,6 +377,8 @@
         renderHlFavorites();
       });
     });
+    var hint = getEl("hl-hint");
+    if (hint) hint.style.display = state.hlFavorites.length > 0 ? "none" : "";
   }
 
   function hexToRgba(hex, alpha) {
@@ -409,22 +416,27 @@
 
     var regions = computeMergedRegions();
     var containers = qa(".page-container");
+    var PAD = 3;
 
     for (var r = 0; r < regions.length; r++) {
       var reg = regions[r];
       var container = containers[reg.page];
       if (!container) continue;
       var div = document.createElement("div");
-      div.className = "hl-region";
-      div.style.left = (reg.x / state.pageWidth * 100).toFixed(3) + "%";
-      div.style.top = (reg.y / state.pageHeight * 100).toFixed(3) + "%";
-      div.style.width = (reg.w / state.pageWidth * 100).toFixed(3) + "%";
-      div.style.height = (reg.h / state.pageHeight * 100).toFixed(3) + "%";
+      var px = PAD / state.pageWidth * 100;
+      var py = PAD / state.pageHeight * 100;
+      div.style.left = ((reg.x - PAD) / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.top = ((reg.y - PAD) / state.pageHeight * 100).toFixed(3) + "%";
+      div.style.width = ((reg.w + PAD * 2) / state.pageWidth * 100).toFixed(3) + "%";
+      div.style.height = ((reg.h + PAD * 2) / state.pageHeight * 100).toFixed(3) + "%";
       if (reg.mode === "marker") {
-        div.style.background = hexToRgba(reg.color, 0.3);
+        div.className = "hl-region hl-marker";
+        div.style.background = hexToRgba(reg.color, 0.45);
       } else {
-        div.style.background = hexToRgba(reg.color, 0.15);
-        div.style.borderBottom = "2px solid " + reg.color;
+        div.className = "hl-region hl-text";
+        div.style.background = hexToRgba(reg.color, 0.1);
+        div.style.setProperty("--hl-color", reg.color);
+        div.style.borderBottom = "3px solid " + reg.color;
       }
       container.appendChild(div);
     }
@@ -551,7 +563,6 @@
     });
 
     // Highlight
-    qa(".hl-color").forEach(function (btn) { btn.addEventListener("click", onHlColorClick); });
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
     on(getEl("hl-custom-color"), "input", onHlCustomColor);
     on(getEl("btn-hl-add-fav"), "click", onAddFavorite);
