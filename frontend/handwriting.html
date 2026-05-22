@@ -5,23 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=16" />
+  <link rel="stylesheet" href="/css/styles.css?v=17" />
 </head>
 <body>
+
+  <!-- ====== Nav: Profile left, Brand center, Gear right ====== -->
   <header class="nav">
     <div class="container nav-inner">
-      <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
-    </div>
-  </header>
-
-  <main class="container" style="padding-top:32px; padding-bottom:64px">
-
-    <!-- Editor top bar -->
-    <div class="editor-top">
       <div class="profile-selector" id="profile-selector">
         <button class="profile-btn" id="profile-btn" type="button">
-          <span id="profile-btn-name">Schrift w&auml;hlen&hellip;</span>
-          <svg width="12" height="8" viewBox="0 0 12 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1.5l5 5 5-5"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span id="profile-btn-name">Schrift w&auml;hlen</span>
+          <svg class="chevron" width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l4 4 4-4"/></svg>
         </button>
         <div class="profile-dropdown" id="profile-dropdown" style="display:none">
           <div id="profile-dropdown-list"></div>
@@ -36,33 +31,40 @@
           </div>
         </div>
       </div>
-      <button class="gear-btn" id="btn-gear" type="button" title="Vorlagen &amp; Einstellungen">
+
+      <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
+
+      <button class="gear-btn" id="btn-gear" type="button" title="Einstellungen">
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="10" cy="10" r="3"/>
           <path d="M16.47 12.47a1.5 1.5 0 0 0 .3 1.65l.05.06a1.82 1.82 0 1 1-2.57 2.57l-.06-.06a1.5 1.5 0 0 0-1.65-.3 1.5 1.5 0 0 0-.91 1.37v.17a1.82 1.82 0 1 1-3.64 0v-.09a1.5 1.5 0 0 0-.98-1.37 1.5 1.5 0 0 0-1.65.3l-.06.06a1.82 1.82 0 1 1-2.57-2.57l.06-.06a1.5 1.5 0 0 0 .3-1.65 1.5 1.5 0 0 0-1.37-.91h-.17a1.82 1.82 0 1 1 0-3.64h.09a1.5 1.5 0 0 0 1.37-.98 1.5 1.5 0 0 0-.3-1.65l-.06-.06a1.82 1.82 0 1 1 2.57-2.57l.06.06a1.5 1.5 0 0 0 1.65.3h.07a1.5 1.5 0 0 0 .91-1.37v-.17a1.82 1.82 0 1 1 3.64 0v.09a1.5 1.5 0 0 0 .91 1.37 1.5 1.5 0 0 0 1.65-.3l.06-.06a1.82 1.82 0 1 1 2.57 2.57l-.06.06a1.5 1.5 0 0 0-.3 1.65v.07a1.5 1.5 0 0 0 1.37.91h.17a1.82 1.82 0 0 1 0 3.64h-.09a1.5 1.5 0 0 0-1.37.91z"/>
         </svg>
       </button>
-      <button class="btn btn-soft btn-sm" id="btn-delete" type="button" style="color:var(--err)">L&ouml;schen</button>
     </div>
+  </header>
 
-    <!-- Two-column layout -->
+  <!-- ====== Main: Two-column editor ====== -->
+  <main class="container main-editor">
     <div class="two-col-layout">
 
-      <!-- LEFT: Text input, render, highlight, export -->
-      <section class="card stack col-left">
-        <div>
-          <label class="field" for="text">Dein Text</label>
-          <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
-        </div>
-        <div class="toolbar">
-          <button class="btn btn-primary" id="btn-render" type="button" disabled>Rendern</button>
-          <div class="toolbar-spacer"></div>
-          <button class="btn btn-soft" id="btn-pdf" type="button" disabled>PDF</button>
-          <button class="btn btn-soft" id="btn-png" type="button" disabled>PNG</button>
-          <button class="btn btn-soft" id="btn-jpg" type="button" disabled>JPG</button>
+      <!-- LEFT: Text + actions -->
+      <div class="editor-card">
+        <textarea id="text" class="textarea" placeholder="Hallo Welt!&#10;&#10;- Stichpunkt&#10;1. Nummeriert&#10;&#10;Leerzeile = Absatz"></textarea>
+        <div class="editor-actions">
+          <button class="btn btn-primary btn-render" id="btn-render" type="button" disabled>Rendern</button>
+          <div class="export-wrap" id="export-wrap">
+            <button class="btn-icon" id="btn-export" type="button" disabled title="Exportieren">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+            <div class="export-menu" id="export-menu" style="display:none">
+              <button class="export-opt" data-fmt="pdf" type="button">PDF</button>
+              <button class="export-opt" data-fmt="png" type="button">PNG</button>
+              <button class="export-opt" data-fmt="jpg" type="button">JPG</button>
+            </div>
+          </div>
         </div>
 
-        <!-- Highlight bar -->
+        <!-- Highlight bar (appears after render) -->
         <div id="highlight-bar" class="highlight-bar" style="display:none">
           <div class="hl-mode-toggle">
             <button class="hl-mode-btn active" data-mode="marker" type="button">Marker</button>
@@ -77,44 +79,52 @@
             <span class="hl-sep"></span>
             <div id="hl-favorites" class="hl-favorites"></div>
             <input type="color" id="hl-custom-color" class="hl-custom-input" value="#FF0000" title="Eigene Farbe" />
-            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Aktuelle Farbe als Favorit speichern">&#9733;</button>
+            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Als Favorit speichern">&#9733;</button>
           </div>
-          <button class="btn btn-ghost btn-sm" id="btn-hl-clear" type="button">Alle entfernen</button>
+          <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
         </div>
 
-        <div id="status" class="status">Bereit.</div>
-      </section>
+        <div id="status" class="status-inline"></div>
+      </div>
 
       <!-- RIGHT: Preview -->
-      <section class="col-right">
-        <h3 style="margin:0 0 12px; font-size:18px">Vorschau</h3>
+      <div class="preview-card">
         <div id="preview" class="preview-wrap">
-          <div class="empty-state">Text eingeben und &bdquo;Rendern&ldquo; klicken.</div>
+          <div class="empty-state-nice">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4"><path d="M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z"/><path d="M5 3l1 3.5L10 8 6 9.5 5 13l-1-3.5L0 8l4-1.5L5 3z" transform="translate(13,-1) scale(0.5)"/></svg>
+            <p>Text eingeben und &bdquo;Rendern&ldquo; klicken.</p>
+          </div>
         </div>
-      </section>
-    </div>
-
-    <!-- Collapsible Einstellungen -->
-    <div class="collapsible" id="settings-collapsible">
-      <div class="collapsible-header" id="settings-toggle">
-        <span class="collapsible-icon">&#9654;</span>
-        <span>Einstellungen</span>
       </div>
-      <div class="collapsible-content">
-        <div class="settings-row">
-          <div class="settings-field">
+    </div>
+  </main>
+
+  <!-- ====== Gear panel (slide-in): Settings + Templates + Delete ====== -->
+  <div class="settings-panel-overlay" id="settings-overlay"></div>
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-panel-header">
+      <h3 style="margin:0; font-size:18px">Einstellungen</h3>
+      <button class="btn btn-ghost settings-panel-close" id="btn-panel-close" type="button">&times;</button>
+    </div>
+    <div class="settings-panel-body stack">
+
+      <!-- Rendering settings -->
+      <div class="panel-section">
+        <div class="panel-label">Darstellung</div>
+        <div class="panel-grid">
+          <div>
             <label class="field" for="s-size">Gr&ouml;&szlig;e: <span id="s-size-val">1.0&times;</span></label>
             <input id="s-size" type="range" min="0.6" max="1.8" step="0.05" value="1.0" style="width:100%" />
           </div>
-          <div class="settings-field">
+          <div>
             <label class="field" for="s-thickness">Strichst&auml;rke: <span id="s-thickness-val">1.0&times;</span></label>
             <input id="s-thickness" type="range" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%" />
           </div>
-          <div class="settings-field">
+          <div>
             <label class="field" for="s-ink">Tintenfarbe</label>
-            <input id="s-ink" class="input" type="color" value="#000000" style="height:40px; padding:4px 8px" />
+            <input id="s-ink" class="input" type="color" value="#000000" style="height:40px;padding:4px 8px;width:100%" />
           </div>
-          <div class="settings-field">
+          <div>
             <label class="field" for="s-sheet">Blattart</label>
             <select id="s-sheet" class="select">
               <option value="liniert">Liniert</option>
@@ -124,35 +134,29 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Settings panel (slide-in from right, for Vorlagen / templates) -->
-    <div class="settings-panel-overlay" id="settings-overlay"></div>
-    <div class="settings-panel" id="settings-panel">
-      <div class="settings-panel-header">
-        <h3 style="margin:0; font-size:18px">Vorlagen</h3>
-        <button class="btn btn-ghost settings-panel-close" id="btn-panel-close" type="button">&times;</button>
-      </div>
-      <div class="settings-panel-body stack">
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">
-          <a id="template-download" class="btn btn-ghost" style="padding:10px 20px; font-size:14px" download>Template PDF herunterladen</a>
-          <span class="muted" style="font-size:13px">Ausdrucken, ausf&uuml;llen, fotografieren</span>
+      <!-- Templates -->
+      <div class="panel-section">
+        <div class="panel-label">Vorlagen</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+          <a id="template-download" class="btn btn-ghost" style="padding:8px 16px;font-size:13px" download>Template PDF</a>
+          <span class="muted" style="font-size:12px">Ausdrucken &amp; fotografieren</span>
         </div>
         <div id="pair-status" class="status" style="display:none"></div>
-        <div id="variants-list" class="stack"></div>
-        <div style="margin-top:8px">
-          <button class="btn btn-primary" id="btn-variant-add" type="button">+ Variante hinzuf&uuml;gen</button>
-        </div>
+        <div id="variants-list" class="stack-sm"></div>
+        <button class="btn btn-soft btn-sm" id="btn-variant-add" type="button" style="margin-top:8px">+ Variante</button>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="panel-section" style="margin-top:auto;padding-top:20px;border-top:1px solid var(--border)">
+        <button class="btn btn-ghost btn-sm" id="btn-delete" type="button" style="color:var(--err);width:100%">Schrift l&ouml;schen</button>
       </div>
     </div>
+  </div>
 
-  </main>
-
-  <footer class="site"><div class="container">HefterPro &middot; made for students</div></footer>
-
-  <script src="/js/common.js?v=16"></script>
-  <script src="/js/api.js?v=16"></script>
-  <script src="/js/persist.js?v=16"></script>
-  <script src="/js/handwriting.js?v=16"></script>
+  <script src="/js/common.js?v=17"></script>
+  <script src="/js/api.js?v=17"></script>
+  <script src="/js/persist.js?v=17"></script>
+  <script src="/js/handwriting.js?v=17"></script>
 </body>
 </html>

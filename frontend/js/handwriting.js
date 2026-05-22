@@ -131,9 +131,10 @@
   }
 
   function clearPreview() {
-    var el = getEl("preview");
-    if (el) el.innerHTML = '<div class="empty-state">Text eingeben und „Rendern“ klicken.</div>';
-    [getEl("btn-pdf"), getEl("btn-png"), getEl("btn-jpg")].forEach(function (b) { if (b) b.disabled = true; });
+    var el = getEl(“preview”);
+    if (el) el.innerHTML = '<div class=”empty-state-nice”><svg width=”36” height=”36” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”1.2” stroke-linecap=”round” stroke-linejoin=”round” style=”opacity:0.4”><path d=”M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z”/></svg><p>Text eingeben und „Rendern“ klicken.</p></div>';
+    var expBtn = getEl(“btn-export”);
+    if (expBtn) expBtn.disabled = true;
   }
 
   function ensureFirstVariant() {
@@ -156,11 +157,6 @@
     var overlay = getEl("settings-overlay");
     if (panel) panel.classList.remove("open");
     if (overlay) overlay.classList.remove("visible");
-  }
-
-  function toggleCollapsible() {
-    var el = getEl("settings-collapsible");
-    if (el) el.classList.toggle("open");
   }
 
   // ---- Settings ----
@@ -518,7 +514,6 @@
     on(getEl("btn-gear"), "click", openSettingsPanel);
     on(getEl("btn-panel-close"), "click", closeSettingsPanel);
     on(getEl("settings-overlay"), "click", closeSettingsPanel);
-    on(getEl("settings-toggle"), "click", toggleCollapsible);
 
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
@@ -535,9 +530,25 @@
 
     on(getEl("btn-variant-add"), "click", onAddVariant);
     on(getEl("btn-render"), "click", renderText);
-    on(getEl("btn-pdf"), "click", function () { doExport("pdf"); });
-    on(getEl("btn-png"), "click", function () { doExport("png"); });
-    on(getEl("btn-jpg"), "click", function () { doExport("jpg"); });
+
+    on(getEl("btn-export"), "click", function () {
+      var menu = getEl("export-menu");
+      if (!menu) return;
+      menu.style.display = menu.style.display === "none" ? "" : "none";
+    });
+    qa(".export-opt").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var fmt = btn.getAttribute("data-fmt");
+        var menu = getEl("export-menu");
+        if (menu) menu.style.display = "none";
+        doExport(fmt);
+      });
+    });
+    document.addEventListener("click", function (e) {
+      var wrap = getEl("export-wrap");
+      var menu = getEl("export-menu");
+      if (wrap && menu && !wrap.contains(e.target)) menu.style.display = "none";
+    });
 
     // Highlight
     qa(".hl-color").forEach(function (btn) { btn.addEventListener("click", onHlColorClick); });
@@ -568,7 +579,8 @@
         renderPreview(res.preview_urls);
         var hlBar = getEl("highlight-bar");
         if (hlBar) hlBar.style.display = state.wordMap.length > 0 ? "" : "none";
-        [getEl("btn-pdf"), getEl("btn-png"), getEl("btn-jpg")].forEach(function (b) { if (b) b.disabled = false; });
+        var expBtn = getEl("btn-export");
+        if (expBtn) expBtn.disabled = false;
         msg(getEl("status"), "Fertig — " + res.pages + " Seite(n).", "ok");
       })
       .catch(function (e) { msg(getEl("status"), "Fehler: " + e.message, "err"); })
@@ -612,9 +624,8 @@
 
   function doExport(fmt) {
     if (!state.projectId) return;
-    var btnMap = { pdf: "btn-pdf", png: "btn-png", jpg: "btn-jpg" };
-    var btn = getEl(btnMap[fmt]);
-    var reset = showSpinner(btn, fmt.toUpperCase());
+    var btn = getEl("btn-export");
+    var reset = showSpinner(btn, "…");
     var pre = getHighlightList().length > 0 ? applyHighlightsToServer() : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
@@ -634,8 +645,11 @@
 
   // ---- Utils ----
   function msg(el, text, kind) {
-    setStatus(el, text, kind);
-    if (el) el.style.display = text ? "" : "none";
+    if (!el) return;
+    var base = el.classList.contains("status-inline") || el.id === "status" ? "status-inline" : "status";
+    el.className = base + (kind ? " " + kind : "");
+    el.textContent = text || "";
+    el.style.display = text ? "" : "none";
   }
   function fmtScale(v) { return Number(v).toFixed(2).replace(/0$/, "") + "×"; }
 })();
