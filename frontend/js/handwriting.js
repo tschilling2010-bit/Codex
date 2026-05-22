@@ -94,7 +94,9 @@
         updateProfileBtnName();
         updateRenderButton();
       }
-    }).catch(function () {});
+    }).catch(function (err) {
+      console.error("loadProfiles:", err);
+    });
   }
 
   function selectProfile(id) {
@@ -110,12 +112,15 @@
       state.profile = p;
       updateProfileBtnName();
       applySettingsToUI(p.settings);
-      ensureFirstVariant().then(function () {
+      return ensureFirstVariant().then(function () {
         renderVariants();
         updateTemplateLink();
         updateRenderButton();
       });
-    }).catch(function (e) { alert("Fehler: " + e.message); });
+    }).catch(function (e) {
+      console.error("selectProfile:", e);
+      statusMsg("Fehler: " + e.message, "err");
+    });
   }
 
   function updateProfileBtnName() {
@@ -131,9 +136,9 @@
   }
 
   function clearPreview() {
-    var el = getEl(“preview”);
-    if (el) el.innerHTML = '<div class=”empty-state-nice”><svg width=”36” height=”36” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”1.2” stroke-linecap=”round” stroke-linejoin=”round” style=”opacity:0.4”><path d=”M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z”/></svg><p>Text eingeben und „Rendern“ klicken.</p></div>';
-    var expBtn = getEl(“btn-export”);
+    var el = getEl("preview");
+    if (el) el.innerHTML = '<div class="empty-state-nice"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4"><path d="M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z"/></svg><p>Text eingeben und „Rendern“ klicken.</p></div>';
+    var expBtn = getEl("btn-export");
     if (expBtn) expBtn.disabled = true;
   }
 
@@ -161,6 +166,7 @@
 
   // ---- Settings ----
   function applySettingsToUI(s) {
+    if (!s) return;
     var sz = getEl("s-size"), sv = getEl("s-size-val");
     var th = getEl("s-thickness"), tv = getEl("s-thickness-val");
     var sh = getEl("s-sheet"), ink = getEl("s-ink");
@@ -175,15 +181,30 @@
   function updateRenderButton() {
     var ok = state.profile && state.profile.glyph_count > 0;
     var btn = getEl("btn-render");
-    var st = getEl("status");
     if (btn) btn.disabled = !ok;
-    msg(st, ok ? "Bereit." : "Lade zuerst Vorlagen hoch.");
+    statusMsg(ok ? "Bereit." : "Lade zuerst Vorlagen hoch.");
   }
 
   function updateTemplateLink() {
     var link = getEl("template-download");
     if (!link || !state.activeId) return;
     link.href = "/api/handwriting/profile/" + state.activeId + "/pair/0/pdf";
+  }
+
+  // ---- Status helper ----
+  function statusMsg(text, kind) {
+    var el = getEl("status");
+    if (!el) return;
+    el.className = "status-inline" + (kind ? " " + kind : "");
+    el.textContent = text || "";
+  }
+
+  function pairMsg(text, kind) {
+    var el = getEl("pair-status");
+    if (!el) return;
+    el.className = "status" + (kind ? " " + kind : "");
+    el.textContent = text || "";
+    el.style.display = text ? "" : "none";
   }
 
   // ---- Variants ----
@@ -240,19 +261,17 @@
     var files = state.variantFiles[idx] || {};
     if (!files[1] || !files[2]) return;
     var reset = showSpinner(btn, "Extrahiere…");
-    var ps = getEl("pair-status");
-    msg(ps, "Variante " + (idx + 1) + ": wird extrahiert…");
-    if (ps) ps.style.display = "";
+    pairMsg("Variante " + (idx + 1) + ": wird extrahiert…");
     API.uploadPair(state.activeId, idx, files[1], files[2])
       .then(function (res) {
         state.profile = res.profile;
         state.variantFiles[idx] = {};
         renderVariants();
         updateRenderButton();
-        msg(ps, "Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen!", "ok");
+        pairMsg("Variante " + (idx + 1) + ": " + res.glyph_count + " Glyphen!", "ok");
         ProfileCache.save(state.activeId, function () {});
       })
-      .catch(function (e) { msg(ps, "Fehler: " + e.message, "err"); })
+      .catch(function (e) { pairMsg("Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
@@ -270,12 +289,12 @@
     API.createPair(state.activeId, free)
       .then(function () { return API.getProfile(state.activeId); })
       .then(function (p) { state.profile = p; renderVariants(); })
-      .catch(function (e) { msg(getEl("pair-status"), "Fehler: " + e.message, "err"); })
+      .catch(function (e) { pairMsg("Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
   // ---- Auto-save ----
-  var saveNameTimer, saveSettingsTimer;
+  var saveSettingsTimer;
   function autoSaveSettings() {
     clearTimeout(saveSettingsTimer);
     saveSettingsTimer = setTimeout(function () {
@@ -285,7 +304,7 @@
         size_scale: sz ? parseFloat(sz.value) : 1.0,
         thickness: th ? parseFloat(th.value) : 1.0,
         sheet_type: sh ? sh.value : "liniert",
-        ink_color: ink ? ink.value : "#000000",
+        ink_color: ink ? ink.value : "#000000"
       }).then(function (p) {
         state.profile = p;
         ProfileCache.save(state.activeId, function () {});
@@ -297,6 +316,8 @@
   function clearHlSelection() {
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     state.activeHlColor = null;
+    var inp = getEl("hl-custom-color");
+    if (inp) inp.style.boxShadow = "";
   }
 
   function hideHighlightBar() {
@@ -307,6 +328,8 @@
   function onHlColorClick(e) {
     var btn = e.currentTarget;
     var color = btn.getAttribute("data-color");
+    var inp = getEl("hl-custom-color");
+    if (inp) inp.style.boxShadow = "";
     if (state.activeHlColor === color) {
       clearHlSelection();
       return;
@@ -365,7 +388,7 @@
     var container = getEl("hl-favorites");
     if (!container) return;
     container.innerHTML = state.hlFavorites.map(function (c) {
-      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Rechtsklick zum Entfernen" type="button"></button>';
+      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" title="Rechtsklick = entfernen" type="button"></button>';
     }).join("");
     qa(".hl-fav", container).forEach(function (btn) {
       btn.addEventListener("click", onHlColorClick);
@@ -423,8 +446,6 @@
       var container = containers[reg.page];
       if (!container) continue;
       var div = document.createElement("div");
-      var px = PAD / state.pageWidth * 100;
-      var py = PAD / state.pageHeight * 100;
       div.style.left = ((reg.x - PAD) / state.pageWidth * 100).toFixed(3) + "%";
       div.style.top = ((reg.y - PAD) / state.pageHeight * 100).toFixed(3) + "%";
       div.style.width = ((reg.w + PAD * 2) / state.pageWidth * 100).toFixed(3) + "%";
@@ -435,7 +456,6 @@
       } else {
         div.className = "hl-region hl-text";
         div.style.background = hexToRgba(reg.color, 0.1);
-        div.style.setProperty("--hl-color", reg.color);
         div.style.borderBottom = "3px solid " + reg.color;
       }
       container.appendChild(div);
@@ -495,6 +515,7 @@
 
   // ---- Bind UI ----
   function bindUI() {
+    // Profile dropdown
     on(getEl("profile-btn"), "click", toggleDropdown);
     on(getEl("btn-add-profile"), "click", showInlineNew);
     on(getEl("btn-new-confirm"), "click", submitNewProfile);
@@ -505,12 +526,12 @@
     on(getEl("new-profile-name"), "keydown", function (e) {
       if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); submitNewProfile(); }
     });
-
     document.addEventListener("click", function (e) {
       var sel = getEl("profile-selector");
       if (sel && !sel.contains(e.target) && dropdownOpen) closeDropdown();
     });
 
+    // Delete profile
     on(getEl("btn-delete"), "click", function () {
       if (!state.activeId) return;
       var pName = state.profile ? state.profile.name : state.activeId;
@@ -519,14 +540,17 @@
       API.deleteProfile(state.activeId).catch(function () {}).then(function () {
         state.activeId = null;
         state.profile = null;
+        closeSettingsPanel();
         return loadProfiles();
       });
     });
 
+    // Gear / settings panel
     on(getEl("btn-gear"), "click", openSettingsPanel);
     on(getEl("btn-panel-close"), "click", closeSettingsPanel);
     on(getEl("settings-overlay"), "click", closeSettingsPanel);
 
+    // Settings sliders
     on(getEl("s-size"), "input", function () {
       var v = getEl("s-size-val");
       if (v) v.textContent = fmtScale(getEl("s-size").value);
@@ -540,10 +564,15 @@
     on(getEl("s-sheet"), "change", autoSaveSettings);
     on(getEl("s-ink"), "change", autoSaveSettings);
 
+    // Variants
     on(getEl("btn-variant-add"), "click", onAddVariant);
+
+    // Render
     on(getEl("btn-render"), "click", renderText);
 
-    on(getEl("btn-export"), "click", function () {
+    // Export dropdown
+    on(getEl("btn-export"), "click", function (e) {
+      e.stopPropagation();
       var menu = getEl("export-menu");
       if (!menu) return;
       menu.style.display = menu.style.display === "none" ? "" : "none";
@@ -574,10 +603,10 @@
     if (!state.activeId) return;
     var textEl = getEl("text");
     var text = textEl ? textEl.value : "";
-    if (!text.trim()) { msg(getEl("status"), "Bitte Text eingeben.", "err"); return; }
+    if (!text.trim()) { statusMsg("Bitte Text eingeben.", "err"); return; }
     var btn = getEl("btn-render");
     var reset = showSpinner(btn, "Rendere…");
-    msg(getEl("status"), "Handschrift wird erzeugt…");
+    statusMsg("Handschrift wird erzeugt…");
     state.highlights = {};
     state.activeHlColor = null;
     clearHlSelection();
@@ -592,17 +621,17 @@
         if (hlBar) hlBar.style.display = state.wordMap.length > 0 ? "" : "none";
         var expBtn = getEl("btn-export");
         if (expBtn) expBtn.disabled = false;
-        msg(getEl("status"), "Fertig — " + res.pages + " Seite(n).", "ok");
+        statusMsg("Fertig — " + res.pages + " Seite(n).", "ok");
       })
-      .catch(function (e) { msg(getEl("status"), "Fehler: " + e.message, "err"); })
+      .catch(function (e) { statusMsg("Fehler: " + e.message, "err"); })
       .finally(function () { reset(); });
   }
 
   function renderPreview(urls) {
     var el = getEl("preview");
     if (!el) return;
-    if (!urls.length) {
-      el.innerHTML = '<div class="empty-state">Keine Seiten.</div>';
+    if (!urls || !urls.length) {
+      el.innerHTML = '<div class="empty-state-nice"><p>Keine Seiten.</p></div>';
       return;
     }
     el.innerHTML = urls.map(function (u, i) {
@@ -648,19 +677,12 @@
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      msg(getEl("status"), "Export fertig.", "ok");
+      statusMsg("Export fertig.", "ok");
     }).catch(function (e) {
-      msg(getEl("status"), "Export: " + e.message, "err");
+      statusMsg("Export: " + e.message, "err");
     }).finally(function () { reset(); });
   }
 
   // ---- Utils ----
-  function msg(el, text, kind) {
-    if (!el) return;
-    var base = el.classList.contains("status-inline") || el.id === "status" ? "status-inline" : "status";
-    el.className = base + (kind ? " " + kind : "");
-    el.textContent = text || "";
-    el.style.display = text ? "" : "none";
-  }
   function fmtScale(v) { return Number(v).toFixed(2).replace(/0$/, "") + "×"; }
 })();
