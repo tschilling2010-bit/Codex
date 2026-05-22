@@ -117,6 +117,7 @@ class GlyphRenderer:
             alpha = alpha.filter(ImageFilter.MaxFilter(size))
         else:
             alpha = alpha.filter(ImageFilter.MinFilter(size))
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.5))
         glyph.putalpha(alpha)
         return glyph
 
@@ -129,7 +130,7 @@ class GlyphRenderer:
 
     def _smooth_glyph(self, glyph: Image.Image) -> Image.Image:
         alpha = glyph.split()[-1]
-        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.7))
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=1.2))
         glyph.putalpha(alpha)
         return glyph
 

@@ -7,7 +7,7 @@
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
-    hlFavorites: []
+    hlFavorites: [], rangeStart: null
   };
 
   function getEl(id) { return document.getElementById(id); }
@@ -182,7 +182,7 @@
     var ok = state.profile && state.profile.glyph_count > 0;
     var btn = getEl("btn-render");
     if (btn) btn.disabled = !ok;
-    statusMsg(ok ? "Bereit." : "Lade zuerst Vorlagen hoch.");
+    statusMsg(ok ? "" : "Lade zuerst Vorlagen hoch.");
   }
 
   function updateTemplateLink() {
@@ -424,17 +424,40 @@
     var idx = parseInt(el.getAttribute("data-word-idx"), 10);
     if (isNaN(idx)) return;
 
-    var current = state.highlights[idx];
-    if (current && current.color === state.activeHlColor && current.mode === state.hlMode) {
-      delete state.highlights[idx];
-    } else {
-      state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
+    if (state.rangeStart === null) {
+      state.rangeStart = idx;
+      el.classList.add("hl-range-start");
+      return;
     }
+
+    var from = Math.min(state.rangeStart, idx);
+    var to = Math.max(state.rangeStart, idx);
+
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+
+    if (from === to) {
+      var current = state.highlights[idx];
+      if (current && current.color === state.activeHlColor && current.mode === state.hlMode) {
+        delete state.highlights[idx];
+      } else {
+        state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
+      }
+    } else {
+      for (var i = from; i <= to; i++) {
+        if (state.wordMap[i]) {
+          state.highlights[i] = { color: state.activeHlColor, mode: state.hlMode };
+        }
+      }
+    }
+
+    state.rangeStart = null;
     refreshHlRegions();
   }
 
   function clearAllHighlights() {
     state.highlights = {};
+    state.rangeStart = null;
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     refreshHlRegions();
   }
 
@@ -458,7 +481,7 @@
       div.style.height = ((reg.h + PAD * 2) / state.pageHeight * 100).toFixed(3) + "%";
       if (reg.mode === "marker") {
         div.className = "hl-region hl-marker";
-        div.style.background = hexToRgba(reg.color, 0.55);
+        div.style.background = hexToRgba(reg.color, 0.45);
       } else {
         div.className = "hl-region hl-text";
         div.style.background = hexToRgba(reg.color, 0.18);
@@ -615,6 +638,8 @@
     statusMsg("Handschrift wird erzeugt…");
     state.highlights = {};
     state.activeHlColor = null;
+    state.rangeStart = null;
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     clearHlSelection();
     API.render({ text: text, profile_id: state.activeId })
       .then(function (res) {

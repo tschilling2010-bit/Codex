@@ -423,10 +423,10 @@ def _extract_ink(cell: Image.Image) -> Optional[Image.Image]:
 
     alpha_img = Image.fromarray((cropped * 255).astype("uint8"), "L")
     alpha_img = alpha_img.resize((new_w, TARGET_GLYPH_H), Image.LANCZOS)
-    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.3))
+    alpha_img = alpha_img.filter(ImageFilter.GaussianBlur(radius=0.5))
 
     alpha_arr = np.array(alpha_img, dtype=np.uint8)
-    alpha_arr = np.clip(alpha_arr.astype(np.float32) * 1.8, 0, 255).astype(np.uint8)
+    alpha_arr = np.clip(alpha_arr.astype(np.float32) * 1.5, 0, 255).astype(np.uint8)
     alpha_img = Image.fromarray(alpha_arr, "L")
 
     rgba = Image.new("RGBA", alpha_img.size, (0, 0, 0, 0))
