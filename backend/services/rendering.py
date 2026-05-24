@@ -218,7 +218,7 @@ class GlyphRenderer:
         def new_page():
             nonlocal line_idx, is_first_page
             remainder = self.lines_per_page - (line_idx % self.lines_per_page)
-            line_idx += remainder + self.first_text_line
+            line_idx += remainder
             pages.append(self._new_page())
             is_first_page = False
 

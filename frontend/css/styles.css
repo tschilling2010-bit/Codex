@@ -446,7 +446,7 @@ input[type="color"] {
 }
 
 .hl-color-row {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 
 .hl-color {
@@ -466,7 +466,10 @@ input[type="color"] {
   transform: scale(1.08);
 }
 
-.hl-favorites { display: flex; gap: 10px; align-items: center; }
+.hl-sep {
+  width: 1px; height: 24px; background: var(--border); margin: 0 2px; flex-shrink: 0;
+}
+.hl-favorites { display: flex; gap: 8px; align-items: center; }
 
 .hl-fav-wrap {
   position: relative; display: inline-block; flex-shrink: 0;
@@ -522,8 +525,9 @@ input[type="color"] {
   background: var(--surface-muted);
 }
 .hl-range-toggle.active {
-  background: var(--accent-soft); color: var(--accent);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12); color: var(--accent);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .hl-hint {

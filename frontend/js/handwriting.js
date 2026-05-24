@@ -316,6 +316,18 @@
   }
 
   // ---- Highlight system ----
+  var DEFAULT_HL_COLOR = "#FFD600";
+
+  function selectHlColor(color) {
+    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
+    var inp = getEl("hl-custom-color");
+    if (inp) inp.style.boxShadow = "";
+    state.activeHlColor = color;
+    qa(".hl-color[data-color]").forEach(function (b) {
+      if (b.getAttribute("data-color") === color) b.classList.add("active");
+    });
+  }
+
   function clearHlSelection() {
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     state.activeHlColor = null;
@@ -328,18 +340,17 @@
     if (bar) bar.style.display = "none";
   }
 
+  function showHighlightBar() {
+    var bar = getEl("highlight-bar");
+    if (bar) bar.style.display = "";
+    if (!state.activeHlColor) selectHlColor(DEFAULT_HL_COLOR);
+  }
+
   function onHlColorClick(e) {
     var btn = e.currentTarget;
     var color = btn.getAttribute("data-color");
-    var inp = getEl("hl-custom-color");
-    if (inp) inp.style.boxShadow = "";
-    if (state.activeHlColor === color) {
-      clearHlSelection();
-      return;
-    }
-    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
-    btn.classList.add("active");
-    state.activeHlColor = color;
+    if (state.activeHlColor === color) return;
+    selectHlColor(color);
   }
 
   function onHlModeClick(e) {
@@ -357,24 +368,18 @@
     var color = inp.value;
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     state.activeHlColor = color;
-    inp.style.boxShadow = "0 0 0 3px " + hexToRgba(color, 0.5);
+    inp.style.boxShadow = "0 0 0 2px " + hexToRgba(color, 0.4);
   }
 
   function onAddFavorite() {
-    var color = state.activeHlColor;
-    if (!color) {
-      var inp = getEl("hl-custom-color");
-      color = inp ? inp.value : null;
-    }
+    var inp = getEl("hl-custom-color");
+    var color = inp ? inp.value : null;
     if (!color) return;
     if (state.hlFavorites.indexOf(color) >= 0) return;
     state.hlFavorites.push(color);
     saveHlFavorites();
     renderHlFavorites();
-    state.activeHlColor = color;
-    qa(".hl-fav", getEl("hl-favorites")).forEach(function (btn) {
-      btn.classList.toggle("active", btn.getAttribute("data-color") === color);
-    });
+    selectHlColor(color);
   }
 
   function loadHlFavorites() {
@@ -404,13 +409,11 @@
         e.stopPropagation();
         var color = btn.getAttribute("data-color");
         state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
-        if (state.activeHlColor === color) clearHlSelection();
+        if (state.activeHlColor === color) selectHlColor(DEFAULT_HL_COLOR);
         saveHlFavorites();
         renderHlFavorites();
       });
     });
-    var hint = getEl("hl-hint");
-    if (hint) hint.style.display = state.hlFavorites.length > 0 ? "none" : "";
   }
 
   function hexToRgba(hex, alpha) {
@@ -433,7 +436,7 @@
   }
 
   function onWordClick(e) {
-    if (!state.activeHlColor) return;
+    if (!state.activeHlColor) selectHlColor(DEFAULT_HL_COLOR);
     var el = e.currentTarget;
     var idx = parseInt(el.getAttribute("data-word-idx"), 10);
     if (isNaN(idx)) return;
@@ -691,6 +694,7 @@
 
     // Highlight
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
+    qa(".hl-preset").forEach(function (btn) { btn.addEventListener("click", onHlColorClick); });
     on(getEl("hl-custom-color"), "input", onHlCustomColor);
     on(getEl("btn-hl-add-fav"), "click", onAddFavorite);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
@@ -719,8 +723,7 @@
         state.pageWidth = res.page_width || 1;
         state.pageHeight = res.page_height || 1;
         renderPreview(res.preview_urls);
-        var hlBar = getEl("highlight-bar");
-        if (hlBar) hlBar.style.display = state.wordMap.length > 0 ? "" : "none";
+        if (state.wordMap.length > 0) { showHighlightBar(); } else { hideHighlightBar(); }
         var expBtn = getEl("btn-export");
         if (expBtn) expBtn.disabled = false;
         statusMsg("Fertig — " + res.pages + " Seite(n).", "ok");
