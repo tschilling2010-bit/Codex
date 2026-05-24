@@ -14,6 +14,7 @@
   var serverHlTimer;
   var textHlRendered = false;
   var longPressFired = false;
+  var hlInFlight = null;
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -700,10 +701,10 @@
         }
       }
       var toSend = textHl.length > 0 ? textHl : [];
-      API.highlight(state.projectId, toSend).then(function (res) {
+      hlInFlight = API.highlight(state.projectId, toSend).then(function (res) {
         if (res && res.preview_urls) refreshPreviewImages(res.preview_urls);
         textHlRendered = textHl.length > 0;
-      }).catch(function () {});
+      }).catch(function () {}).finally(function () { hlInFlight = null; });
     }, 400);
   }
 
@@ -873,13 +874,16 @@
 
   function doExport(fmt) {
     if (!state.projectId) return;
+    clearTimeout(serverHlTimer);
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
-    var hlList = getHighlightList();
-    var pre = hlList.length > 0
-      ? applyHighlightsToServer().catch(function (e) { console.warn("Highlight vor Export:", e); })
-      : Promise.resolve();
-    pre.then(function () {
+    var wait = hlInFlight || Promise.resolve();
+    wait.then(function () {
+      var hlList = getHighlightList();
+      if (hlList.length > 0) {
+        return applyHighlightsToServer().catch(function (e) { console.warn("Highlight vor Export:", e); });
+      }
+    }).then(function () {
       return API.exportHandwriting(state.projectId, fmt);
     }).then(function (res) {
       var dlUrl = "/api/handwriting/export/download/" + encodeURIComponent(res.filename);
