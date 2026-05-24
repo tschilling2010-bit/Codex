@@ -879,12 +879,7 @@
     var reset = showSpinner(btn, "…");
     var wait = hlInFlight || Promise.resolve();
     wait.then(function () {
-      var hlList = getHighlightList();
-      if (hlList.length > 0) {
-        return applyHighlightsToServer().catch(function (e) { console.warn("Highlight vor Export:", e); });
-      }
-    }).then(function () {
-      return API.exportHandwriting(state.projectId, fmt);
+      return API.exportHandwriting(state.projectId, fmt, getHighlightList());
     }).then(function (res) {
       var dlUrl = "/api/handwriting/export/download/" + encodeURIComponent(res.filename);
       window.location.href = dlUrl;

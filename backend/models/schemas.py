@@ -52,6 +52,7 @@ class HighlightRequest(BaseModel):
 class ExportRequest(BaseModel):
     project_id: str
     format: ExportFormat = "pdf"
+    highlights: List[HighlightItem] = []
 
 
 class ExportResponse(BaseModel):

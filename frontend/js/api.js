@@ -84,9 +84,11 @@ var API = (function () {
         body: { project_id: projectId, highlights: highlights }
       });
     },
-    exportHandwriting: function (projectId, format) {
+    exportHandwriting: function (projectId, format, highlights) {
       var url = format === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image";
-      return request(url, { method: "POST", body: { project_id: projectId, format: format } });
+      var body = { project_id: projectId, format: format };
+      if (highlights && highlights.length > 0) body.highlights = highlights;
+      return request(url, { method: "POST", body: body });
     },
 
     // Hefter v2: Subjects + AI pages

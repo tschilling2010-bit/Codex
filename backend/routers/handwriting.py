@@ -349,29 +349,34 @@ def highlight(req: HighlightRequest) -> RenderResponse:
 # ---------------------------------------------------------------------------
 
 
-def _load_pages(project_id: str) -> List[Image.Image]:
-    project = projects.load_meta(project_id)
+def _export_pages(req: ExportRequest):
+    project = projects.load_meta(req.project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages: List[Image.Image] = []
-    for i in range(1, project.pages + 1):
-        path = projects.page_file(project_id, i)
-        if path is None:
-            continue
-        img = Image.open(path)
-        img.load()
-        pages.append(img)
+    if req.highlights:
+        pages = projects.load_original_pages(req.project_id)
+        if not pages:
+            raise HTTPException(status_code=400, detail="Keine Seiten vorhanden.")
+        word_map = projects.load_word_map(req.project_id)
+        hl_data = [h.model_dump() for h in req.highlights]
+        pages = apply_highlights(pages, hl_data, word_map)
+    else:
+        pages = []
+        for i in range(1, project.pages + 1):
+            path = projects.page_file(project.id, i)
+            if path is None:
+                continue
+            img = Image.open(path)
+            img.load()
+            pages.append(img)
     if not pages:
         raise HTTPException(status_code=400, detail="Keine Seiten zum Export vorhanden.")
-    return pages
+    return project, pages
 
 
 @router.post("/export/pdf", response_model=ExportResponse)
 def export_pdf_ep(req: ExportRequest) -> ExportResponse:
-    project = projects.load_meta(req.project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages = _load_pages(req.project_id)
+    project, pages = _export_pages(req)
     out = config.EXPORTS_DIR / f"{req.project_id}-handwriting.pdf"
     export.export_pdf(pages, out)
     projects.add_export(project, out)
@@ -385,18 +390,13 @@ def export_pdf_ep(req: ExportRequest) -> ExportResponse:
 
 @router.post("/export/image", response_model=ExportResponse)
 def export_image_ep(req: ExportRequest) -> ExportResponse:
-    project = projects.load_meta(req.project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Projekt nicht gefunden.")
-    pages = _load_pages(req.project_id)
+    project, pages = _export_pages(req)
     tmp_dir = config.EXPORTS_DIR / f"{req.project_id}-img"
     tmp_dir.mkdir(exist_ok=True)
     if req.format == "png":
         paths = export.export_png(pages, tmp_dir, "handwriting")
-    elif req.format == "jpg":
-        paths = export.export_jpg(pages, tmp_dir, "handwriting")
     else:
-        raise HTTPException(status_code=400, detail="Nur png oder jpg erlaubt.")
+        raise HTTPException(status_code=400, detail="Nur png erlaubt.")
     for p in paths:
         projects.add_export(project, p)
     first = paths[0]

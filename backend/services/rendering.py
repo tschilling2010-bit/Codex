@@ -388,19 +388,22 @@ def apply_highlights(
         if texts:
             arr = np.array(out, dtype=np.float32)
             h_px, w_px = arr.shape[:2]
+            pad_t = 10
             for _idx, wb, color in texts:
                 r, g, b = _hex_to_rgb(color)
-                x1 = max(0, wb["x"])
-                y1 = max(0, wb["y"])
-                x2 = min(w_px, wb["x"] + wb["w"])
-                y2 = min(h_px, wb["y"] + wb["h"])
+                x1 = max(0, wb["x"] - pad_t)
+                y1 = max(0, wb["y"] - pad_t)
+                x2 = min(w_px, wb["x"] + wb["w"] + pad_t)
+                y2 = min(h_px, wb["y"] + wb["h"] + pad_t)
                 if x2 <= x1 or y2 <= y1:
                     continue
                 region = arr[y1:y2, x1:x2]
-                gray = region.min(axis=2, keepdims=True)
-                t = np.clip((240.0 - gray) / 60.0, 0.0, 1.0)
+                lum = region.min(axis=2, keepdims=True)
+                ink = lum < 250.0
                 target = np.array([r, g, b], dtype=np.float32).reshape(1, 1, 3)
-                arr[y1:y2, x1:x2] = region * (1.0 - t) + target * t
+                brightness = lum / 255.0
+                colored = target * brightness
+                arr[y1:y2, x1:x2] = np.where(ink, colored, region)
             out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
         result.append(out)
