@@ -418,6 +418,17 @@
     return "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
   }
 
+  function hexToPastel(hex, strength) {
+    hex = hex.replace("#", "");
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    r = Math.round(255 - (255 - r) * strength);
+    g = Math.round(255 - (255 - g) * strength);
+    b = Math.round(255 - (255 - b) * strength);
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function onWordClick(e) {
     if (!state.activeHlColor) return;
     var el = e.currentTarget;
@@ -481,11 +492,11 @@
       div.style.height = ((reg.h + PAD * 2) / state.pageHeight * 100).toFixed(3) + "%";
       if (reg.mode === "marker") {
         div.className = "hl-region hl-marker";
-        div.style.background = hexToRgba(reg.color, 0.45);
+        div.style.background = hexToPastel(reg.color, 0.35);
       } else {
         div.className = "hl-region hl-text";
-        div.style.background = hexToRgba(reg.color, 0.18);
-        div.style.borderBottom = "4px solid " + reg.color;
+        div.style.background = hexToRgba(reg.color, 0.12);
+        div.style.borderBottom = "3px solid " + reg.color;
       }
       container.appendChild(div);
     }

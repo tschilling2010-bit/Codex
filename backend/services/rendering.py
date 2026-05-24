@@ -117,7 +117,7 @@ class GlyphRenderer:
             alpha = alpha.filter(ImageFilter.MaxFilter(size))
         else:
             alpha = alpha.filter(ImageFilter.MinFilter(size))
-        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.5))
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.3))
         glyph.putalpha(alpha)
         return glyph
 
@@ -130,7 +130,7 @@ class GlyphRenderer:
 
     def _smooth_glyph(self, glyph: Image.Image) -> Image.Image:
         alpha = glyph.split()[-1]
-        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=1.2))
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.7))
         glyph.putalpha(alpha)
         return glyph
 
@@ -329,6 +329,7 @@ def apply_highlights(
     word_map: List[dict],
 ) -> List[Image.Image]:
     import numpy as np
+    from PIL import ImageChops
 
     by_page: dict = {}
     for h in highlights:
@@ -356,9 +357,8 @@ def apply_highlights(
             by_line: dict = {}
             for idx, wb, color in markers:
                 by_line.setdefault((wb["y"], color), []).append((idx, wb))
-            page_rgba = out.convert("RGBA")
-            overlay = Image.new("RGBA", out.size, (0, 0, 0, 0))
-            draw = ImageDraw.Draw(overlay)
+            hl_layer = Image.new("RGB", out.size, (255, 255, 255))
+            draw = ImageDraw.Draw(hl_layer)
             for (_y, color), group in by_line.items():
                 group.sort(key=lambda g: g[0])
                 rects = [dict(group[0][1])]
@@ -370,15 +370,23 @@ def apply_highlights(
                     else:
                         rects.append(dict(nxt))
                 r, g, b = _hex_to_rgb(color)
+                strength = 0.35
+                pastel = (
+                    int(255 - (255 - r) * strength),
+                    int(255 - (255 - g) * strength),
+                    int(255 - (255 - b) * strength),
+                )
+                pad = 4
                 for rc in rects:
-                    draw.rectangle(
-                        [rc["x"], rc["y"], rc["x"] + rc["w"], rc["y"] + rc["h"]],
-                        fill=(r, g, b, 120),
+                    draw.rounded_rectangle(
+                        [rc["x"] - pad, rc["y"] - pad,
+                         rc["x"] + rc["w"] + pad, rc["y"] + rc["h"] + pad],
+                        radius=6, fill=pastel,
                     )
-            out = Image.alpha_composite(page_rgba, overlay).convert("RGB")
+            out = ImageChops.multiply(out, hl_layer)
 
         if texts:
-            arr = np.array(out)
+            arr = np.array(out, dtype=np.float32)
             h_px, w_px = arr.shape[:2]
             for _idx, wb, color in texts:
                 r, g, b = _hex_to_rgb(color)
@@ -386,12 +394,12 @@ def apply_highlights(
                 y1 = max(0, wb["y"])
                 x2 = min(w_px, wb["x"] + wb["w"])
                 y2 = min(h_px, wb["y"] + wb["h"])
-                region = arr[y1:y2, x1:x2].copy()
-                gray = region.mean(axis=2)
-                mask = gray < 160
-                region[mask] = [r, g, b]
-                arr[y1:y2, x1:x2] = region
-            out = Image.fromarray(arr)
+                region = arr[y1:y2, x1:x2]
+                gray = region.mean(axis=2, keepdims=True)
+                t = np.clip((200.0 - gray) / 100.0, 0.0, 1.0)
+                target = np.array([r, g, b], dtype=np.float32).reshape(1, 1, 3)
+                arr[y1:y2, x1:x2] = region * (1.0 - t) + target * t
+            out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
 
         result.append(out)
     return result

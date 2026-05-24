@@ -23,7 +23,7 @@ for _d in (PROFILES_DIR, PROJECTS_DIR, EXPORTS_DIR, UPLOADS_DIR, TEMPLATES_DIR, 
     _d.mkdir(parents=True, exist_ok=True)
 
 # Page layout defaults (A4 @ 150 dpi).
-PAGE_DPI = 150
+PAGE_DPI = 300
 PAGE_WIDTH_MM = 210
 PAGE_HEIGHT_MM = 297
 
