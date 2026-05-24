@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from PIL import Image
 
 from .. import config
@@ -398,9 +398,19 @@ def export_image_ep(req: ExportRequest) -> ExportResponse:
     for p in paths:
         projects.add_export(project, p)
     first = paths[0]
+    dl_name = f"{project.id}-{first.name}"
     return ExportResponse(
         project_id=req.project_id,
         format=req.format,
-        url=f"/files/exports/{project.id}-{first.name}",
-        filename=first.name,
+        url=f"/files/exports/{dl_name}",
+        filename=dl_name,
     )
+
+
+@router.get("/export/download/{filename:path}")
+def download_export_file(filename: str):
+    safe = Path(filename).name
+    filepath = config.EXPORTS_DIR / safe
+    if not filepath.exists():
+        raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
+    return FileResponse(filepath, filename=safe, media_type="application/octet-stream")

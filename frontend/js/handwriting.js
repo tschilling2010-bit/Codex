@@ -362,36 +362,13 @@
     });
   }
 
-  function onAddColor() {
-    if (state.hlFavorites.length >= MAX_COLORS) return;
-    var picker = getEl("hl-color-picker");
-    if (!picker) return;
-    picker._editingColor = null;
-    picker.click();
-  }
-
   function onColorPickerChange() {
     var picker = getEl("hl-color-picker");
     if (!picker) return;
+    if (state.hlFavorites.length >= MAX_COLORS) return;
     var color = picker.value;
-    if (picker._editingColor) {
-      var old = picker._editingColor;
-      var idx = state.hlFavorites.indexOf(old);
-      if (idx >= 0) state.hlFavorites[idx] = color;
-      var keys = Object.keys(state.highlights);
-      for (var i = 0; i < keys.length; i++) {
-        if (state.highlights[keys[i]].color === old) {
-          state.highlights[keys[i]].color = color;
-        }
-      }
-      if (state.activeHlColor === old) state.activeHlColor = color;
-      picker._editingColor = null;
-      refreshHlRegions();
-      scheduleServerHighlight();
-    } else {
-      if (state.hlFavorites.indexOf(color) >= 0) return;
-      state.hlFavorites.push(color);
-    }
+    if (state.hlFavorites.indexOf(color) >= 0) { selectHlColor(color); return; }
+    state.hlFavorites.push(color);
     saveHlFavorites();
     renderHlFavorites();
     selectHlColor(color);
@@ -447,15 +424,28 @@
     var menu = document.createElement("div");
     menu.className = "hl-context-menu";
     menu.innerHTML =
-      '<button class="ctx-item" data-action="edit" type="button">Bearbeiten</button>' +
+      '<label class="ctx-item ctx-edit-label">Bearbeiten' +
+      '<input type="color" class="ctx-edit-picker" value="' + color + '" /></label>' +
       '<button class="ctx-item ctx-delete" data-action="delete" type="button">Löschen</button>';
     menu.style.position = "fixed";
     menu.style.left = Math.max(8, rect.left) + "px";
     menu.style.top = (rect.bottom + 8) + "px";
     document.body.appendChild(menu);
-    menu.querySelector('[data-action="edit"]').addEventListener("click", function () {
-      var picker = getEl("hl-color-picker");
-      if (picker) { picker.value = color; picker._editingColor = color; picker.click(); }
+    var editPicker = menu.querySelector(".ctx-edit-picker");
+    editPicker.addEventListener("change", function () {
+      var newColor = editPicker.value;
+      var idx = state.hlFavorites.indexOf(color);
+      if (idx >= 0) state.hlFavorites[idx] = newColor;
+      var keys = Object.keys(state.highlights);
+      for (var i = 0; i < keys.length; i++) {
+        if (state.highlights[keys[i]].color === color) state.highlights[keys[i]].color = newColor;
+      }
+      if (state.activeHlColor === color) state.activeHlColor = newColor;
+      saveHlFavorites();
+      renderHlFavorites();
+      selectHlColor(newColor);
+      refreshHlRegions();
+      scheduleServerHighlight();
       closeContextMenu();
     });
     menu.querySelector('[data-action="delete"]').addEventListener("click", function () {
@@ -762,8 +752,8 @@
 
     // Highlight
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
-    on(getEl("btn-hl-add"), "click", onAddColor);
     on(getEl("hl-color-picker"), "change", onColorPickerChange);
+    on(getEl("hl-color-picker"), "input", onColorPickerChange);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
     on(getEl("btn-hl-range"), "click", onRangeModeToggle);
   }
@@ -838,22 +828,17 @@
     if (!state.projectId) return;
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
-    var win = window.open("about:blank", "_blank");
     var pre = getHighlightList().length > 0
       ? applyHighlightsToServer().catch(function () {})
       : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
     }).then(function (res) {
-      if (win && !win.closed) {
-        win.location.href = res.url;
-      } else {
-        window.location.href = res.url;
-      }
+      var dlUrl = "/api/handwriting/export/download/" + encodeURIComponent(res.filename);
+      window.location.href = dlUrl;
       statusMsg("Export fertig.", "ok");
       scheduleServerHighlight();
     }).catch(function (e) {
-      if (win && !win.closed) win.close();
       statusMsg("Export: " + e.message, "err");
     }).finally(function () { reset(); });
   }

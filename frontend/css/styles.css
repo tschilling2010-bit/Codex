@@ -514,6 +514,7 @@ input[type="color"] {
 }
 
 .hl-add-btn {
+  position: relative; overflow: hidden;
   width: 36px; height: 36px; border-radius: 50%;
   border: 2px dashed rgba(255, 255, 255, 0.18); background: transparent;
   color: var(--text-muted); font-size: 20px; font-weight: 700;
@@ -524,6 +525,10 @@ input[type="color"] {
 .hl-add-btn:hover {
   color: var(--accent); border-color: rgba(255, 255, 255, 0.35);
   transform: scale(1.1);
+}
+.hl-add-btn input[type="color"] {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: none; padding: 0;
 }
 
 .hl-context-menu {
@@ -536,6 +541,16 @@ input[type="color"] {
   color: var(--text); font-size: 14px; text-align: left; cursor: pointer;
 }
 .hl-context-menu .ctx-item:hover { background: var(--accent-soft); }
+.hl-context-menu .ctx-edit-label {
+  display: block; width: 100%; padding: 10px 16px; border: none; background: none;
+  color: var(--text); font-size: 14px; text-align: left; cursor: pointer;
+  position: relative; overflow: hidden;
+}
+.hl-context-menu .ctx-edit-label:hover { background: var(--accent-soft); }
+.hl-context-menu .ctx-edit-picker {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  opacity: 0; cursor: pointer; border: none;
+}
 .hl-context-menu .ctx-delete { color: var(--err); }
 
 .hl-range-toggle {
