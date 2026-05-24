@@ -819,11 +819,35 @@
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
     var wait = hlInFlight || Promise.resolve();
+    var url = fmt === "pdf" ? "/api/handwriting/export/pdf" : "/api/handwriting/export/image";
+    var body = { project_id: state.projectId, format: fmt };
+    var hl = getHighlightList();
+    if (hl.length > 0) body.highlights = hl;
     wait.then(function () {
-      return API.exportHandwriting(state.projectId, fmt, getHighlightList());
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
     }).then(function (res) {
-      var dlUrl = "/api/handwriting/export/download/" + encodeURIComponent(res.filename);
-      window.location.href = dlUrl;
+      if (!res.ok) {
+        return res.text().then(function (t) {
+          var msg = "Export fehlgeschlagen";
+          try { msg = JSON.parse(t).detail || msg; } catch (e) {}
+          throw new Error(msg);
+        });
+      }
+      return res.blob();
+    }).then(function (blob) {
+      var blobUrl = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = blobUrl;
+      a.download = "handwriting." + fmt;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 30000);
       statusMsg("Export fertig.", "ok");
     }).catch(function (e) {
       statusMsg("Export: " + e.message, "err");

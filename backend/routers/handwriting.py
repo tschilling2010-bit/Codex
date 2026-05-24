@@ -394,44 +394,49 @@ def _ensure_rgb(img: Image.Image) -> Image.Image:
 
 def _clean_export_cache() -> None:
     now = time.time()
-    expired = [k for k, (_, ts) in _export_cache.items() if now - ts > 120]
+    expired = [k for k, (_, ts) in _export_cache.items() if now - ts > 300]
     for k in expired:
         del _export_cache[k]
 
 
-@router.post("/export/pdf", response_model=ExportResponse)
-def export_pdf_ep(req: ExportRequest) -> ExportResponse:
+@router.post("/export/pdf")
+def export_pdf_ep(req: ExportRequest):
+    log.info("PDF export: project=%s highlights=%d", req.project_id, len(req.highlights))
     project, pages = _export_pages(req)
+    log.info("Pages ready: count=%d sizes=%s", len(pages), [p.size for p in pages])
     buf = io.BytesIO()
     rgb = [_ensure_rgb(p) for p in pages]
     rgb[0].save(
         buf, save_all=True, append_images=rgb[1:],
         resolution=config.PAGE_DPI, format="PDF",
     )
+    data = buf.getvalue()
+    log.info("PDF generated: %d bytes", len(data))
     filename = f"{project.id}-handwriting.pdf"
-    _export_cache[filename] = (buf.getvalue(), time.time())
+    _export_cache[filename] = (data, time.time())
     _clean_export_cache()
-    return ExportResponse(
-        project_id=req.project_id,
-        format="pdf",
-        url=f"/api/handwriting/export/download/{filename}",
-        filename=filename,
+    return Response(
+        content=data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
-@router.post("/export/image", response_model=ExportResponse)
-def export_image_ep(req: ExportRequest) -> ExportResponse:
+@router.post("/export/image")
+def export_image_ep(req: ExportRequest):
+    log.info("PNG export: project=%s highlights=%d", req.project_id, len(req.highlights))
     project, pages = _export_pages(req)
     buf = io.BytesIO()
     _ensure_rgb(pages[0]).save(buf, "PNG")
+    data = buf.getvalue()
+    log.info("PNG generated: %d bytes", len(data))
     filename = f"{project.id}-handwriting.png"
-    _export_cache[filename] = (buf.getvalue(), time.time())
+    _export_cache[filename] = (data, time.time())
     _clean_export_cache()
-    return ExportResponse(
-        project_id=req.project_id,
-        format=req.format,
-        url=f"/api/handwriting/export/download/{filename}",
-        filename=filename,
+    return Response(
+        content=data,
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -439,7 +444,7 @@ def export_image_ep(req: ExportRequest) -> ExportResponse:
 def download_export_file(filename: str):
     safe = Path(filename).name
     if safe in _export_cache:
-        data, _ = _export_cache.pop(safe)
+        data, _ = _export_cache[safe]
         return Response(
             content=data,
             media_type="application/octet-stream",
