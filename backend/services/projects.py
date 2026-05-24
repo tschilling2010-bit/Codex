@@ -16,9 +16,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from PIL import Image
+import io
+
+from PIL import Image, ImageFile
 
 from .. import config
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+_original_cache: dict = {}
 
 
 @dataclass
@@ -105,27 +111,31 @@ def save_pages(project: Project, pages: List[Image.Image]) -> List[str]:
 
 
 def save_original_pages(project: Project, pages: List[Image.Image]) -> None:
-    folder = _project_dir(project.id) / "pages-original"
-    folder.mkdir(parents=True, exist_ok=True)
-    for f in folder.glob("*.png"):
-        f.unlink()
-    for i, p in enumerate(pages, start=1):
-        path = folder / f"page-{i:02d}.png"
+    _original_cache.clear()
+    compressed = []
+    for p in pages:
+        buf = io.BytesIO()
+        rgb = p
         if p.mode != "RGB":
-            bg = Image.new("RGB", p.size, "white")
+            rgb = Image.new("RGB", p.size, "white")
             if "A" in p.mode:
-                bg.paste(p, mask=p.split()[-1])
+                rgb.paste(p, mask=p.split()[-1])
             else:
-                bg.paste(p)
-            bg.save(path, "PNG")
-        else:
-            p.save(path, "PNG")
+                rgb.paste(p)
+        rgb.save(buf, "PNG")
+        compressed.append(buf.getvalue())
+    _original_cache[project.id] = compressed
 
 
 def load_original_pages(project_id: str) -> List[Image.Image]:
-    folder = _project_dir(project_id) / "pages-original"
-    if not folder.exists():
-        folder = _project_dir(project_id) / "pages"
+    if project_id in _original_cache:
+        pages = []
+        for data in _original_cache[project_id]:
+            img = Image.open(io.BytesIO(data)).convert("RGB")
+            img.load()
+            pages.append(img)
+        return pages
+    folder = _project_dir(project_id) / "pages"
     pages: List[Image.Image] = []
     for path in sorted(folder.glob("*.png")):
         img = Image.open(path).convert("RGB")
