@@ -328,8 +328,7 @@ def apply_highlights(
     highlights: List[dict],
     word_map: List[dict],
 ) -> List[Image.Image]:
-    import numpy as np
-    from PIL import ImageChops
+    from PIL import ImageChops, ImageOps
 
     by_page: dict = {}
     for h in highlights:
@@ -340,6 +339,8 @@ def apply_highlights(
         color = h.get("color", "#FFFF00")
         mode = h.get("mode", "marker")
         by_page.setdefault(wb["page"], []).append((idx, wb, color, mode))
+
+    _text_lut = [0] * 51 + [min(255, (i - 50) * 255 // 205) for i in range(51, 256)]
 
     result: List[Image.Image] = []
     for i, page in enumerate(pages):
@@ -387,7 +388,7 @@ def apply_highlights(
 
         if texts:
             w_px, h_px = out.size
-            pad_t = 10
+            pad_t = 6
             for _idx, wb, color in texts:
                 r, g, b = _hex_to_rgb(color)
                 x1 = max(0, wb["x"] - pad_t)
@@ -397,14 +398,11 @@ def apply_highlights(
                 if x2 <= x1 or y2 <= y1:
                     continue
                 crop = out.crop((x1, y1, x2, y2))
-                arr = np.array(crop, dtype=np.float32)
-                lum = arr.min(axis=2, keepdims=True)
-                ink = lum < 250.0
-                target = np.array([r, g, b], dtype=np.float32).reshape(1, 1, 3)
-                brightness = lum / 255.0
-                colored = target * brightness
-                arr = np.where(ink, colored, arr)
-                out.paste(Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)), (x1, y1))
+                gray = crop.convert("L")
+                mask = ImageOps.invert(gray)
+                mask = mask.point(_text_lut)
+                color_layer = Image.new("RGB", crop.size, (r, g, b))
+                out.paste(color_layer, (x1, y1), mask)
 
         result.append(out)
     return result
