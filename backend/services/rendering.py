@@ -386,8 +386,7 @@ def apply_highlights(
             out = ImageChops.multiply(out, hl_layer)
 
         if texts:
-            arr = np.array(out, dtype=np.float32)
-            h_px, w_px = arr.shape[:2]
+            w_px, h_px = out.size
             pad_t = 10
             for _idx, wb, color in texts:
                 r, g, b = _hex_to_rgb(color)
@@ -397,14 +396,15 @@ def apply_highlights(
                 y2 = min(h_px, wb["y"] + wb["h"] + pad_t)
                 if x2 <= x1 or y2 <= y1:
                     continue
-                region = arr[y1:y2, x1:x2]
-                lum = region.min(axis=2, keepdims=True)
+                crop = out.crop((x1, y1, x2, y2))
+                arr = np.array(crop, dtype=np.float32)
+                lum = arr.min(axis=2, keepdims=True)
                 ink = lum < 250.0
                 target = np.array([r, g, b], dtype=np.float32).reshape(1, 1, 3)
                 brightness = lum / 255.0
                 colored = target * brightness
-                arr[y1:y2, x1:x2] = np.where(ink, colored, region)
-            out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+                arr = np.where(ink, colored, arr)
+                out.paste(Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8)), (x1, y1))
 
         result.append(out)
     return result

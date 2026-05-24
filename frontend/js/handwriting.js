@@ -13,7 +13,6 @@
 
   var serverHlTimer;
   var textHlRendered = false;
-  var longPressFired = false;
   var hlInFlight = null;
 
   function getEl(id) { return document.getElementById(id); }
@@ -347,7 +346,6 @@
   }
 
   function onHlColorClick(e) {
-    if (longPressFired) { longPressFired = false; return; }
     var btn = e.currentTarget;
     var color = btn.getAttribute("data-color");
     if (state.activeHlColor === color) return;
@@ -414,84 +412,27 @@
       return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" type="button"></button>';
     }).join("");
     qa(".hl-fav", container).forEach(function (btn) {
-      btn.addEventListener("click", onHlColorClick);
-      bindLongPress(btn, function () { showColorContextMenu(btn); });
+      var lastTap = 0;
+      btn.addEventListener("click", function (e) {
+        var now = Date.now();
+        if (now - lastTap < 400) {
+          var color = btn.getAttribute("data-color");
+          state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
+          if (state.activeHlColor === color) {
+            state.activeHlColor = state.hlFavorites.length > 0 ? state.hlFavorites[0] : null;
+            if (state.activeHlColor) selectHlColor(state.activeHlColor);
+          }
+          saveHlFavorites();
+          renderHlFavorites();
+          lastTap = 0;
+          return;
+        }
+        lastTap = now;
+        onHlColorClick(e);
+      });
     });
     var addBtn = getEl("btn-hl-add");
     if (addBtn) addBtn.style.display = state.hlFavorites.length >= MAX_COLORS ? "none" : "";
-  }
-
-  function bindLongPress(el, callback) {
-    var timer = null;
-    function start() {
-      timer = setTimeout(function () {
-        longPressFired = true;
-        callback();
-      }, 500);
-    }
-    function cancel() { clearTimeout(timer); }
-    el.addEventListener("mousedown", start);
-    el.addEventListener("mouseup", cancel);
-    el.addEventListener("mouseleave", cancel);
-    el.addEventListener("touchstart", start, { passive: true });
-    el.addEventListener("touchend", cancel);
-    el.addEventListener("touchmove", cancel);
-    el.addEventListener("touchcancel", cancel);
-    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-  }
-
-  function showColorContextMenu(btn) {
-    closeContextMenu();
-    var color = btn.getAttribute("data-color");
-    var rect = btn.getBoundingClientRect();
-    var menu = document.createElement("div");
-    menu.className = "hl-context-menu";
-    menu.innerHTML =
-      '<label class="ctx-item ctx-edit-label">Bearbeiten' +
-      '<input type="color" class="ctx-edit-picker" value="' + color + '" /></label>' +
-      '<button class="ctx-item ctx-delete" data-action="delete" type="button">Löschen</button>';
-    menu.style.position = "fixed";
-    menu.style.left = Math.max(8, rect.left) + "px";
-    menu.style.top = (rect.bottom + 8) + "px";
-    document.body.appendChild(menu);
-    var editPicker = menu.querySelector(".ctx-edit-picker");
-    editPicker.addEventListener("change", function () {
-      var newColor = editPicker.value;
-      var idx = state.hlFavorites.indexOf(color);
-      if (idx >= 0) state.hlFavorites[idx] = newColor;
-      var keys = Object.keys(state.highlights);
-      for (var i = 0; i < keys.length; i++) {
-        if (state.highlights[keys[i]].color === color) state.highlights[keys[i]].color = newColor;
-      }
-      if (state.activeHlColor === color) state.activeHlColor = newColor;
-      saveHlFavorites();
-      renderHlFavorites();
-      selectHlColor(newColor);
-      refreshHlRegions();
-      scheduleServerHighlight();
-      closeContextMenu();
-    });
-    menu.querySelector('[data-action="delete"]').addEventListener("click", function () {
-      state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
-      if (state.activeHlColor === color) {
-        state.activeHlColor = state.hlFavorites.length > 0 ? state.hlFavorites[0] : null;
-        if (state.activeHlColor) selectHlColor(state.activeHlColor);
-      }
-      saveHlFavorites();
-      renderHlFavorites();
-      closeContextMenu();
-    });
-    setTimeout(function () {
-      document.addEventListener("click", closeContextMenu);
-      document.addEventListener("touchstart", closeContextMenu);
-    }, 50);
-  }
-
-  function closeContextMenu() {
-    var m = document.querySelector(".hl-context-menu");
-    if (m && m.parentNode) m.parentNode.removeChild(m);
-    document.removeEventListener("click", closeContextMenu);
-    document.removeEventListener("touchstart", closeContextMenu);
   }
 
   function hexToRgba(hex, alpha) {

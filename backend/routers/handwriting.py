@@ -359,7 +359,11 @@ def _export_pages(req: ExportRequest):
             raise HTTPException(status_code=400, detail="Keine Seiten vorhanden.")
         word_map = projects.load_word_map(req.project_id)
         hl_data = [h.model_dump() for h in req.highlights]
-        pages = apply_highlights(pages, hl_data, word_map)
+        try:
+            pages = apply_highlights(pages, hl_data, word_map)
+        except Exception as exc:
+            log.exception("apply_highlights failed for project %s", req.project_id)
+            raise HTTPException(status_code=500, detail=f"Highlight-Fehler: {exc}")
     else:
         pages = []
         for i in range(1, project.pages + 1):
