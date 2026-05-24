@@ -395,8 +395,8 @@ def apply_highlights(
                 x2 = min(w_px, wb["x"] + wb["w"])
                 y2 = min(h_px, wb["y"] + wb["h"])
                 region = arr[y1:y2, x1:x2]
-                gray = region.mean(axis=2, keepdims=True)
-                t = np.clip((200.0 - gray) / 100.0, 0.0, 1.0)
+                gray = region.min(axis=2, keepdims=True)
+                t = np.clip((240.0 - gray) / 60.0, 0.0, 1.0)
                 target = np.array([r, g, b], dtype=np.float32).reshape(1, 1, 3)
                 arr[y1:y2, x1:x2] = region * (1.0 - t) + target * t
             out = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))

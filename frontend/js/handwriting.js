@@ -8,8 +8,7 @@
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
-    hlFavorites: [], rangeStart: null, rangeMode: false,
-    eraserMode: false
+    hlFavorites: [], rangeStart: null, rangeMode: false
   };
 
   var serverHlTimer;
@@ -358,21 +357,43 @@
     var btn = e.currentTarget;
     var mode = btn.getAttribute("data-mode");
     state.hlMode = mode;
+    state.rangeStart = null;
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     qa(".hl-mode-btn").forEach(function (b) {
       b.classList.toggle("active", b.getAttribute("data-mode") === mode);
     });
+    if (mode === "eraser") {
+      clearHlSelection();
+    } else if (!state.activeHlColor && state.hlFavorites.length > 0) {
+      selectHlColor(state.hlFavorites[0]);
+    }
   }
 
-  function onColorPickerChange() {
+  function onAddColorClick() {
+    var panel = getEl("hl-add-panel");
+    if (panel) panel.style.display = panel.style.display === "none" ? "flex" : "none";
+  }
+
+  function onConfirmColor() {
     var picker = getEl("hl-color-picker");
-    if (!picker) return;
-    if (state.hlFavorites.length >= MAX_COLORS) return;
+    if (!picker || state.hlFavorites.length >= MAX_COLORS) return;
     var color = picker.value;
-    if (state.hlFavorites.indexOf(color) >= 0) { selectHlColor(color); return; }
-    state.hlFavorites.push(color);
-    saveHlFavorites();
-    renderHlFavorites();
-    selectHlColor(color);
+    var panel = getEl("hl-add-panel");
+    if (state.hlFavorites.indexOf(color) >= 0) {
+      selectHlColor(color);
+    } else {
+      state.hlFavorites.push(color);
+      saveHlFavorites();
+      renderHlFavorites();
+      selectHlColor(color);
+    }
+    if (panel) panel.style.display = "none";
+    if (state.hlMode === "eraser") {
+      state.hlMode = "marker";
+      qa(".hl-mode-btn").forEach(function (b) {
+        b.classList.toggle("active", b.getAttribute("data-mode") === "marker");
+      });
+    }
   }
 
   function loadHlFavorites() {
@@ -496,7 +517,7 @@
     var idx = parseInt(el.getAttribute("data-word-idx"), 10);
     if (isNaN(idx)) return;
 
-    if (state.eraserMode) {
+    if (state.hlMode === "eraser") {
       if (!state.rangeMode) {
         delete state.highlights[idx];
       } else {
@@ -564,15 +585,6 @@
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     var btn = getEl("btn-hl-range");
     if (btn) btn.classList.toggle("active", state.rangeMode);
-  }
-
-  function onEraserToggle() {
-    state.eraserMode = !state.eraserMode;
-    state.rangeStart = null;
-    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
-    var btn = getEl("btn-hl-eraser");
-    if (btn) btn.classList.toggle("active", state.eraserMode);
-    if (state.eraserMode) clearHlSelection();
   }
 
   function clearAllHighlights() {
@@ -783,8 +795,8 @@
 
     // Highlight
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
-    on(getEl("hl-color-picker"), "change", onColorPickerChange);
-    on(getEl("btn-hl-eraser"), "click", onEraserToggle);
+    on(getEl("btn-hl-add"), "click", onAddColorClick);
+    on(getEl("btn-hl-confirm"), "click", onConfirmColor);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
     on(getEl("btn-hl-range"), "click", onRangeModeToggle);
   }
@@ -801,11 +813,12 @@
     state.highlights = {};
     state.activeHlColor = null;
     state.rangeStart = null;
-    state.eraserMode = false;
+    state.hlMode = "marker";
     textHlRendered = false;
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
-    var eraserBtn = getEl("btn-hl-eraser");
-    if (eraserBtn) eraserBtn.classList.remove("active");
+    qa(".hl-mode-btn").forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-mode") === "marker");
+    });
     clearHlSelection();
     API.render({ text: text, profile_id: state.activeId })
       .then(function (res) {
