@@ -394,6 +394,8 @@ def apply_highlights(
                 y1 = max(0, wb["y"])
                 x2 = min(w_px, wb["x"] + wb["w"])
                 y2 = min(h_px, wb["y"] + wb["h"])
+                if x2 <= x1 or y2 <= y1:
+                    continue
                 region = arr[y1:y2, x1:x2]
                 gray = region.min(axis=2, keepdims=True)
                 t = np.clip((240.0 - gray) / 60.0, 0.0, 1.0)

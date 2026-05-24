@@ -648,7 +648,7 @@
     for (var j = 0; j < entries.length; j++) {
       var e = entries[j];
       if (cur && cur.color === e.color && cur.mode === e.mode &&
-          cur.y === e.wb.y && e.idx === cur.lastIdx + 1 && cur.mode === "marker") {
+          cur.page === e.wb.page && cur.y === e.wb.y && e.idx === cur.lastIdx + 1 && cur.mode === "marker") {
         cur.w = e.wb.x + e.wb.w - cur.x;
         cur.lastIdx = e.idx;
       } else {
@@ -875,8 +875,9 @@
     if (!state.projectId) return;
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
-    var pre = getHighlightList().length > 0
-      ? applyHighlightsToServer().catch(function () {})
+    var hlList = getHighlightList();
+    var pre = hlList.length > 0
+      ? applyHighlightsToServer().catch(function (e) { console.warn("Highlight vor Export:", e); })
       : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
@@ -884,7 +885,6 @@
       var dlUrl = "/api/handwriting/export/download/" + encodeURIComponent(res.filename);
       window.location.href = dlUrl;
       statusMsg("Export fertig.", "ok");
-      scheduleServerHighlight();
     }).catch(function (e) {
       statusMsg("Export: " + e.message, "err");
     }).finally(function () { reset(); });

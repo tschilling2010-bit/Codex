@@ -358,7 +358,9 @@ def _load_pages(project_id: str) -> List[Image.Image]:
         path = projects.page_file(project_id, i)
         if path is None:
             continue
-        pages.append(Image.open(path))
+        img = Image.open(path)
+        img.load()
+        pages.append(img)
     if not pages:
         raise HTTPException(status_code=400, detail="Keine Seiten zum Export vorhanden.")
     return pages

@@ -128,7 +128,9 @@ def load_original_pages(project_id: str) -> List[Image.Image]:
         folder = _project_dir(project_id) / "pages"
     pages: List[Image.Image] = []
     for path in sorted(folder.glob("*.png")):
-        pages.append(Image.open(path).convert("RGB"))
+        img = Image.open(path).convert("RGB")
+        img.load()
+        pages.append(img)
     return pages
 
 
