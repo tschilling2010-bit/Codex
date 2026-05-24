@@ -553,18 +553,18 @@ input[type="color"] {
 }
 .hl-context-menu .ctx-delete { color: var(--err); }
 
-.hl-range-toggle {
+.hl-tool-toggle {
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px; border-radius: 8px;
   border: 1px solid var(--border); background: transparent;
   color: var(--text-muted); cursor: pointer;
   transition: all 0.15s var(--ease);
 }
-.hl-range-toggle:hover {
+.hl-tool-toggle:hover {
   color: var(--text); border-color: rgba(255, 255, 255, 0.2);
   background: var(--surface-muted);
 }
-.hl-range-toggle.active {
+.hl-tool-toggle.active {
   background: rgba(255, 255, 255, 0.12); color: var(--accent);
   border-color: rgba(255, 255, 255, 0.35);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);

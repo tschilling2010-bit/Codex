@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=26" />
+  <link rel="stylesheet" href="/css/styles.css?v=27" />
 </head>
 <body>
 
@@ -71,7 +71,10 @@
               <button class="hl-mode-btn" data-mode="text" type="button">Buchstaben</button>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
-              <button class="hl-range-toggle" id="btn-hl-range" type="button" title="Bereich: Erstes &amp; letztes Wort anklicken">
+              <button class="hl-tool-toggle" id="btn-hl-eraser" type="button" title="Radiergummi">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8L14.6 1.6c.8-.8 2-.8 2.8 0L21.4 5.6c.8.8.8 2 0 2.8L10 20"/><path d="M6 12l6 6"/></svg>
+              </button>
+              <button class="hl-tool-toggle" id="btn-hl-range" type="button" title="Bereich: Erstes &amp; letztes Wort anklicken">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8L3 12l4 4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
               </button>
               <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
@@ -156,9 +159,9 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=26"></script>
-  <script src="/js/api.js?v=26"></script>
-  <script src="/js/persist.js?v=26"></script>
-  <script src="/js/handwriting.js?v=26"></script>
+  <script src="/js/common.js?v=27"></script>
+  <script src="/js/api.js?v=27"></script>
+  <script src="/js/persist.js?v=27"></script>
+  <script src="/js/handwriting.js?v=27"></script>
 </body>
 </html>

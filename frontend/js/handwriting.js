@@ -8,7 +8,8 @@
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
-    hlFavorites: [], rangeStart: null, rangeMode: false
+    hlFavorites: [], rangeStart: null, rangeMode: false,
+    eraserMode: false
   };
 
   var serverHlTimer;
@@ -491,13 +492,34 @@
   }
 
   function onWordClick(e) {
+    var el = e.currentTarget;
+    var idx = parseInt(el.getAttribute("data-word-idx"), 10);
+    if (isNaN(idx)) return;
+
+    if (state.eraserMode) {
+      if (!state.rangeMode) {
+        delete state.highlights[idx];
+      } else {
+        if (state.rangeStart === null) {
+          state.rangeStart = idx;
+          el.classList.add("hl-range-start");
+          return;
+        }
+        var from = Math.min(state.rangeStart, idx);
+        var to = Math.max(state.rangeStart, idx);
+        qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+        for (var i = from; i <= to; i++) { delete state.highlights[i]; }
+        state.rangeStart = null;
+      }
+      refreshHlRegions();
+      scheduleServerHighlight();
+      return;
+    }
+
     if (!state.activeHlColor) {
       if (state.hlFavorites.length > 0) { selectHlColor(state.hlFavorites[0]); }
       else return;
     }
-    var el = e.currentTarget;
-    var idx = parseInt(el.getAttribute("data-word-idx"), 10);
-    if (isNaN(idx)) return;
 
     if (!state.rangeMode) {
       var cur = state.highlights[idx];
@@ -512,10 +534,10 @@
         el.classList.add("hl-range-start");
         return;
       }
-      var from = Math.min(state.rangeStart, idx);
-      var to = Math.max(state.rangeStart, idx);
+      var from2 = Math.min(state.rangeStart, idx);
+      var to2 = Math.max(state.rangeStart, idx);
       qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
-      if (from === to) {
+      if (from2 === to2) {
         var cur2 = state.highlights[idx];
         if (cur2 && cur2.color === state.activeHlColor && cur2.mode === state.hlMode) {
           delete state.highlights[idx];
@@ -523,9 +545,9 @@
           state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
         }
       } else {
-        for (var i = from; i <= to; i++) {
-          if (state.wordMap[i]) {
-            state.highlights[i] = { color: state.activeHlColor, mode: state.hlMode };
+        for (var j = from2; j <= to2; j++) {
+          if (state.wordMap[j]) {
+            state.highlights[j] = { color: state.activeHlColor, mode: state.hlMode };
           }
         }
       }
@@ -542,6 +564,15 @@
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     var btn = getEl("btn-hl-range");
     if (btn) btn.classList.toggle("active", state.rangeMode);
+  }
+
+  function onEraserToggle() {
+    state.eraserMode = !state.eraserMode;
+    state.rangeStart = null;
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+    var btn = getEl("btn-hl-eraser");
+    if (btn) btn.classList.toggle("active", state.eraserMode);
+    if (state.eraserMode) clearHlSelection();
   }
 
   function clearAllHighlights() {
@@ -753,7 +784,7 @@
     // Highlight
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
     on(getEl("hl-color-picker"), "change", onColorPickerChange);
-    on(getEl("hl-color-picker"), "input", onColorPickerChange);
+    on(getEl("btn-hl-eraser"), "click", onEraserToggle);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
     on(getEl("btn-hl-range"), "click", onRangeModeToggle);
   }
@@ -770,8 +801,11 @@
     state.highlights = {};
     state.activeHlColor = null;
     state.rangeStart = null;
+    state.eraserMode = false;
     textHlRendered = false;
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+    var eraserBtn = getEl("btn-hl-eraser");
+    if (eraserBtn) eraserBtn.classList.remove("active");
     clearHlSelection();
     API.render({ text: text, profile_id: state.activeId })
       .then(function (res) {
