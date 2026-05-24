@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=21" />
+  <link rel="stylesheet" href="/css/styles.css?v=22" />
 </head>
 <body>
 
@@ -71,7 +71,12 @@
               <button class="hl-mode-btn active" data-mode="marker" type="button">Marker</button>
               <button class="hl-mode-btn" data-mode="text" type="button">Buchstaben</button>
             </div>
-            <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="hl-range-toggle" id="btn-hl-range" type="button" title="Bereich markieren">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8L3 12l4 4"/><path d="M3 12h18"/><path d="M17 8l4 4-4 4"/></svg>
+              </button>
+              <button class="btn btn-ghost btn-xs" id="btn-hl-clear" type="button">Alle entfernen</button>
+            </div>
           </div>
           <div class="hl-color-row">
             <div id="hl-favorites" class="hl-favorites"></div>
@@ -151,9 +156,9 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=21"></script>
-  <script src="/js/api.js?v=21"></script>
-  <script src="/js/persist.js?v=21"></script>
-  <script src="/js/handwriting.js?v=21"></script>
+  <script src="/js/common.js?v=22"></script>
+  <script src="/js/api.js?v=22"></script>
+  <script src="/js/persist.js?v=22"></script>
+  <script src="/js/handwriting.js?v=22"></script>
 </body>
 </html>

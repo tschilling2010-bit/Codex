@@ -461,9 +461,9 @@ input[type="color"] {
   border-color: rgba(255, 255, 255, 0.35);
 }
 .hl-color.active {
-  border-color: #fff;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
-  transform: scale(1.2);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transform: scale(1.08);
 }
 
 .hl-favorites { display: flex; gap: 10px; align-items: center; }
@@ -510,6 +510,22 @@ input[type="color"] {
   transform: scale(1.1);
 }
 
+.hl-range-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-muted); cursor: pointer;
+  transition: all 0.15s var(--ease);
+}
+.hl-range-toggle:hover {
+  color: var(--text); border-color: rgba(255, 255, 255, 0.2);
+  background: var(--surface-muted);
+}
+.hl-range-toggle.active {
+  background: var(--accent-soft); color: var(--accent);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
 .hl-hint {
   font-size: 12px; color: var(--text-muted); opacity: 0.5;
 }
@@ -548,5 +564,6 @@ input[type="color"] {
   mix-blend-mode: multiply;
 }
 .hl-region.hl-text {
-  border-radius: 3px;
+  border-radius: 4px;
+  background: none !important;
 }

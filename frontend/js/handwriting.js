@@ -7,8 +7,11 @@
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
-    hlFavorites: [], rangeStart: null
+    hlFavorites: [], rangeStart: null, rangeMode: false
   };
+
+  var serverHlTimer;
+  var textHlRendered = false;
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -435,34 +438,49 @@
     var idx = parseInt(el.getAttribute("data-word-idx"), 10);
     if (isNaN(idx)) return;
 
-    if (state.rangeStart === null) {
-      state.rangeStart = idx;
-      el.classList.add("hl-range-start");
-      return;
-    }
-
-    var from = Math.min(state.rangeStart, idx);
-    var to = Math.max(state.rangeStart, idx);
-
-    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
-
-    if (from === to) {
-      var current = state.highlights[idx];
-      if (current && current.color === state.activeHlColor && current.mode === state.hlMode) {
+    if (!state.rangeMode) {
+      var cur = state.highlights[idx];
+      if (cur && cur.color === state.activeHlColor && cur.mode === state.hlMode) {
         delete state.highlights[idx];
       } else {
         state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
       }
     } else {
-      for (var i = from; i <= to; i++) {
-        if (state.wordMap[i]) {
-          state.highlights[i] = { color: state.activeHlColor, mode: state.hlMode };
+      if (state.rangeStart === null) {
+        state.rangeStart = idx;
+        el.classList.add("hl-range-start");
+        return;
+      }
+      var from = Math.min(state.rangeStart, idx);
+      var to = Math.max(state.rangeStart, idx);
+      qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+      if (from === to) {
+        var cur2 = state.highlights[idx];
+        if (cur2 && cur2.color === state.activeHlColor && cur2.mode === state.hlMode) {
+          delete state.highlights[idx];
+        } else {
+          state.highlights[idx] = { color: state.activeHlColor, mode: state.hlMode };
+        }
+      } else {
+        for (var i = from; i <= to; i++) {
+          if (state.wordMap[i]) {
+            state.highlights[i] = { color: state.activeHlColor, mode: state.hlMode };
+          }
         }
       }
+      state.rangeStart = null;
     }
 
-    state.rangeStart = null;
     refreshHlRegions();
+    scheduleServerHighlight();
+  }
+
+  function onRangeModeToggle() {
+    state.rangeMode = !state.rangeMode;
+    state.rangeStart = null;
+    qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
+    var btn = getEl("btn-hl-range");
+    if (btn) btn.classList.toggle("active", state.rangeMode);
   }
 
   function clearAllHighlights() {
@@ -470,6 +488,12 @@
     state.rangeStart = null;
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     refreshHlRegions();
+    if (textHlRendered && state.projectId) {
+      API.highlight(state.projectId, []).then(function (res) {
+        if (res && res.preview_urls) refreshPreviewImages(res.preview_urls);
+        textHlRendered = false;
+      }).catch(function () {});
+    }
   }
 
   function refreshHlRegions() {
@@ -495,8 +519,7 @@
         div.style.background = hexToPastel(reg.color, 0.35);
       } else {
         div.className = "hl-region hl-text";
-        div.style.background = hexToRgba(reg.color, 0.12);
-        div.style.borderBottom = "3px solid " + reg.color;
+        div.style.boxShadow = "inset 0 0 0 2px " + hexToRgba(reg.color, 0.35);
       }
       container.appendChild(div);
     }
@@ -551,6 +574,41 @@
     var hl = getHighlightList();
     if (hl.length === 0 || !state.projectId) return Promise.resolve();
     return API.highlight(state.projectId, hl);
+  }
+
+  function scheduleServerHighlight() {
+    var hasText = false;
+    var keys = Object.keys(state.highlights);
+    for (var i = 0; i < keys.length; i++) {
+      if (state.highlights[keys[i]].mode === "text") { hasText = true; break; }
+    }
+    if (!hasText && !textHlRendered) return;
+    clearTimeout(serverHlTimer);
+    serverHlTimer = setTimeout(function () {
+      if (!state.projectId) return;
+      var textHl = [];
+      var allKeys = Object.keys(state.highlights);
+      for (var j = 0; j < allKeys.length; j++) {
+        var idx = parseInt(allKeys[j], 10);
+        var hl = state.highlights[allKeys[j]];
+        if (hl.mode === "text") {
+          textHl.push({ word_index: idx, color: hl.color, mode: hl.mode });
+        }
+      }
+      var toSend = textHl.length > 0 ? textHl : [];
+      API.highlight(state.projectId, toSend).then(function (res) {
+        if (res && res.preview_urls) refreshPreviewImages(res.preview_urls);
+        textHlRendered = textHl.length > 0;
+      }).catch(function () {});
+    }, 400);
+  }
+
+  function refreshPreviewImages(urls) {
+    var containers = qa(".page-container");
+    for (var i = 0; i < containers.length && i < urls.length; i++) {
+      var img = containers[i].querySelector("img");
+      if (img) img.src = urls[i] + "?t=" + Date.now();
+    }
   }
 
   // ---- Bind UI ----
@@ -636,6 +694,7 @@
     on(getEl("hl-custom-color"), "input", onHlCustomColor);
     on(getEl("btn-hl-add-fav"), "click", onAddFavorite);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
+    on(getEl("btn-hl-range"), "click", onRangeModeToggle);
   }
 
   // ---- Render ----
@@ -650,6 +709,7 @@
     state.highlights = {};
     state.activeHlColor = null;
     state.rangeStart = null;
+    textHlRendered = false;
     qa(".hl-range-start").forEach(function (r) { r.classList.remove("hl-range-start"); });
     clearHlSelection();
     API.render({ text: text, profile_id: state.activeId })
@@ -720,6 +780,7 @@
       a.click();
       document.body.removeChild(a);
       statusMsg("Export fertig.", "ok");
+      scheduleServerHighlight();
     }).catch(function (e) {
       statusMsg("Export: " + e.message, "err");
     }).finally(function () { reset(); });
