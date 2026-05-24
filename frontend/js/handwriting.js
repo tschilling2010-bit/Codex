@@ -771,17 +771,13 @@
     if (!state.projectId) return;
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
-    var pre = getHighlightList().length > 0 ? applyHighlightsToServer() : Promise.resolve();
+    var pre = getHighlightList().length > 0
+      ? applyHighlightsToServer().catch(function () {})
+      : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
     }).then(function (res) {
-      var a = document.createElement("a");
-      a.href = res.url;
-      a.download = "";
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      window.open(res.url, "_blank");
       statusMsg("Export fertig.", "ok");
       scheduleServerHighlight();
     }).catch(function (e) {
