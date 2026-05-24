@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import time
 import uuid
 import zipfile
 from pathlib import Path
@@ -378,44 +379,72 @@ def _export_pages(req: ExportRequest):
     return project, pages
 
 
+_export_cache: dict = {}
+
+
+def _ensure_rgb(img: Image.Image) -> Image.Image:
+    if img.mode == "RGB":
+        return img
+    if img.mode == "RGBA":
+        bg = Image.new("RGB", img.size, "white")
+        bg.paste(img, mask=img.split()[-1])
+        return bg
+    return img.convert("RGB")
+
+
+def _clean_export_cache() -> None:
+    now = time.time()
+    expired = [k for k, (_, ts) in _export_cache.items() if now - ts > 120]
+    for k in expired:
+        del _export_cache[k]
+
+
 @router.post("/export/pdf", response_model=ExportResponse)
 def export_pdf_ep(req: ExportRequest) -> ExportResponse:
     project, pages = _export_pages(req)
-    out = config.EXPORTS_DIR / f"{req.project_id}-handwriting.pdf"
-    export.export_pdf(pages, out)
-    projects.add_export(project, out)
+    buf = io.BytesIO()
+    rgb = [_ensure_rgb(p) for p in pages]
+    rgb[0].save(
+        buf, save_all=True, append_images=rgb[1:],
+        resolution=config.PAGE_DPI, format="PDF",
+    )
+    filename = f"{project.id}-handwriting.pdf"
+    _export_cache[filename] = (buf.getvalue(), time.time())
+    _clean_export_cache()
     return ExportResponse(
         project_id=req.project_id,
         format="pdf",
-        url=f"/files/exports/{out.name}",
-        filename=out.name,
+        url=f"/api/handwriting/export/download/{filename}",
+        filename=filename,
     )
 
 
 @router.post("/export/image", response_model=ExportResponse)
 def export_image_ep(req: ExportRequest) -> ExportResponse:
     project, pages = _export_pages(req)
-    tmp_dir = config.EXPORTS_DIR / f"{req.project_id}-img"
-    tmp_dir.mkdir(exist_ok=True)
-    if req.format == "png":
-        paths = export.export_png(pages, tmp_dir, "handwriting")
-    else:
-        raise HTTPException(status_code=400, detail="Nur png erlaubt.")
-    for p in paths:
-        projects.add_export(project, p)
-    first = paths[0]
-    dl_name = f"{project.id}-{first.name}"
+    buf = io.BytesIO()
+    _ensure_rgb(pages[0]).save(buf, "PNG")
+    filename = f"{project.id}-handwriting.png"
+    _export_cache[filename] = (buf.getvalue(), time.time())
+    _clean_export_cache()
     return ExportResponse(
         project_id=req.project_id,
         format=req.format,
-        url=f"/files/exports/{dl_name}",
-        filename=dl_name,
+        url=f"/api/handwriting/export/download/{filename}",
+        filename=filename,
     )
 
 
 @router.get("/export/download/{filename:path}")
 def download_export_file(filename: str):
     safe = Path(filename).name
+    if safe in _export_cache:
+        data, _ = _export_cache.pop(safe)
+        return Response(
+            content=data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{safe}"'},
+        )
     filepath = config.EXPORTS_DIR / safe
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
