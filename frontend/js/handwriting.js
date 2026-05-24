@@ -1,6 +1,7 @@
 (function () {
   "use strict";
   var MAX_VARIANTS = 4;
+  var MAX_COLORS = 8;
   var HL_FAV_KEY = "hefterpro_hl_favs";
   var state = {
     profiles: [], activeId: null, profile: null,
@@ -12,6 +13,7 @@
 
   var serverHlTimer;
   var textHlRendered = false;
+  var longPressFired = false;
 
   function getEl(id) { return document.getElementById(id); }
   function qa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -316,12 +318,9 @@
   }
 
   // ---- Highlight system ----
-  var DEFAULT_HL_COLOR = "#FFD600";
 
   function selectHlColor(color) {
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
-    var inp = getEl("hl-custom-color");
-    if (inp) inp.style.boxShadow = "";
     state.activeHlColor = color;
     qa(".hl-color[data-color]").forEach(function (b) {
       if (b.getAttribute("data-color") === color) b.classList.add("active");
@@ -331,8 +330,6 @@
   function clearHlSelection() {
     qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
     state.activeHlColor = null;
-    var inp = getEl("hl-custom-color");
-    if (inp) inp.style.boxShadow = "";
   }
 
   function hideHighlightBar() {
@@ -343,10 +340,13 @@
   function showHighlightBar() {
     var bar = getEl("highlight-bar");
     if (bar) bar.style.display = "";
-    if (!state.activeHlColor) selectHlColor(DEFAULT_HL_COLOR);
+    if (!state.activeHlColor && state.hlFavorites.length > 0) {
+      selectHlColor(state.hlFavorites[0]);
+    }
   }
 
   function onHlColorClick(e) {
+    if (longPressFired) { longPressFired = false; return; }
     var btn = e.currentTarget;
     var color = btn.getAttribute("data-color");
     if (state.activeHlColor === color) return;
@@ -362,21 +362,36 @@
     });
   }
 
-  function onHlCustomColor() {
-    var inp = getEl("hl-custom-color");
-    if (!inp) return;
-    var color = inp.value;
-    qa(".hl-color.active").forEach(function (b) { b.classList.remove("active"); });
-    state.activeHlColor = color;
-    inp.style.boxShadow = "0 0 0 2px " + hexToRgba(color, 0.4);
+  function onAddColor() {
+    if (state.hlFavorites.length >= MAX_COLORS) return;
+    var picker = getEl("hl-color-picker");
+    if (!picker) return;
+    picker._editingColor = null;
+    picker.click();
   }
 
-  function onAddFavorite() {
-    var inp = getEl("hl-custom-color");
-    var color = inp ? inp.value : null;
-    if (!color) return;
-    if (state.hlFavorites.indexOf(color) >= 0) return;
-    state.hlFavorites.push(color);
+  function onColorPickerChange() {
+    var picker = getEl("hl-color-picker");
+    if (!picker) return;
+    var color = picker.value;
+    if (picker._editingColor) {
+      var old = picker._editingColor;
+      var idx = state.hlFavorites.indexOf(old);
+      if (idx >= 0) state.hlFavorites[idx] = color;
+      var keys = Object.keys(state.highlights);
+      for (var i = 0; i < keys.length; i++) {
+        if (state.highlights[keys[i]].color === old) {
+          state.highlights[keys[i]].color = color;
+        }
+      }
+      if (state.activeHlColor === old) state.activeHlColor = color;
+      picker._editingColor = null;
+      refreshHlRegions();
+      scheduleServerHighlight();
+    } else {
+      if (state.hlFavorites.indexOf(color) >= 0) return;
+      state.hlFavorites.push(color);
+    }
     saveHlFavorites();
     renderHlFavorites();
     selectHlColor(color);
@@ -396,24 +411,74 @@
     var container = getEl("hl-favorites");
     if (!container) return;
     container.innerHTML = state.hlFavorites.map(function (c) {
-      return '<div class="hl-fav-wrap">' +
-        '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" type="button"></button>' +
-        '<button class="hl-fav-del" data-color="' + c + '" type="button">&times;</button>' +
-        '</div>';
+      return '<button class="hl-color hl-fav" data-color="' + c + '" style="background:' + c + '" type="button"></button>';
     }).join("");
     qa(".hl-fav", container).forEach(function (btn) {
       btn.addEventListener("click", onHlColorClick);
+      bindLongPress(btn, function () { showColorContextMenu(btn); });
     });
-    qa(".hl-fav-del", container).forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        var color = btn.getAttribute("data-color");
-        state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
-        if (state.activeHlColor === color) selectHlColor(DEFAULT_HL_COLOR);
-        saveHlFavorites();
-        renderHlFavorites();
-      });
+    var addBtn = getEl("btn-hl-add");
+    if (addBtn) addBtn.style.display = state.hlFavorites.length >= MAX_COLORS ? "none" : "";
+  }
+
+  function bindLongPress(el, callback) {
+    var timer = null;
+    function start() {
+      timer = setTimeout(function () {
+        longPressFired = true;
+        callback();
+      }, 500);
+    }
+    function cancel() { clearTimeout(timer); }
+    el.addEventListener("mousedown", start);
+    el.addEventListener("mouseup", cancel);
+    el.addEventListener("mouseleave", cancel);
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("touchend", cancel);
+    el.addEventListener("touchmove", cancel);
+    el.addEventListener("touchcancel", cancel);
+    el.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  }
+
+  function showColorContextMenu(btn) {
+    closeContextMenu();
+    var color = btn.getAttribute("data-color");
+    var rect = btn.getBoundingClientRect();
+    var menu = document.createElement("div");
+    menu.className = "hl-context-menu";
+    menu.innerHTML =
+      '<button class="ctx-item" data-action="edit" type="button">Bearbeiten</button>' +
+      '<button class="ctx-item ctx-delete" data-action="delete" type="button">Löschen</button>';
+    menu.style.position = "fixed";
+    menu.style.left = Math.max(8, rect.left) + "px";
+    menu.style.top = (rect.bottom + 8) + "px";
+    document.body.appendChild(menu);
+    menu.querySelector('[data-action="edit"]').addEventListener("click", function () {
+      var picker = getEl("hl-color-picker");
+      if (picker) { picker.value = color; picker._editingColor = color; picker.click(); }
+      closeContextMenu();
     });
+    menu.querySelector('[data-action="delete"]').addEventListener("click", function () {
+      state.hlFavorites = state.hlFavorites.filter(function (c) { return c !== color; });
+      if (state.activeHlColor === color) {
+        state.activeHlColor = state.hlFavorites.length > 0 ? state.hlFavorites[0] : null;
+        if (state.activeHlColor) selectHlColor(state.activeHlColor);
+      }
+      saveHlFavorites();
+      renderHlFavorites();
+      closeContextMenu();
+    });
+    setTimeout(function () {
+      document.addEventListener("click", closeContextMenu);
+      document.addEventListener("touchstart", closeContextMenu);
+    }, 50);
+  }
+
+  function closeContextMenu() {
+    var m = document.querySelector(".hl-context-menu");
+    if (m && m.parentNode) m.parentNode.removeChild(m);
+    document.removeEventListener("click", closeContextMenu);
+    document.removeEventListener("touchstart", closeContextMenu);
   }
 
   function hexToRgba(hex, alpha) {
@@ -436,7 +501,10 @@
   }
 
   function onWordClick(e) {
-    if (!state.activeHlColor) selectHlColor(DEFAULT_HL_COLOR);
+    if (!state.activeHlColor) {
+      if (state.hlFavorites.length > 0) { selectHlColor(state.hlFavorites[0]); }
+      else return;
+    }
     var el = e.currentTarget;
     var idx = parseInt(el.getAttribute("data-word-idx"), 10);
     if (isNaN(idx)) return;
@@ -694,9 +762,8 @@
 
     // Highlight
     qa(".hl-mode-btn").forEach(function (btn) { btn.addEventListener("click", onHlModeClick); });
-    qa(".hl-preset").forEach(function (btn) { btn.addEventListener("click", onHlColorClick); });
-    on(getEl("hl-custom-color"), "input", onHlCustomColor);
-    on(getEl("btn-hl-add-fav"), "click", onAddFavorite);
+    on(getEl("btn-hl-add"), "click", onAddColor);
+    on(getEl("hl-color-picker"), "change", onColorPickerChange);
     on(getEl("btn-hl-clear"), "click", clearAllHighlights);
     on(getEl("btn-hl-range"), "click", onRangeModeToggle);
   }
@@ -771,16 +838,22 @@
     if (!state.projectId) return;
     var btn = getEl("btn-export");
     var reset = showSpinner(btn, "…");
+    var win = window.open("about:blank", "_blank");
     var pre = getHighlightList().length > 0
       ? applyHighlightsToServer().catch(function () {})
       : Promise.resolve();
     pre.then(function () {
       return API.exportHandwriting(state.projectId, fmt);
     }).then(function (res) {
-      window.open(res.url, "_blank");
+      if (win && !win.closed) {
+        win.location.href = res.url;
+      } else {
+        window.location.href = res.url;
+      }
       statusMsg("Export fertig.", "ok");
       scheduleServerHighlight();
     }).catch(function (e) {
+      if (win && !win.closed) win.close();
       statusMsg("Export: " + e.message, "err");
     }).finally(function () { reset(); });
   }

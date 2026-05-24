@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=24" />
+  <link rel="stylesheet" href="/css/styles.css?v=25" />
 </head>
 <body>
 
@@ -59,7 +59,6 @@
             <div class="export-menu" id="export-menu" style="display:none">
               <button class="export-opt" data-fmt="pdf" type="button">PDF</button>
               <button class="export-opt" data-fmt="png" type="button">PNG</button>
-              <button class="export-opt" data-fmt="jpg" type="button">JPG</button>
             </div>
           </div>
         </div>
@@ -79,15 +78,9 @@
             </div>
           </div>
           <div class="hl-color-row">
-            <button class="hl-color hl-preset active" data-color="#FFD600" style="background:#FFD600" type="button"></button>
-            <button class="hl-color hl-preset" data-color="#00E676" style="background:#00E676" type="button"></button>
-            <button class="hl-color hl-preset" data-color="#448AFF" style="background:#448AFF" type="button"></button>
-            <button class="hl-color hl-preset" data-color="#FF4081" style="background:#FF4081" type="button"></button>
-            <button class="hl-color hl-preset" data-color="#FF9100" style="background:#FF9100" type="button"></button>
-            <div class="hl-sep"></div>
             <div id="hl-favorites" class="hl-favorites"></div>
-            <input type="color" id="hl-custom-color" class="hl-custom-input" value="#8E24AA" title="Eigene Farbe" />
-            <button class="hl-fav-btn" id="btn-hl-add-fav" type="button" title="Farbe speichern">+</button>
+            <input type="color" id="hl-color-picker" value="#FFD600" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none" />
+            <button class="hl-add-btn" id="btn-hl-add" type="button" title="Farbe hinzuf&uuml;gen">+</button>
           </div>
         </div>
 
@@ -161,9 +154,9 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=24"></script>
-  <script src="/js/api.js?v=24"></script>
-  <script src="/js/persist.js?v=24"></script>
-  <script src="/js/handwriting.js?v=24"></script>
+  <script src="/js/common.js?v=25"></script>
+  <script src="/js/api.js?v=25"></script>
+  <script src="/js/persist.js?v=25"></script>
+  <script src="/js/handwriting.js?v=25"></script>
 </body>
 </html>
