@@ -832,13 +832,15 @@
     }).then(function (res) {
       if (!res.ok) {
         return res.text().then(function (t) {
-          var msg = "Export fehlgeschlagen";
-          try { msg = JSON.parse(t).detail || msg; } catch (e) {}
+          var msg = "";
+          try { msg = JSON.parse(t).detail; } catch (e) {}
+          if (!msg) msg = "Server-Fehler (" + res.status + "). Seite neu laden und nochmal versuchen.";
           throw new Error(msg);
         });
       }
       return res.blob();
     }).then(function (blob) {
+      if (!blob || blob.size < 100) throw new Error("Leere Datei erhalten.");
       var blobUrl = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = blobUrl;

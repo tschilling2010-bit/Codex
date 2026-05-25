@@ -113,8 +113,11 @@ def save_pages(project: Project, pages: List[Image.Image]) -> List[str]:
 def save_original_pages(project: Project, pages: List[Image.Image]) -> None:
     _original_cache.clear()
     compressed = []
-    for p in pages:
-        buf = io.BytesIO()
+    folder = _project_dir(project.id) / "pages-original"
+    folder.mkdir(parents=True, exist_ok=True)
+    for f in folder.glob("*.png"):
+        f.unlink()
+    for i, p in enumerate(pages, start=1):
         rgb = p
         if p.mode != "RGB":
             rgb = Image.new("RGB", p.size, "white")
@@ -122,8 +125,11 @@ def save_original_pages(project: Project, pages: List[Image.Image]) -> None:
                 rgb.paste(p, mask=p.split()[-1])
             else:
                 rgb.paste(p)
+        buf = io.BytesIO()
         rgb.save(buf, "PNG")
-        compressed.append(buf.getvalue())
+        data = buf.getvalue()
+        compressed.append(data)
+        (folder / f"page-{i:02d}.png").write_bytes(data)
     _original_cache[project.id] = compressed
 
 
@@ -135,12 +141,21 @@ def load_original_pages(project_id: str) -> List[Image.Image]:
             img.load()
             pages.append(img)
         return pages
-    folder = _project_dir(project_id) / "pages"
+    folder = _project_dir(project_id) / "pages-original"
+    if not folder.exists() or not list(folder.glob("*.png")):
+        folder = _project_dir(project_id) / "pages"
     pages: List[Image.Image] = []
     for path in sorted(folder.glob("*.png")):
         img = Image.open(path).convert("RGB")
         img.load()
         pages.append(img)
+    if pages:
+        compressed = []
+        for p in pages:
+            buf = io.BytesIO()
+            p.save(buf, "PNG")
+            compressed.append(buf.getvalue())
+        _original_cache[project_id] = compressed
     return pages
 
 
