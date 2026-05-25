@@ -475,12 +475,14 @@ def download_export_file(filename: str):
 
 @router.post("/ki/analyze")
 async def ki_analyze(
-    files: List[UploadFile] = File(default=[]),
+    files: Optional[List[UploadFile]] = File(None),
     mode: str = Form("transcribe"),
     prompt: Optional[str] = Form(None),
     text_content: Optional[str] = Form(None),
 ) -> dict:
     """Analysiert Bilder/PDFs/Text mit Gemini und gibt verarbeiteten Text zurück."""
+    if files is None:
+        files = []
     if mode not in ("transcribe", "summary", "prompt"):
         raise HTTPException(status_code=400, detail="Unbekannter Modus.")
     if len(files) > 5:

@@ -207,6 +207,7 @@ input[type="color"] {
   background: var(--surface-muted); border-radius: var(--radius);
   min-height: 340px; align-content: start;
   border: 1px solid var(--border);
+  flex: 1;
 }
 
 .empty-state {
@@ -286,7 +287,7 @@ input[type="color"] {
 
 .two-col-layout {
   display: grid; grid-template-columns: 1fr 1fr;
-  gap: 24px; align-items: start;
+  gap: 24px; align-items: stretch;
 }
 @media (max-width: 860px) {
   .two-col-layout { grid-template-columns: 1fr; }
@@ -364,7 +365,7 @@ input[type="color"] {
   box-shadow: var(--shadow-sm);
 }
 .editor-card { display: flex; flex-direction: column; gap: 16px; }
-.preview-card { min-height: 400px; }
+.preview-card { min-height: 400px; display: flex; flex-direction: column; }
 
 .editor-actions {
   display: flex; align-items: center; gap: 10px;

@@ -16,8 +16,6 @@ log = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 _API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
-# v1beta supports Google Search grounding
-_API_URL_SEARCH = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 _MODE_PROMPTS = {
     "transcribe": (
@@ -61,20 +59,17 @@ def _extract_pdf_text(file_bytes: bytes) -> str:
         return ""
 
 
-def _call_gemini(parts: list, use_search: bool = False) -> str:
+def _call_gemini(parts: list) -> str:
     key = (config.GEMINI_API_KEY or "").strip()
     if not key:
         raise GeminiError(
             "Kein Gemini API-Key konfiguriert. Bitte GEMINI_API_KEY auf Render hinterlegen."
         )
-    url = _API_URL_SEARCH if use_search else _API_URL
     payload: dict = {"contents": [{"parts": parts}]}
-    if use_search:
-        payload["tools"] = [{"google_search_retrieval": {}}]
 
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
-            res = client.post(url, params={"key": key}, json=payload)
+            res = client.post(_API_URL, params={"key": key}, json=payload)
     except httpx.HTTPError as exc:
         raise GeminiError(f"Verbindung zu Gemini fehlgeschlagen: {exc}") from exc
 
@@ -83,10 +78,6 @@ def _call_gemini(parts: list, use_search: bool = False) -> str:
             err = res.json().get("error", {}).get("message") or res.text
         except Exception:
             err = res.text
-        # Search grounding not available on free tier → retry without it
-        if use_search and res.status_code in (400, 403, 404):
-            log.warning("Google Search Grounding nicht verfügbar, versuche ohne: %s", err)
-            return _call_gemini(parts, use_search=False)
         raise GeminiError(f"Gemini Fehler ({res.status_code}): {err}")
 
     data = res.json()
@@ -177,7 +168,7 @@ def analyze(
     )
 
     parts = [{"text": mode_text + schema_instruction}] + content_parts
-    raw = _call_gemini(parts, use_search=True)
+    raw = _call_gemini(parts)
 
     # JSON parsen — Gemini hält sich meist daran, aber als Fallback reinen Text nehmen
     raw_stripped = raw.strip()
