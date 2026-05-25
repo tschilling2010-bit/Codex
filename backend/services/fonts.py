@@ -30,6 +30,13 @@ FONTS_DIR: Path = config.BASE_DIR / "fonts"
 
 MAX_PAIRS = 4
 
+_profile_cache: Dict[str, GlyphProfile] = {}
+
+
+def invalidate_profile_cache(profile_id: str) -> None:
+    _profile_cache.pop(profile_id, None)
+
+
 DEFAULT_SETTINGS: Dict = {
     "size_scale": 1.0,
     "thickness": 1.0,
@@ -151,11 +158,17 @@ def get_glyph_profile(profile_id: str) -> Optional[GlyphProfile]:
     meta = get_profile(profile_id)
     if meta is None:
         return None
-    return GlyphProfile(
+    gc = meta.get("glyph_count", 0)
+    cached = _profile_cache.get(profile_id)
+    if cached is not None and cached.glyph_count == gc:
+        return cached
+    profile = GlyphProfile(
         id=meta["id"],
         name=meta.get("name", profile_id),
-        glyph_count=meta.get("glyph_count", 0),
+        glyph_count=gc,
     )
+    _profile_cache[profile_id] = profile
+    return profile
 
 
 def is_glyph_profile(profile_id: str) -> bool:
@@ -198,6 +211,7 @@ def rename_profile(profile_id: str, name: str) -> Optional[Dict]:
 
 
 def delete_user_profile(profile_id: str) -> bool:
+    invalidate_profile_cache(profile_id)
     folder = config.PROFILES_DIR / profile_id
     tpl_folder = config.TEMPLATES_DIR / profile_id
     if not folder.exists():
@@ -233,6 +247,7 @@ def register_pair(profile_id: str, pair_index: int) -> Optional[Dict]:
 
 def mark_pair_uploaded(profile_id: str, pair_index: int,
                        glyph_count: int) -> Optional[Dict]:
+    invalidate_profile_cache(profile_id)
     meta = get_profile(profile_id)
     if meta is None:
         return None

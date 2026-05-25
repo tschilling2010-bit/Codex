@@ -17,6 +17,8 @@ from .charset import get_metrics
 
 log = logging.getLogger(__name__)
 
+_TEXT_LUT = [0] * 51 + [min(255, (i - 50) * 255 // 205) for i in range(51, 256)]
+
 
 @dataclass
 class RenderOptions:
@@ -106,61 +108,49 @@ class GlyphRenderer:
 
         self.bullet_indent = config.mm_to_px(10)
         self.rng = random.Random()
+        self._bg_cache: Optional[Image.Image] = None
 
-    def _adjust_thickness(self, glyph: Image.Image) -> Image.Image:
-        if abs(self.thickness - 1.0) < 0.05:
-            return glyph
-        alpha = glyph.split()[-1]
-        radius = abs(self.thickness - 1.0) * 2.5
-        size = max(3, int(radius * 2) | 1)
-        if self.thickness > 1.0:
-            alpha = alpha.filter(ImageFilter.MaxFilter(size))
-        else:
-            alpha = alpha.filter(ImageFilter.MinFilter(size))
-        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.3))
-        glyph.putalpha(alpha)
-        return glyph
-
-    def _tint_glyph(self, glyph: Image.Image) -> Image.Image:
-        r, g, b = self.color
-        solid = Image.new("RGBA", glyph.size, (r, g, b, 255))
-        alpha = glyph.split()[-1]
-        solid.putalpha(alpha)
-        return solid
-
-    def _smooth_glyph(self, glyph: Image.Image) -> Image.Image:
-        alpha = glyph.split()[-1]
-        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.7))
-        glyph.putalpha(alpha)
-        return glyph
-
-    def _scale_glyph_to(self, glyph: Image.Image, target_h: int) -> Image.Image:
-        w, h = glyph.size
-        if h <= 0:
-            return glyph
-        scale = target_h / h
-        new_w = max(1, int(round(w * scale)))
-        return glyph.resize((new_w, target_h), Image.LANCZOS)
-
-    def _get_glyph(self, ch: str) -> Optional[Tuple[Image.Image, int]]:
+    def _get_glyph(self, ch: str) -> Optional[Tuple[Image.Image, Image.Image, int]]:
         glyph = self.profile.pick(ch, self.rng)
         if glyph is None:
             return None
         scale, top = get_metrics(ch)
         target_h = max(1, int(self.glyph_height * scale))
         above_px = max(1, int(self.glyph_height * top))
-        glyph = self._scale_glyph_to(glyph.convert("RGBA"), target_h)
-        glyph = self._adjust_thickness(glyph)
-        glyph = self._tint_glyph(glyph)
-        glyph = self._smooth_glyph(glyph)
-        return glyph, above_px
+
+        if glyph.mode != "RGBA":
+            glyph = glyph.convert("RGBA")
+        w, h = glyph.size
+        if h > 0:
+            s = target_h / h
+            glyph = glyph.resize((max(1, int(round(w * s))), target_h), Image.LANCZOS)
+
+        alpha = glyph.split()[-1]
+
+        if abs(self.thickness - 1.0) >= 0.05:
+            radius = abs(self.thickness - 1.0) * 2.5
+            size = max(3, int(radius * 2) | 1)
+            if self.thickness > 1.0:
+                alpha = alpha.filter(ImageFilter.MaxFilter(size))
+            else:
+                alpha = alpha.filter(ImageFilter.MinFilter(size))
+            alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.3))
+
+        alpha = alpha.filter(ImageFilter.GaussianBlur(radius=0.7))
+
+        r, g, b = self.color
+        solid = Image.new("RGBA", glyph.size, (r, g, b, 255))
+        solid.putalpha(alpha)
+        return solid, alpha, above_px
 
     def _space_width(self) -> int:
         base = int(self.glyph_height * 0.75)
         return base + self.rng.randint(-2, 4)
 
     def _new_page(self) -> Image.Image:
-        return make_sheet_background(self.options.sheet_type, self.baselines)
+        if self._bg_cache is None:
+            self._bg_cache = make_sheet_background(self.options.sheet_type, self.baselines)
+        return self._bg_cache.copy()
 
     def _parse_line(self, line: str) -> Tuple[str, str, int]:
         stripped = line.lstrip()
@@ -186,14 +176,14 @@ class GlyphRenderer:
         by = baseline - int(self.glyph_height * 0.30)
         draw.ellipse([bx - r, by - r, bx + r, by + r], fill=self.color)
 
-    def _measure_word(self, word: str) -> Tuple[List[Tuple[Image.Image, int]], int]:
+    def _measure_word(self, word: str) -> Tuple[List[Tuple[Image.Image, Image.Image, int]], int]:
         glyphs = []
         for ch in word:
             result = self._get_glyph(ch)
             if result is not None:
                 glyphs.append(result)
         w = 0
-        for i_g, (g, _) in enumerate(glyphs):
+        for i_g, (g, _, _) in enumerate(glyphs):
             w += g.size[0]
             if i_g < len(glyphs) - 1:
                 w += int(g.size[0] * -0.08)
@@ -285,10 +275,10 @@ class GlyphRenderer:
                 for glyphs, space, word_text in rl:
                     x += space
                     word_start_x = x
-                    for g, above_px in glyphs:
+                    for g, alpha, above_px in glyphs:
                         dy = int(self.rng.uniform(-0.5, 0.5) * self.jitter)
                         paste_y = bl - above_px + line_dy + dy
-                        pages[-1].paste(g, (x, max(0, paste_y)), g)
+                        pages[-1].paste(g, (x, max(0, paste_y)), alpha)
                         kerning = int(g.size[0] * self.rng.uniform(-0.15, -0.03))
                         x += g.size[0] + kerning
                     if glyphs:
@@ -340,12 +330,10 @@ def apply_highlights(
         mode = h.get("mode", "marker")
         by_page.setdefault(wb["page"], []).append((idx, wb, color, mode))
 
-    _text_lut = [0] * 51 + [min(255, (i - 50) * 255 // 205) for i in range(51, 256)]
-
     result: List[Image.Image] = []
     for i, page in enumerate(pages):
         if i not in by_page:
-            result.append(page.copy())
+            result.append(page)
             continue
 
         items = by_page[i]
@@ -400,7 +388,7 @@ def apply_highlights(
                 crop = out.crop((x1, y1, x2, y2))
                 gray = crop.convert("L")
                 mask = ImageOps.invert(gray)
-                mask = mask.point(_text_lut)
+                mask = mask.point(_TEXT_LUT)
                 color_layer = Image.new("RGB", crop.size, (r, g, b))
                 out.paste(color_layer, (x1, y1), mask)
 
