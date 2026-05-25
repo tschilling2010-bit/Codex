@@ -16,6 +16,8 @@ log = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(120.0, connect=10.0)
 _API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+# v1beta supports Google Search grounding
+_API_URL_SEARCH = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 _MODE_PROMPTS = {
     "transcribe": (
@@ -59,16 +61,20 @@ def _extract_pdf_text(file_bytes: bytes) -> str:
         return ""
 
 
-def _call_gemini(parts: list) -> str:
+def _call_gemini(parts: list, use_search: bool = False) -> str:
     key = (config.GEMINI_API_KEY or "").strip()
     if not key:
         raise GeminiError(
             "Kein Gemini API-Key konfiguriert. Bitte GEMINI_API_KEY auf Render hinterlegen."
         )
-    payload = {"contents": [{"parts": parts}]}
+    url = _API_URL_SEARCH if use_search else _API_URL
+    payload: dict = {"contents": [{"parts": parts}]}
+    if use_search:
+        payload["tools"] = [{"google_search_retrieval": {}}]
+
     try:
         with httpx.Client(timeout=_TIMEOUT) as client:
-            res = client.post(_API_URL, params={"key": key}, json=payload)
+            res = client.post(url, params={"key": key}, json=payload)
     except httpx.HTTPError as exc:
         raise GeminiError(f"Verbindung zu Gemini fehlgeschlagen: {exc}") from exc
 
@@ -77,6 +83,10 @@ def _call_gemini(parts: list) -> str:
             err = res.json().get("error", {}).get("message") or res.text
         except Exception:
             err = res.text
+        # Search grounding not available on free tier → retry without it
+        if use_search and res.status_code in (400, 403, 404):
+            log.warning("Google Search Grounding nicht verfügbar, versuche ohne: %s", err)
+            return _call_gemini(parts, use_search=False)
         raise GeminiError(f"Gemini Fehler ({res.status_code}): {err}")
 
     data = res.json()
@@ -110,6 +120,7 @@ def analyze(
     filenames: List[str],
     mode: str,
     custom_prompt: Optional[str] = None,
+    text_content: Optional[str] = None,
 ) -> dict:
     """KI-Analyse: Verarbeitet Bilder/PDFs in einem von 3 Modi.
 
@@ -138,8 +149,13 @@ def analyze(
             content_parts.append({"inlineData": {"mimeType": "image/jpeg", "data": img_b64}})
             has_content = True
 
+    # Text-Quelle vom Nutzer
+    if text_content:
+        content_parts.append({"text": f"[Text-Quelle]\n{text_content}"})
+        has_content = True
+
     if not has_content:
-        raise GeminiError("Keine Dateien übergeben.")
+        raise GeminiError("Keine Inhalte übergeben.")
 
     # --- Modus-Prompt ---
     if mode == "prompt":
@@ -161,7 +177,7 @@ def analyze(
     )
 
     parts = [{"text": mode_text + schema_instruction}] + content_parts
-    raw = _call_gemini(parts)
+    raw = _call_gemini(parts, use_search=True)
 
     # JSON parsen — Gemini hält sich meist daran, aber als Fallback reinen Text nehmen
     raw_stripped = raw.strip()

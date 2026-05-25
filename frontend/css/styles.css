@@ -167,7 +167,7 @@ label.field {
   outline: none; border-color: rgba(255, 255, 255, 0.4);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
 }
-.textarea { min-height: 220px; resize: vertical; line-height: 1.6; }
+.textarea { flex: 1; min-height: 120px; resize: none; line-height: 1.6; }
 .select {
   appearance: none;
   background-image:
@@ -777,14 +777,6 @@ body.ai-mode .tab-btn.active { color: #a78bfa; border-bottom-color: #764ba2; }
 body.ai-mode .ki-only { display: flex !important; }
 body.ai-mode .ki-panel { display: flex; }
 
-/* KI Upload-Trigger Icon in editor-actions */
-.ki-only.btn-icon {
-  display: none !important;
-}
-body.ai-mode .ki-only.btn-icon {
-  display: inline-flex !important;
-}
-
 /* KI Panel */
 .ki-panel {
   flex-direction: column; gap: 10px;
@@ -842,6 +834,54 @@ body.ai-mode .ki-only.btn-icon {
   color: #c4b5fd;
   background: rgba(118, 75, 162, 0.08);
 }
+
+/* Text-Input Tile (same design as upload area) */
+.ki-text-tile {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 12px; border-radius: var(--radius-sm);
+  border: 1.5px dashed rgba(118, 75, 162, 0.4);
+  cursor: pointer; color: var(--text-muted); font-size: 14px;
+  transition: all 0.2s; background: transparent;
+  font-family: inherit; text-align: left; width: 100%;
+}
+.ki-text-tile:hover {
+  border-color: rgba(139, 92, 246, 0.65);
+  color: #c4b5fd;
+  background: rgba(118, 75, 162, 0.06);
+}
+.ki-text-tile.has-text {
+  border-color: rgba(139, 92, 246, 0.55);
+  color: #c4b5fd;
+  background: rgba(118, 75, 162, 0.08);
+}
+.ki-text-tile.has-text .ki-text-preview {
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Text-Input Popup Modal */
+.ki-text-modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.65); z-index: 1200;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.ki-text-modal-overlay.open { display: flex; }
+.ki-text-modal {
+  background: var(--surface); border: 1px solid rgba(118,75,162,0.35);
+  border-radius: var(--radius); padding: 24px; width: 100%;
+  max-width: 480px; display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.ki-text-modal h4 { margin: 0; font-size: 16px; font-weight: 700; }
+.ki-text-modal-input {
+  width: 100%; min-height: 120px; resize: vertical;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(118,75,162,0.25);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-size: 14px; font-family: inherit; padding: 10px 12px;
+  line-height: 1.5; box-sizing: border-box;
+}
+.ki-text-modal-input:focus { outline: none; border-color: rgba(139,92,246,0.55); }
+.ki-text-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 
 /* Analyse Button */
 .ki-analyze-btn {

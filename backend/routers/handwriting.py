@@ -475,17 +475,18 @@ def download_export_file(filename: str):
 
 @router.post("/ki/analyze")
 async def ki_analyze(
-    files: List[UploadFile] = File(...),
+    files: List[UploadFile] = File(default=[]),
     mode: str = Form("transcribe"),
     prompt: Optional[str] = Form(None),
+    text_content: Optional[str] = Form(None),
 ) -> dict:
-    """Analysiert Bilder/PDFs mit Gemini und gibt verarbeiteten Text zurück."""
+    """Analysiert Bilder/PDFs/Text mit Gemini und gibt verarbeiteten Text zurück."""
     if mode not in ("transcribe", "summary", "prompt"):
         raise HTTPException(status_code=400, detail="Unbekannter Modus.")
-    if not files:
-        raise HTTPException(status_code=400, detail="Keine Dateien hochgeladen.")
     if len(files) > 5:
         raise HTTPException(status_code=400, detail="Maximal 5 Dateien gleichzeitig.")
+    if not files and not (text_content or "").strip():
+        raise HTTPException(status_code=400, detail="Keine Inhalte übergeben.")
 
     file_bytes_list: List[bytes] = []
     filenames: List[str] = []
@@ -497,7 +498,10 @@ async def ki_analyze(
         filenames.append(f.filename or "datei")
 
     try:
-        result = gemini_service.analyze(file_bytes_list, filenames, mode, prompt)
+        result = gemini_service.analyze(
+            file_bytes_list, filenames, mode, prompt,
+            text_content=(text_content or "").strip() or None,
+        )
     except GeminiError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:

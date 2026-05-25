@@ -94,11 +94,12 @@ var API = (function () {
     listProjects: function () { return request("/api/projects/"); },
     deleteProject: function (id) { return request("/api/projects/" + id, { method: "DELETE" }); },
 
-    kiAnalyze: function (files, mode, customPrompt) {
+    kiAnalyze: function (files, mode, customPrompt, textContent) {
       var fd = new FormData();
       for (var i = 0; i < files.length; i++) { fd.append("files", files[i]); }
       fd.append("mode", mode || "transcribe");
       if (customPrompt) fd.append("prompt", customPrompt);
+      if (textContent) fd.append("text_content", textContent);
       return request("/api/handwriting/ki/analyze", { method: "POST", form: fd });
     }
   };
