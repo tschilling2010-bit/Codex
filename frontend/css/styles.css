@@ -597,3 +597,21 @@ input[type="color"] {
   border-radius: 4px;
   background: none !important;
 }
+
+.export-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.export-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: min(90vw, 360px);
+  box-shadow: var(--shadow-lg);
+}
+.export-modal h4 { font-size: 16px; margin: 0 0 14px; color: var(--text); }
+.export-modal .input { width: 100%; margin-bottom: 14px; }
+.export-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }

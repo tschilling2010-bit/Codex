@@ -117,7 +117,7 @@
       state.profile = p;
       updateProfileBtnName();
       applySettingsToUI(p.settings);
-      return ensureFirstVariant().then(function () {
+      return ensureAllVariants().then(function () {
         renderVariants();
         updateTemplateLink();
         updateRenderButton();
@@ -147,10 +147,17 @@
     if (expBtn) expBtn.disabled = true;
   }
 
-  function ensureFirstVariant() {
+  function ensureAllVariants() {
     var pairs = (state.profile && state.profile.pairs) || [];
-    if (pairs.length > 0) return Promise.resolve();
-    return API.createPair(state.activeId, 0)
+    if (pairs.length >= MAX_VARIANTS) return Promise.resolve();
+    var used = {};
+    pairs.forEach(function (p) { used[p.index] = true; });
+    var promises = [];
+    for (var i = 0; i < MAX_VARIANTS; i++) {
+      if (!used[i]) promises.push(API.createPair(state.activeId, i));
+    }
+    if (promises.length === 0) return Promise.resolve();
+    return Promise.all(promises)
       .then(function () { return API.getProfile(state.activeId); })
       .then(function (p) { state.profile = p; });
   }
@@ -223,7 +230,7 @@
     if (html.length === 0) html.push('<div class="empty-state">Keine Varianten vorhanden.</div>');
     list.innerHTML = html.join("");
     bindVariantCards(list);
-    if (addBtn) addBtn.disabled = pairs.length >= MAX_VARIANTS;
+    if (addBtn) addBtn.style.display = pairs.length >= MAX_VARIANTS ? "none" : "";
   }
 
   function variantCardHTML(pair) {
@@ -726,13 +733,23 @@
         var fmt = btn.getAttribute("data-fmt");
         var menu = getEl("export-menu");
         if (menu) menu.style.display = "none";
-        doExport(fmt);
+        showExportModal(fmt);
       });
     });
     document.addEventListener("click", function (e) {
       var wrap = getEl("export-wrap");
       var menu = getEl("export-menu");
       if (wrap && menu && !wrap.contains(e.target)) menu.style.display = "none";
+    });
+
+    // Export filename modal
+    on(getEl("btn-export-cancel"), "click", closeExportModal);
+    on(getEl("btn-export-confirm"), "click", confirmExport);
+    on(getEl("export-modal-overlay"), "click", function (e) {
+      if (e.target === getEl("export-modal-overlay")) closeExportModal();
+    });
+    on(getEl("export-filename"), "keydown", function (e) {
+      if (e.key === "Enter" || e.keyCode === 13) { e.preventDefault(); confirmExport(); }
     });
 
     // Highlight
@@ -813,7 +830,39 @@
     }
   }
 
-  function doExport(fmt) {
+  var pendingExportFmt = null;
+
+  function showExportModal(fmt) {
+    pendingExportFmt = fmt;
+    var textEl = getEl("text");
+    var defaultName = "handwriting";
+    if (textEl && textEl.value.trim()) {
+      defaultName = textEl.value.trim().split("\n")[0].substring(0, 30)
+        .replace(/[^a-zA-Z0-9äöüÄÖÜß _-]/g, "").trim() || "handwriting";
+    }
+    var inp = getEl("export-filename");
+    if (inp) inp.value = defaultName;
+    var overlay = getEl("export-modal-overlay");
+    if (overlay) overlay.style.display = "";
+    if (inp) { inp.focus(); inp.select(); }
+  }
+
+  function closeExportModal() {
+    var overlay = getEl("export-modal-overlay");
+    if (overlay) overlay.style.display = "none";
+    pendingExportFmt = null;
+  }
+
+  function confirmExport() {
+    var fmt = pendingExportFmt;
+    if (!fmt) return;
+    var inp = getEl("export-filename");
+    var filename = (inp ? inp.value.trim() : "") || "handwriting";
+    closeExportModal();
+    doExport(fmt, filename);
+  }
+
+  function doExport(fmt, filename) {
     if (!state.projectId) return;
     clearTimeout(serverHlTimer);
     var btn = getEl("btn-export");
@@ -844,7 +893,7 @@
       var blobUrl = URL.createObjectURL(blob);
       var a = document.createElement("a");
       a.href = blobUrl;
-      a.download = "handwriting." + fmt;
+      a.download = filename + "." + fmt;
       a.style.display = "none";
       document.body.appendChild(a);
       a.click();

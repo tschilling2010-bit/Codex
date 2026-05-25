@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=34" />
+  <link rel="stylesheet" href="/css/styles.css?v=35" />
 </head>
 <body>
 
@@ -158,9 +158,21 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=34"></script>
-  <script src="/js/api.js?v=34"></script>
-  <script src="/js/persist.js?v=34"></script>
-  <script src="/js/handwriting.js?v=34"></script>
+  <!-- Export filename modal -->
+  <div class="export-modal-overlay" id="export-modal-overlay" style="display:none">
+    <div class="export-modal">
+      <h4>Datei benennen</h4>
+      <input id="export-filename" class="input" placeholder="Dateiname" />
+      <div class="export-modal-actions">
+        <button class="btn btn-ghost" id="btn-export-cancel" type="button">Abbrechen</button>
+        <button class="btn btn-primary" id="btn-export-confirm" type="button">Download</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/common.js?v=35"></script>
+  <script src="/js/api.js?v=35"></script>
+  <script src="/js/persist.js?v=35"></script>
+  <script src="/js/handwriting.js?v=35"></script>
 </body>
 </html>
