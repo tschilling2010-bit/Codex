@@ -8,7 +8,8 @@
     projectId: null, variantFiles: {},
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
-    hlFavorites: [], rangeStart: null, rangeMode: false
+    hlFavorites: [], rangeStart: null, rangeMode: false,
+    kiMode: "transcribe", kiFiles: [], kiHighlightTerms: []
   };
 
   var serverHlTimer;
@@ -143,8 +144,8 @@
   function clearPreview() {
     var el = getEl("preview");
     if (el) el.innerHTML = '<div class="empty-state-nice"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4"><path d="M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z"/></svg><p>Text eingeben und „Rendern“ klicken.</p></div>';
-    var expBtn = getEl("btn-export");
-    if (expBtn) expBtn.disabled = true;
+    var expWrap2 = getEl("export-wrap");
+    if (expWrap2) expWrap2.style.display = "none";
   }
 
   function ensureAllVariants() {
@@ -787,8 +788,11 @@
         state.pageHeight = res.page_height || 1;
         renderPreview(res.preview_urls);
         if (state.wordMap.length > 0) { showHighlightBar(); } else { hideHighlightBar(); }
-        var expBtn = getEl("btn-export");
-        if (expBtn) expBtn.disabled = false;
+        // Show export button now that there's something to export
+        var expWrap = getEl("export-wrap");
+        if (expWrap) expWrap.style.display = "";
+        // KI-Marker: show apply button if we have terms from analysis
+        updateKiMarkerRow();
         statusMsg("Fertig — " + res.pages + " Seite(n).", "ok");
       })
       .catch(function (e) { statusMsg("Fehler: " + e.message, "err"); })
@@ -907,4 +911,179 @@
 
   // ---- Utils ----
   function fmtScale(v) { return Number(v).toFixed(2).replace(/0$/, "") + "×"; }
+
+  // ---- KI-Modus ----
+
+  function initKiPanel() {
+    // Mode tabs
+    qa(".ki-tab").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        state.kiMode = btn.getAttribute("data-mode");
+        qa(".ki-tab").forEach(function (b) { b.classList.remove("active"); });
+        btn.classList.add("active");
+        var promptArea = getEl("ki-custom-prompt");
+        if (promptArea) promptArea.style.display = state.kiMode === "prompt" ? "" : "none";
+        updateKiAnalyzeBtn();
+      });
+    });
+
+    // File input
+    var fileInput = getEl("ki-file-input");
+    if (fileInput) {
+      fileInput.addEventListener("change", function () {
+        state.kiFiles = Array.prototype.slice.call(fileInput.files || []);
+        var label = getEl("ki-upload-label");
+        var labelText = getEl("ki-upload-label-text");
+        if (state.kiFiles.length > 0) {
+          if (label) label.classList.add("has-files");
+          if (labelText) {
+            labelText.textContent = state.kiFiles.length === 1
+              ? state.kiFiles[0].name
+              : state.kiFiles.length + " Dateien ausgewählt";
+          }
+        } else {
+          if (label) label.classList.remove("has-files");
+          if (labelText) labelText.textContent = "Foto oder Datei wählen";
+        }
+        updateKiAnalyzeBtn();
+      });
+    }
+
+    // Trigger button in editor-actions opens file picker
+    var triggerBtn = getEl("btn-ki-trigger");
+    if (triggerBtn && fileInput) {
+      triggerBtn.addEventListener("click", function () {
+        fileInput.click();
+      });
+    }
+
+    // Analyse button
+    on(getEl("btn-ki-analyze"), "click", onKiAnalyze);
+
+    // KI-Marker apply button
+    on(getEl("btn-ki-marker"), "click", applyKiMarker);
+
+    // React to KI-mode toggle changes
+    var toggle = getEl("gemini-toggle");
+    if (toggle) {
+      toggle.addEventListener("click", function () {
+        // Wait one tick for body class to update
+        setTimeout(updateKiPanelVisibility, 10);
+      });
+    }
+    updateKiPanelVisibility();
+  }
+
+  function updateKiPanelVisibility() {
+    var isAi = document.body.classList.contains("ai-mode");
+    var panel = getEl("ki-panel");
+    var markerRow = getEl("ki-marker-row");
+    if (panel) panel.style.display = isAi ? "flex" : "none";
+    if (markerRow) {
+      markerRow.style.display = (isAi && state.kiHighlightTerms.length > 0 && state.projectId) ? "flex" : "none";
+    }
+  }
+
+  function updateKiAnalyzeBtn() {
+    var btn = getEl("btn-ki-analyze");
+    if (!btn) return;
+    var hasFiles = state.kiFiles.length > 0;
+    var hasPrompt = state.kiMode !== "prompt" || (getEl("ki-custom-prompt") || {}).value;
+    btn.disabled = !(hasFiles && hasPrompt);
+  }
+
+  function updateKiMarkerRow() {
+    var isAi = document.body.classList.contains("ai-mode");
+    var row = getEl("ki-marker-row");
+    if (!row) return;
+    var show = isAi && state.kiHighlightTerms.length > 0 && !!state.projectId;
+    row.style.display = show ? "flex" : "none";
+    if (show) {
+      var countEl = getEl("ki-marker-count");
+      if (countEl) countEl.textContent = state.kiHighlightTerms.length + " Begriffe";
+    }
+  }
+
+  function onKiAnalyze() {
+    if (!state.kiFiles.length) return;
+    var btn = getEl("btn-ki-analyze");
+    var reset = showSpinner(btn, "Analysiere…");
+    var statusEl = getEl("ki-status");
+    if (statusEl) { statusEl.className = "status-inline"; statusEl.textContent = ""; }
+
+    var customPrompt = "";
+    if (state.kiMode === "prompt") {
+      var promptEl = getEl("ki-custom-prompt");
+      customPrompt = promptEl ? promptEl.value.trim() : "";
+      if (!customPrompt) {
+        reset();
+        if (statusEl) { statusEl.className = "status-inline err"; statusEl.textContent = "Bitte Prompt eingeben."; }
+        return;
+      }
+    }
+
+    API.kiAnalyze(state.kiFiles, state.kiMode, customPrompt)
+      .then(function (res) {
+        var text = res.text || "";
+        var terms = res.highlight_terms || [];
+        var textEl = getEl("text");
+        if (textEl) {
+          textEl.value = text;
+          textEl.focus();
+        }
+        state.kiHighlightTerms = terms;
+        if (statusEl) {
+          statusEl.className = "status-inline ok";
+          statusEl.textContent = "Text eingefügt" + (terms.length ? " · " + terms.length + " Begriffe für KI-Marker" : "") + " — jetzt Rendern klicken.";
+        }
+        // Reset file input for next upload
+        state.kiFiles = [];
+        var fileInput = getEl("ki-file-input");
+        if (fileInput) fileInput.value = "";
+        var label = getEl("ki-upload-label");
+        var labelText = getEl("ki-upload-label-text");
+        if (label) label.classList.remove("has-files");
+        if (labelText) labelText.textContent = "Foto oder Datei wählen";
+        updateKiAnalyzeBtn();
+      })
+      .catch(function (e) {
+        if (statusEl) { statusEl.className = "status-inline err"; statusEl.textContent = "Fehler: " + e.message; }
+      })
+      .finally(function () { reset(); });
+  }
+
+  function applyKiMarker() {
+    if (!state.kiHighlightTerms.length || !state.wordMap.length) return;
+    var textEl = getEl("text");
+    var fullText = textEl ? textEl.value : "";
+    var words = fullText.split(/\s+/);
+
+    var KI_COLOR = "#a78bfa";
+    var matched = 0;
+
+    for (var wi = 0; wi < state.wordMap.length; wi++) {
+      if (wi >= words.length) break;
+      var word = words[wi].replace(/[^a-zA-ZäöüÄÖÜß0-9]/g, "").toLowerCase();
+      if (!word) continue;
+      for (var ti = 0; ti < state.kiHighlightTerms.length; ti++) {
+        var term = state.kiHighlightTerms[ti].toLowerCase();
+        if (word === term || word.indexOf(term) !== -1 || term.indexOf(word) !== -1) {
+          state.highlights[wi] = { color: KI_COLOR, mode: "marker" };
+          matched++;
+          break;
+        }
+      }
+    }
+
+    refreshHlRegions();
+    scheduleServerHighlight();
+    var countEl = getEl("ki-marker-count");
+    if (countEl) countEl.textContent = matched + " Treffer markiert";
+    selectHlColor(KI_COLOR);
+  }
+
+  // Initialize KI panel on load
+  document.addEventListener("DOMContentLoaded", function () {
+    initKiPanel();
+  });
 })();

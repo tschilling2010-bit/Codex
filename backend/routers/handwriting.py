@@ -27,6 +27,8 @@ from ..models.schemas import (
     RenderResponse,
 )
 from ..services import export, fonts, projects, template_service
+from ..services import gemini_service
+from ..services.gemini_service import GeminiError
 from ..services.rendering import RenderOptions, apply_highlights, render_text
 
 log = logging.getLogger(__name__)
@@ -464,3 +466,42 @@ def download_export_file(filename: str):
     if not filepath.exists():
         raise HTTPException(status_code=404, detail="Datei nicht gefunden.")
     return FileResponse(filepath, filename=safe, media_type="application/octet-stream")
+
+
+# ---------------------------------------------------------------------------
+# KI-Modus
+# ---------------------------------------------------------------------------
+
+
+@router.post("/ki/analyze")
+async def ki_analyze(
+    files: List[UploadFile] = File(...),
+    mode: str = Form("transcribe"),
+    prompt: Optional[str] = Form(None),
+) -> dict:
+    """Analysiert Bilder/PDFs mit Gemini und gibt verarbeiteten Text zurück."""
+    if mode not in ("transcribe", "summary", "prompt"):
+        raise HTTPException(status_code=400, detail="Unbekannter Modus.")
+    if not files:
+        raise HTTPException(status_code=400, detail="Keine Dateien hochgeladen.")
+    if len(files) > 5:
+        raise HTTPException(status_code=400, detail="Maximal 5 Dateien gleichzeitig.")
+
+    file_bytes_list: List[bytes] = []
+    filenames: List[str] = []
+    for f in files:
+        data = await f.read()
+        if len(data) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"{f.filename}: Datei zu groß (max. 10 MB).")
+        file_bytes_list.append(data)
+        filenames.append(f.filename or "datei")
+
+    try:
+        result = gemini_service.analyze(file_bytes_list, filenames, mode, prompt)
+    except GeminiError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except Exception as exc:
+        log.exception("KI-Analyse fehlgeschlagen")
+        raise HTTPException(status_code=500, detail=f"KI-Fehler: {exc}")
+
+    return {"text": result["text"], "highlight_terms": result["highlight_terms"]}
