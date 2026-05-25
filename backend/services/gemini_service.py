@@ -15,7 +15,10 @@ from .. import config
 log = logging.getLogger(__name__)
 
 _TIMEOUT = httpx.Timeout(120.0, connect=10.0)
-_API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent"
+# v1beta unterstützt die aktuellen Modelle. Mehrere Kandidaten als Fallback:
+# wenn ein Modell (404) nicht verfügbar ist, wird das nächste probiert.
+_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models/"
+_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash"]
 
 _MODE_PROMPTS = {
     "transcribe": (
@@ -66,25 +69,37 @@ def _call_gemini(parts: list) -> str:
             "Kein Gemini API-Key konfiguriert. Bitte GEMINI_API_KEY auf Render hinterlegen."
         )
     payload: dict = {"contents": [{"parts": parts}]}
+    last_err = "Kein Modell verfügbar."
 
-    try:
-        with httpx.Client(timeout=_TIMEOUT) as client:
-            res = client.post(_API_URL, params={"key": key}, json=payload)
-    except httpx.HTTPError as exc:
-        raise GeminiError(f"Verbindung zu Gemini fehlgeschlagen: {exc}") from exc
+    with httpx.Client(timeout=_TIMEOUT) as client:
+        for model in _MODELS:
+            url = _API_BASE + model + ":generateContent"
+            try:
+                res = client.post(url, params={"key": key}, json=payload)
+            except httpx.HTTPError as exc:
+                raise GeminiError(f"Verbindung zu Gemini fehlgeschlagen: {exc}") from exc
 
-    if res.status_code != 200:
-        try:
-            err = res.json().get("error", {}).get("message") or res.text
-        except Exception:
-            err = res.text
-        raise GeminiError(f"Gemini Fehler ({res.status_code}): {err}")
+            if res.status_code == 200:
+                data = res.json()
+                try:
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except (KeyError, IndexError) as exc:
+                    raise GeminiError("Unerwartete Antwort von Gemini.") from exc
 
-    data = res.json()
-    try:
-        return data["candidates"][0]["content"]["parts"][0]["text"]
-    except (KeyError, IndexError) as exc:
-        raise GeminiError("Unerwartete Antwort von Gemini.") from exc
+            try:
+                last_err = res.json().get("error", {}).get("message") or res.text
+            except Exception:
+                last_err = res.text
+
+            # Modell nicht gefunden → nächstes Modell probieren
+            if res.status_code == 404:
+                log.warning("Gemini-Modell %s nicht verfügbar, probiere nächstes: %s",
+                            model, last_err)
+                continue
+            # Andere Fehler (Key, Quota, Bad Request) sofort melden
+            raise GeminiError(f"Gemini Fehler ({res.status_code}): {last_err}")
+
+    raise GeminiError(f"Kein Gemini-Modell verfügbar ({last_err}).")
 
 
 def analyze_image(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
