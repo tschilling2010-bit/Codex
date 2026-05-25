@@ -157,14 +157,27 @@
   function bindFileUpload() {
     var drop = getEl("file-drop");
     var input = getEl("file-input");
+    var camera = getEl("camera-input");
+    var btnBrowse = getEl("btn-file-browse");
+    var btnCamera = getEl("btn-camera");
     if (!drop || !input) return;
 
     on(drop, "click", function () { input.click(); });
+    on(btnBrowse, "click", function () { input.click(); });
 
     on(input, "change", function () {
       addFiles(input.files);
       input.value = "";
     });
+
+    // Camera capture
+    if (camera) {
+      on(btnCamera, "click", function () { camera.click(); });
+      on(camera, "change", function () {
+        addFiles(camera.files);
+        camera.value = "";
+      });
+    }
 
     on(drop, "dragover", function (e) {
       e.preventDefault();

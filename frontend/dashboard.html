@@ -3,61 +3,100 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>HefterPro — Dashboard</title>
+  <title>HefterPro</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/styles.css?v=36" />
 </head>
 <body>
+
   <header class="nav">
     <div class="container nav-inner">
       <a class="brand" href="/"><span class="dot"></span>HefterPro</a>
-      <nav class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/handwriting.html">Handschrift</a>
-        <a href="/hefter.html">Hefterblatt</a>
-        <a href="/downloads.html">Downloads</a>
-      </nav>
+      <span></span>
+      <button class="gemini-toggle" id="gemini-toggle" title="KI-Modus ein/aus" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2c-.4 6.8-4.8 9.6-10 10 5.2.4 9.6 3.2 10 10 .4-6.8 4.8-9.6 10-10-5.2-.4-9.6-3.2-10-10z"/>
+        </svg>
+      </button>
     </div>
+    <div class="nav-rainbow"></div>
   </header>
 
-  <main class="container" style="padding-top:48px; padding-bottom:64px">
-    <div class="stack-lg">
-      <div class="page-header">
-        <span class="eyebrow">Dashboard</span>
-        <h2>Willkommen bei HefterPro</h2>
-        <p>Wähle eine Funktion oder setze ein bestehendes Projekt fort.</p>
+  <main class="container" style="padding-top:72px; padding-bottom:80px">
+    <div style="max-width:840px; margin:0 auto">
+
+      <!-- Hero -->
+      <div style="text-align:center; padding-bottom:48px">
+        <h1 style="font-size:clamp(30px,5vw,52px); font-weight:800; letter-spacing:-0.03em; line-height:1.15; margin:0 0 18px">
+          Deine Schule.<br>Deine Art.
+        </h1>
+        <p style="color:var(--text-muted); font-size:17px; max-width:480px; margin:0 auto; line-height:1.7">
+          Text in Handschrift verwandeln oder Fotos &amp; Notizen automatisch
+          zu sch&ouml;nen Hefterseiten machen.
+        </p>
       </div>
 
-      <div class="grid cols-2">
-        <a class="card interactive" href="/handwriting.html">
-          <span class="eyebrow">Funktion 1</span>
-          <h3 style="margin-top:16px">Text zu Handschrift</h3>
-          <p>Tippe deinen Text ein, wähle ein Blatt und lade das Ergebnis als PDF, PNG oder JPG herunter. Sieht aus wie echte Handschrift.</p>
+      <!-- Mode cards -->
+      <div class="grid cols-2" style="margin-bottom:48px">
+
+        <a class="mode-card mode-handwriting" href="/handwriting.html">
+          <div class="mode-icon">&#9998;</div>
+          <h2>Handschrift</h2>
+          <p>Tippe deinen Text ein &mdash; er wird als echte Handschrift auf
+             Schulpapier gerendert und als PDF heruntergeladen.</p>
+          <span class="mode-arrow">&#214;ffnen &rarr;</span>
         </a>
-        <a class="card interactive" href="/hefter.html">
-          <span class="eyebrow">Funktion 2</span>
-          <h3 style="margin-top:16px">Hefterblatt erstellen</h3>
-          <p>Lade Bilder, PDFs oder Text hoch — HefterPro erstellt automatisch ein strukturiertes, lernfreundliches Hefterblatt.</p>
+
+        <a class="mode-card mode-ai" href="/hefter.html" id="ki-card">
+          <div class="mode-icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <defs>
+                <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#667eea"/>
+                  <stop offset="100%" stop-color="#f093fb"/>
+                </linearGradient>
+              </defs>
+              <path d="M12 2c-.4 6.8-4.8 9.6-10 10 5.2.4 9.6 3.2 10 10 .4-6.8 4.8-9.6 10-10-5.2-.4-9.6-3.2-10-10z" fill="url(#g1)"/>
+            </svg>
+          </div>
+          <h2>KI Modus</h2>
+          <p>Lade ein Foto, eine PDF oder tippe Notizen &mdash; Gemini analysiert
+             den Inhalt und erstellt eine strukturierte Hefterseite.</p>
+          <span class="mode-arrow">&#214;ffnen &rarr;</span>
         </a>
+
       </div>
 
+      <!-- Recent projects -->
       <div class="card">
         <div class="toolbar" style="margin-bottom:16px">
-          <h3 style="margin:0; font-size:18px">Letzte Projekte</h3>
+          <h3 style="margin:0; font-size:17px; font-weight:700">Letzte Projekte</h3>
           <div class="toolbar-spacer"></div>
-          <a class="btn btn-soft" href="/downloads.html">Alle anzeigen</a>
+          <a class="btn btn-soft btn-sm" href="/downloads.html">Alle anzeigen</a>
         </div>
         <div id="projects"></div>
       </div>
+
     </div>
   </main>
 
-  <footer class="site">
-    <div class="container">HefterPro · made for students</div>
+  <footer style="text-align:center; padding:24px; color:var(--text-muted); font-size:13px; border-top:1px solid var(--border)">
+    HefterPro &middot; made for students
   </footer>
 
-  <script src="/js/common.js"></script>
-  <script src="/js/api.js"></script>
-  <script src="/js/dashboard.js"></script>
+  <script src="/js/common.js?v=36"></script>
+  <script src="/js/api.js?v=36"></script>
+  <script src="/js/dashboard.js?v=36"></script>
+  <script>
+    // Clicking KI-Mode card activates AI mode before navigation
+    document.addEventListener("DOMContentLoaded", function () {
+      var kiCard = document.getElementById("ki-card");
+      if (kiCard) {
+        kiCard.addEventListener("click", function () {
+          localStorage.setItem("ai_mode", "1");
+        });
+      }
+    });
+  </script>
 </body>
 </html>

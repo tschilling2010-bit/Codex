@@ -80,7 +80,7 @@ if _FRONTEND.exists():
 
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_FRONTEND / "handwriting.html", headers=_NO_CACHE)
+        return FileResponse(_FRONTEND / "dashboard.html", headers=_NO_CACHE)
 
     @app.get("/{page}.html")
     def page(page: str) -> FileResponse:

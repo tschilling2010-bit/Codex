@@ -615,3 +615,155 @@ input[type="color"] {
 .export-modal h4 { font-size: 16px; margin: 0 0 14px; color: var(--text); }
 .export-modal .input { width: 100%; margin-bottom: 14px; }
 .export-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ============================================================
+   Gemini / KI-Modus Toggle
+   ============================================================ */
+
+.gemini-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: transparent; cursor: pointer; padding: 0;
+  color: var(--text-muted); flex-shrink: 0;
+  transition: all 0.3s var(--ease);
+}
+.gemini-toggle:hover {
+  border-color: rgba(139, 92, 246, 0.55);
+  color: #a78bfa;
+  box-shadow: 0 0 14px rgba(139, 92, 246, 0.25);
+}
+.gemini-toggle.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-color: transparent; color: #fff;
+  box-shadow: 0 0 20px rgba(118, 75, 162, 0.5), 0 0 40px rgba(102, 126, 234, 0.2);
+}
+.gemini-toggle.active svg {
+  animation: gemini-spin 8s linear infinite;
+}
+@keyframes gemini-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Nav rainbow line (hidden by default, shown in AI mode) */
+.nav { position: relative; }
+.nav-rainbow {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #f5576c, #667eea);
+  background-size: 300% 100%;
+  opacity: 0; transition: opacity 0.4s;
+  animation: rainbow-slide 4s linear infinite;
+}
+body.ai-mode .nav-rainbow { opacity: 1; }
+@keyframes rainbow-slide {
+  from { background-position: 0% 0%; }
+  to { background-position: 300% 0%; }
+}
+
+/* Body-level AI mode transformations */
+body.ai-mode .nav {
+  background: linear-gradient(180deg, rgba(12, 8, 28, 0.97), rgba(20, 10, 38, 0.95));
+  border-bottom-color: rgba(118, 75, 162, 0.18);
+}
+body.ai-mode .brand .dot {
+  background: linear-gradient(135deg, #667eea, #f093fb);
+  animation: rainbow-dot 2.5s ease-in-out infinite;
+}
+@keyframes rainbow-dot {
+  0%, 100% { box-shadow: 0 0 8px rgba(102, 126, 234, 0.5); }
+  50% { box-shadow: 0 0 18px rgba(240, 147, 251, 0.7); }
+}
+body.ai-mode .card { border-color: rgba(118, 75, 162, 0.14); }
+body.ai-mode .btn-primary {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+body.ai-mode .btn-primary:hover {
+  background: linear-gradient(135deg, #7a8ef7, #8a5ab5);
+  color: #fff;
+}
+
+/* AI badge */
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px; border-radius: 999px; white-space: nowrap;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(240, 147, 251, 0.18));
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+  color: #a78bfa; text-transform: uppercase;
+}
+.ai-badge svg { flex-shrink: 0; }
+
+/* AI banner shown in hefter/KI pages when mode is active */
+.ai-banner {
+  display: none;
+  align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 14px 20px; border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.07), rgba(240, 147, 251, 0.07));
+  border: 1px solid rgba(118, 75, 162, 0.22);
+  margin-bottom: 24px;
+}
+body.ai-mode .ai-banner { display: flex; }
+
+/* ============================================================
+   Mode selection cards (Dashboard)
+   ============================================================ */
+
+.mode-card {
+  position: relative; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 36px 28px;
+  text-decoration: none; color: var(--text);
+  transition: all 0.3s var(--ease);
+}
+.mode-card:hover { transform: translateY(-4px); text-decoration: none; color: var(--text); }
+.mode-card.mode-handwriting:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-md);
+}
+.mode-card.mode-ai {
+  border-color: rgba(118, 75, 162, 0.3);
+  background: linear-gradient(145deg,
+    rgba(102, 126, 234, 0.06) 0%,
+    rgba(118, 75, 162, 0.08) 50%,
+    rgba(240, 147, 251, 0.04) 100%);
+}
+.mode-card.mode-ai::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, #667eea, #764ba2, #f093fb);
+}
+.mode-card.mode-ai:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 12px 40px rgba(118, 75, 162, 0.2), 0 4px 16px rgba(102, 126, 234, 0.15);
+}
+.mode-icon { font-size: 28px; margin-bottom: 18px; }
+.mode-card h2 {
+  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+  margin: 0 0 10px; color: var(--text);
+}
+.mode-card p { color: var(--text-muted); font-size: 15px; line-height: 1.6; margin: 0 0 28px; flex: 1; }
+.mode-arrow { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.mode-card.mode-ai .mode-arrow { color: #a78bfa; }
+.mode-card.mode-handwriting .mode-arrow { color: var(--text-muted); }
+
+/* Page shadow card (hefter pages) */
+.page-shadow { border-radius: var(--radius-sm); overflow: hidden; background: #fff; box-shadow: var(--shadow-sm); }
+.page-shadow img { display: block; width: 100%; height: auto; }
+
+/* Tabs */
+.tab-bar { display: flex; gap: 4px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+.tab-btn {
+  padding: 10px 18px; border: none; background: none;
+  color: var(--text-muted); font-size: 14px; font-weight: 600;
+  font-family: inherit; cursor: pointer; border-radius: 8px 8px 0 0;
+  transition: all 0.15s; border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); background: var(--surface-muted); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: none; }
+body.ai-mode .tab-btn.active { color: #a78bfa; border-bottom-color: #764ba2; }
+
+.tab-panel { display: none; padding-top: 24px; }
+.tab-panel.active { display: block; }

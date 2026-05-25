@@ -38,10 +38,29 @@ function highlightNav() {
     var a = links[i];
     var href = a.getAttribute("href");
     var match =
-      (href === "/" && (path === "/" || path === "/handwriting.html")) ||
+      (href === "/" && path === "/") ||
       (href !== "/" && path.indexOf(href) === 0);
     if (match) a.classList.add("active");
   }
 }
 
-document.addEventListener("DOMContentLoaded", highlightNav);
+// Gemini / KI-Modus toggle — shared across all pages
+function initGeminiToggle() {
+  var btn = document.getElementById("gemini-toggle");
+  if (!btn) return;
+  var active = localStorage.getItem("ai_mode") === "1";
+  if (active) document.body.classList.add("ai-mode");
+  btn.classList.toggle("active", active);
+
+  btn.addEventListener("click", function () {
+    active = !active;
+    localStorage.setItem("ai_mode", active ? "1" : "0");
+    document.body.classList.toggle("ai-mode", active);
+    btn.classList.toggle("active", active);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  highlightNav();
+  initGeminiToggle();
+});
