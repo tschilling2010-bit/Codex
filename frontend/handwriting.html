@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=41" />
+  <link rel="stylesheet" href="/css/styles.css?v=42" />
 </head>
 <body>
 
@@ -93,8 +93,11 @@
             </button>
           </div>
 
-          <!-- Custom-Prompt-Textarea (nur im Prompt-Modus) -->
-          <textarea id="ki-custom-prompt" class="ki-prompt-input" style="display:none"></textarea>
+          <!-- Eigener-Prompt-Tile (nur sichtbar im Prompt-Modus) -->
+          <button class="ki-text-tile" id="btn-ki-prompt" type="button" style="display:none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="ki-text-preview" id="ki-prompt-preview">Eigener Prompt eingeben&hellip;</span>
+          </button>
 
           <!-- Upload-Bereich: Foto / Datei -->
           <label class="ki-upload-area" id="ki-upload-label" for="ki-file-input">
@@ -225,7 +228,7 @@
   <!-- KI Text-Input Modal -->
   <div class="ki-text-modal-overlay" id="ki-text-modal-overlay">
     <div class="ki-text-modal">
-      <h4>Text als Quelle hinzuf&uuml;gen</h4>
+      <h4 id="ki-text-modal-title">Text als Quelle hinzuf&uuml;gen</h4>
       <textarea class="ki-text-modal-input" id="ki-text-modal-input" placeholder="Eigenen Text eingeben&hellip;"></textarea>
       <div class="ki-text-modal-actions">
         <button class="btn btn-ghost" id="btn-ki-text-cancel" type="button">Abbrechen</button>
@@ -246,9 +249,9 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=41"></script>
-  <script src="/js/api.js?v=41"></script>
-  <script src="/js/persist.js?v=41"></script>
-  <script src="/js/handwriting.js?v=41"></script>
+  <script src="/js/common.js?v=42"></script>
+  <script src="/js/api.js?v=42"></script>
+  <script src="/js/persist.js?v=42"></script>
+  <script src="/js/handwriting.js?v=42"></script>
 </body>
 </html>

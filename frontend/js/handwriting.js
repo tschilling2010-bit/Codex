@@ -9,7 +9,7 @@
     wordMap: [], pageWidth: 0, pageHeight: 0,
     highlights: {}, activeHlColor: null, hlMode: "marker",
     hlFavorites: [], rangeStart: null, rangeMode: false,
-    kiMode: "transcribe", kiFiles: [], kiHighlightTerms: [], kiTextInput: ""
+    kiMode: "transcribe", kiFiles: [], kiHighlightTerms: [], kiTextInput: "", kiPrompt: ""
   };
 
   var serverHlTimer;
@@ -921,8 +921,7 @@
         state.kiMode = btn.getAttribute("data-mode");
         qa(".ki-tab").forEach(function (b) { b.classList.remove("active"); });
         btn.classList.add("active");
-        var promptArea = getEl("ki-custom-prompt");
-        if (promptArea) promptArea.style.display = state.kiMode === "prompt" ? "" : "none";
+        updatePromptTileVisibility();
         updateKiAnalyzeBtn();
       });
     });
@@ -949,14 +948,11 @@
       });
     }
 
-    // Custom prompt → re-check analyse button as user types
-    var promptEl = getEl("ki-custom-prompt");
-    if (promptEl) promptEl.addEventListener("input", updateKiAnalyzeBtn);
-
-    // Text-input tile → open modal
-    on(getEl("btn-ki-text"), "click", openKiTextModal);
+    // Tiles → open unified modal
+    on(getEl("btn-ki-text"), "click", function () { openKiModal("text"); });
+    on(getEl("btn-ki-prompt"), "click", function () { openKiModal("prompt"); });
     on(getEl("btn-ki-text-cancel"), "click", closeKiTextModal);
-    on(getEl("btn-ki-text-save"), "click", saveKiText);
+    on(getEl("btn-ki-text-save"), "click", saveKiModal);
 
     // Analyse button
     on(getEl("btn-ki-analyze"), "click", onKiAnalyze);
@@ -974,11 +970,17 @@
     updateKiPanelVisibility();
   }
 
-  function openKiTextModal() {
+  var _kiModalTarget = "text";
+
+  function openKiModal(target) {
+    _kiModalTarget = target;
     var overlay = getEl("ki-text-modal-overlay");
     var input = getEl("ki-text-modal-input");
+    var titleEl = getEl("ki-text-modal-title");
+    if (titleEl) titleEl.textContent = target === "prompt" ? "Eigener Prompt" : "Text als Quelle";
+    if (input) input.value = target === "prompt" ? state.kiPrompt : state.kiTextInput;
     if (overlay) overlay.classList.add("open");
-    if (input) { input.value = state.kiTextInput; input.focus(); }
+    if (input) input.focus();
   }
 
   function closeKiTextModal() {
@@ -986,20 +988,29 @@
     if (overlay) overlay.classList.remove("open");
   }
 
-  function saveKiText() {
+  function saveKiModal() {
     var input = getEl("ki-text-modal-input");
-    state.kiTextInput = input ? input.value.trim() : "";
+    var val = input ? input.value.trim() : "";
     closeKiTextModal();
-    var tile = getEl("btn-ki-text");
-    var preview = getEl("ki-text-preview");
-    if (state.kiTextInput) {
-      if (tile) tile.classList.add("has-text");
-      if (preview) preview.textContent = state.kiTextInput.substring(0, 45) + (state.kiTextInput.length > 45 ? "…" : "");
+    if (_kiModalTarget === "prompt") {
+      state.kiPrompt = val;
+      var tile = getEl("btn-ki-prompt");
+      var preview = getEl("ki-prompt-preview");
+      if (tile) tile.classList.toggle("has-text", !!val);
+      if (preview) preview.textContent = val ? val.substring(0, 45) + (val.length > 45 ? "…" : "") : "Eigener Prompt eingeben…";
     } else {
-      if (tile) tile.classList.remove("has-text");
-      if (preview) preview.textContent = "Text hinzufügen";
+      state.kiTextInput = val;
+      var tile2 = getEl("btn-ki-text");
+      var preview2 = getEl("ki-text-preview");
+      if (tile2) tile2.classList.toggle("has-text", !!val);
+      if (preview2) preview2.textContent = val ? val.substring(0, 45) + (val.length > 45 ? "…" : "") : "Text hinzufügen";
     }
     updateKiAnalyzeBtn();
+  }
+
+  function updatePromptTileVisibility() {
+    var tile = getEl("btn-ki-prompt");
+    if (tile) tile.style.display = state.kiMode === "prompt" ? "" : "none";
   }
 
   function updateKiPanelVisibility() {
@@ -1015,8 +1026,9 @@
   function updateKiAnalyzeBtn() {
     var btn = getEl("btn-ki-analyze");
     if (!btn) return;
-    var hasContent = state.kiFiles.length > 0 || state.kiTextInput.length > 0;
-    var hasPrompt = state.kiMode !== "prompt" || ((getEl("ki-custom-prompt") || {}).value || "").trim();
+    var hasContent = state.kiFiles.length > 0 || state.kiTextInput.length > 0
+                     || (state.kiMode === "prompt" && state.kiPrompt.length > 0);
+    var hasPrompt = state.kiMode !== "prompt" || state.kiPrompt.length > 0;
     btn.disabled = !(hasContent && hasPrompt);
   }
 
@@ -1033,22 +1045,13 @@
   }
 
   function onKiAnalyze() {
-    if (!state.kiFiles.length && !state.kiTextInput.length) return;
+    if (!state.kiFiles.length && !state.kiTextInput.length && !state.kiPrompt.length) return;
     var btn = getEl("btn-ki-analyze");
     var reset = showSpinner(btn, "Analysiere…");
     var statusEl = getEl("ki-status");
     if (statusEl) { statusEl.className = "status-inline"; statusEl.textContent = ""; }
 
-    var customPrompt = "";
-    if (state.kiMode === "prompt") {
-      var promptEl = getEl("ki-custom-prompt");
-      customPrompt = promptEl ? promptEl.value.trim() : "";
-      if (!customPrompt) {
-        reset();
-        if (statusEl) { statusEl.className = "status-inline err"; statusEl.textContent = "Bitte Prompt eingeben."; }
-        return;
-      }
-    }
+    var customPrompt = state.kiMode === "prompt" ? state.kiPrompt : "";
 
     API.kiAnalyze(state.kiFiles, state.kiMode, customPrompt, state.kiTextInput)
       .then(function (res) {
@@ -1062,7 +1065,7 @@
           statusEl.textContent = "Text eingefügt" + (terms.length ? " · " + terms.length + " Begriffe für KI-Marker" : "") + " — jetzt Rendern klicken.";
         }
         // Reset all inputs
-        state.kiFiles = []; state.kiTextInput = "";
+        state.kiFiles = []; state.kiTextInput = ""; state.kiPrompt = "";
         var fileInput = getEl("ki-file-input");
         if (fileInput) fileInput.value = "";
         var label = getEl("ki-upload-label"); var labelText = getEl("ki-upload-label-text");
@@ -1071,6 +1074,9 @@
         var tile = getEl("btn-ki-text"); var preview = getEl("ki-text-preview");
         if (tile) tile.classList.remove("has-text");
         if (preview) preview.textContent = "Text hinzufügen";
+        var ptile = getEl("btn-ki-prompt"); var ppreview = getEl("ki-prompt-preview");
+        if (ptile) ptile.classList.remove("has-text");
+        if (ppreview) ppreview.textContent = "Eigener Prompt eingeben…";
         updateKiAnalyzeBtn();
       })
       .catch(function (e) {
