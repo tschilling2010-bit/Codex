@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
@@ -227,39 +228,75 @@ def _pair_dir(profile_id: str, pair_index: int):
 
 
 def generate_pair(profile_id: str, pair_index: int, profile_name: str) -> Dict:
-    """Erzeugt ein Template-Paar (2 Seiten) und speichert Meta + PNGs."""
+    """Sofortiges Erstellen: speichert nur Layout-Metadaten, keine PNGs.
+
+    PNGs werden erst beim PDF-Download on-demand erzeugt (render_pair_pages).
+    """
     if not (0 <= pair_index < MAX_PAIRS):
         raise ValueError(f"pair_index muss zwischen 0 und {MAX_PAIRS - 1} liegen.")
 
     cells = _pair_cells(pair_index)
-    pages, boxes = _render_pages(cells, profile_name, pair_index)
+    per_page = COLS * ROWS
+    total_pages = max(1, (len(cells) + per_page - 1) // per_page)
+
+    boxes: List[CellBox] = []
+    for page_idx in range(total_pages):
+        start = page_idx * per_page
+        end = min(start + per_page, len(cells))
+        for i, (ch, variant) in enumerate(cells[start:end]):
+            col = i % COLS
+            row = i // COLS
+            cx = GRID_LEFT + col * CELL_W
+            cy = GRID_TOP + row * CELL_H
+            write_top = cy + LABEL_H
+            boxes.append(CellBox(
+                char=ch, variant=variant, page=page_idx,
+                x=cx, y=write_top, w=CELL_W, h=WRITE_H,
+            ))
 
     pair_dir = _pair_dir(profile_id, pair_index)
     pair_dir.mkdir(parents=True, exist_ok=True)
 
-    page_urls = []
-    for i, page in enumerate(pages):
-        path = pair_dir / f"page-{i + 1}.png"
-        page.save(path, "PNG")
-        page_urls.append(
-            f"/files/templates/{profile_id}/pair-{pair_index}/page-{i + 1}.png"
-        )
-
     meta = {
         "profile_id": profile_id,
         "pair_index": pair_index,
+        "profile_name": profile_name,
         "page_size": [PAGE_W, PAGE_H],
         "dpi": config.PAGE_DPI,
         "fiducial_size": FIDUCIAL_SIZE,
         "fiducials": _fiducial_positions(),
         "cells": [b.__dict__ for b in boxes],
-        "pages": len(pages),
-        "page_urls": page_urls,
+        "pages": total_pages,
+        "page_urls": [
+            f"/api/handwriting/profile/{profile_id}/pair/{pair_index}/pdf"
+        ],
     }
     (pair_dir / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2)
     )
     return meta
+
+
+def render_pair_pages(profile_id: str, pair_index: int) -> List[Path]:
+    """Rendert die PNG-Seiten für ein Paar (on-demand, bei PDF-Download).
+
+    Gibt die Liste der gespeicherten PNG-Pfade zurück.
+    """
+    meta = load_pair_meta(profile_id, pair_index)
+    if meta is None:
+        raise ValueError(f"Paar {pair_index} für Profil {profile_id} nicht gefunden.")
+
+    profile_name = meta.get("profile_name", "HefterPro")
+    cells = _pair_cells(pair_index)
+    pages, _ = _render_pages(cells, profile_name, pair_index)
+
+    pair_dir = _pair_dir(profile_id, pair_index)
+    paths: List[Path] = []
+    for i, page in enumerate(pages):
+        path = pair_dir / f"page-{i + 1}.png"
+        page.save(path, "PNG")
+        paths.append(path)
+    return paths
 
 
 def load_pair_meta(profile_id: str, pair_index: int) -> Optional[Dict]:

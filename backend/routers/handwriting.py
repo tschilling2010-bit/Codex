@@ -204,19 +204,29 @@ def pair_create(profile_id: str,
 
 @router.get("/profile/{profile_id}/pair/{pair_index}/pdf")
 def pair_pdf(profile_id: str, pair_index: int) -> Response:
-    meta = fonts.get_profile(profile_id)
-    if meta is None:
+    if fonts.get_profile(profile_id) is None:
         raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
-    pair_dir = config.TEMPLATES_DIR / profile_id / f"pair-{pair_index}"
-    if not pair_dir.exists():
+    if template_service.load_pair_meta(profile_id, pair_index) is None:
         raise HTTPException(status_code=404, detail="Template-Paar nicht gefunden.")
+
+    pair_dir = config.TEMPLATES_DIR / profile_id / f"pair-{pair_index}"
+    page_paths = [pair_dir / f"page-{i}.png" for i in (1, 2)]
+
+    # Render pages on demand — they may not exist yet if just registered.
+    if not all(p.exists() for p in page_paths):
+        try:
+            template_service.render_pair_pages(profile_id, pair_index)
+        except Exception as exc:
+            log.exception("render_pair_pages failed for pair %d", pair_index)
+            raise HTTPException(status_code=500, detail=f"Seiten-Rendering fehlgeschlagen: {exc}")
+
     pages: List[Image.Image] = []
-    for i in (1, 2):
-        p = pair_dir / f"page-{i}.png"
+    for p in page_paths:
         if p.exists():
             pages.append(Image.open(p).convert("RGB"))
     if not pages:
         raise HTTPException(status_code=404, detail="Keine Seiten gefunden.")
+
     buf = io.BytesIO()
     pages[0].save(
         buf, save_all=True, append_images=pages[1:],
