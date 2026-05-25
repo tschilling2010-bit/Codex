@@ -1,13 +1,14 @@
-"""API: Hefter-Fächer (Subjects) mit KI-generierten Seiten."""
+"""API: Hefter-Fächer (Subjects) mit PIL-generierten Seiten."""
 from __future__ import annotations
 
+import io
 import logging
-from io import BytesIO
 from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, Response
 from PIL import Image
+from pypdf import PdfReader
 
 from .. import config
 from ..models.schemas import (
@@ -17,15 +18,29 @@ from ..models.schemas import (
     SubjectUpdateRequest,
 )
 from ..services import export, subjects
-from ..services.openai_pages import (
-    OpenAIError,
-    analyze_image,
-    extract_pdf_text,
-    generate_hefter_page,
-)
+from ..services.file_processing import ExtractedContent
+from ..services.hefter_generator import HefterRenderOptions, build_document, render_hefter
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _analyze_image_gemini(raw: bytes, mime: str) -> str:
+    from ..services.gemini_service import GeminiError, analyze_image
+    try:
+        return analyze_image(raw, mime)
+    except GeminiError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _extract_pdf_bytes(raw: bytes) -> str:
+    try:
+        reader = PdfReader(io.BytesIO(raw))
+        texts = [p.extract_text() for p in reader.pages if p.extract_text()]
+        return "\n\n".join(t.strip() for t in texts)
+    except Exception as exc:
+        log.warning("PDF konnte nicht gelesen werden: %s", exc)
+        return ""
 
 
 # ----------------------------------------------------------- Subjects ------
@@ -96,21 +111,13 @@ def create_page(
         ct = (f.content_type or "").lower()
         fname = (f.filename or "").lower()
 
-        if ct.startswith("image/") or fname.endswith(
-            (".png", ".jpg", ".jpeg", ".gif", ".webp")
-        ):
-            mime = ct if ct.startswith("image/") else "image/png"
-            try:
-                parts.append(analyze_image(raw, mime))
-            except OpenAIError as exc:
-                raise HTTPException(status_code=502, detail=str(exc)) from exc
+        if ct.startswith("image/") or fname.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+            mime = ct if ct.startswith("image/") else "image/jpeg"
+            parts.append(_analyze_image_gemini(raw, mime))
         elif ct == "application/pdf" or fname.endswith(".pdf"):
-            try:
-                text = extract_pdf_text(raw)
-                if text:
-                    parts.append(text)
-            except OpenAIError as exc:
-                raise HTTPException(status_code=502, detail=str(exc)) from exc
+            text = _extract_pdf_bytes(raw)
+            if text:
+                parts.append(text)
 
     combined = "\n\n".join(parts)
     if not combined.strip():
@@ -119,17 +126,23 @@ def create_page(
             detail="Bitte Inhalt eingeben oder Dateien hochladen.",
         )
 
-    try:
-        png_bytes, _img = generate_hefter_page(
-            content=combined,
-            subject_name=sub.name,
-            color=sub.color,
-            paper_type=sub.paper_type,
-        )
-    except OpenAIError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
-    page = subjects.add_page(subject_id, title or sub.name, png_bytes)
-    return page
+    extracted = ExtractedContent(text=combined)
+    doc = build_document(extracted, topic_hint=title)
+    options = HefterRenderOptions(accent=sub.color, sheet_type=sub.paper_type)
+    page_images = render_hefter(doc, options)
+
+    first_page: Optional[HefterPageInfo] = None
+    for i, img in enumerate(page_images):
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        page_title = title.strip() or sub.name
+        if len(page_images) > 1:
+            page_title = "{} – {}".format(page_title, i + 1)
+        page_info = subjects.add_page(subject_id, page_title, buf.getvalue())
+        if first_page is None:
+            first_page = page_info
+
+    return first_page
 
 
 @router.get("/subjects/{subject_id}/pages/{page_id}.png")
@@ -162,11 +175,11 @@ def export_subject_pdf(subject_id: str) -> Response:
     if not paths:
         raise HTTPException(status_code=400, detail="Keine Seiten im Fach.")
     images: List[Image.Image] = [Image.open(p).convert("RGB") for p in paths]
-    out = config.EXPORTS_DIR / f"hefter-{subject_id}.pdf"
+    out = config.EXPORTS_DIR / "hefter-{}.pdf".format(subject_id)
     export.export_pdf(images, out)
     safe_name = "".join(c for c in sub.name if c.isalnum() or c in "_-") or "Hefter"
     headers = {
-        "Content-Disposition": f'attachment; filename="{safe_name}.pdf"',
+        "Content-Disposition": 'attachment; filename="{}.pdf"'.format(safe_name),
         "Cache-Control": "no-store",
     }
     return Response(content=out.read_bytes(), media_type="application/pdf", headers=headers)
@@ -176,5 +189,5 @@ def export_subject_pdf(subject_id: str) -> Response:
 
 @router.get("/status")
 def status() -> dict:
-    has_key = bool((config.OPENAI_API_KEY or "").strip())
-    return {"ai_configured": has_key, "image_model": config.OPENAI_IMAGE_MODEL}
+    has_key = bool((config.GEMINI_API_KEY or "").strip())
+    return {"ai_configured": has_key, "model": "gemini-1.5-flash"}

@@ -10,12 +10,8 @@ services:
         value: "3.11.9"
       - key: HEFTERPRO_STORAGE
         value: /var/data/hefterpro
-      - key: OPENAI_API_KEY
+      - key: GEMINI_API_KEY
         sync: false
-      - key: OPENAI_IMAGE_MODEL
-        value: "dall-e-3"
-      - key: OPENAI_TEXT_MODEL
-        value: "gpt-4o-mini"
     disk:
       name: hefterpro-data
       mountPath: /var/data/hefterpro

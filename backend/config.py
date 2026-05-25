@@ -47,7 +47,5 @@ SUPPORTED_EXPORT_FORMATS = ("pdf", "png", "jpg")
 # works fully offline.
 AI_ENABLED = os.environ.get("HEFTERPRO_AI", "0") == "1"
 
-# OpenAI integration for AI-generated Hefter pages.
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_IMAGE_MODEL = os.environ.get("OPENAI_IMAGE_MODEL", "dall-e-3")
-OPENAI_TEXT_MODEL = os.environ.get("OPENAI_TEXT_MODEL", "gpt-4o-mini")
+# Google Gemini integration for image analysis.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBWTaAeD9f9jhIMQuYvASEJu4syCv2WVd8")

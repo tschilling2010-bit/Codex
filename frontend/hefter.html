@@ -28,8 +28,8 @@
         <p>Erstelle für jedes Fach einen Hefter — KI-gestaltete Seiten mit deinen Inhalten.</p>
       </div>
 
-      <div id="ai-warning" class="status err" style="display:none">
-        OpenAI API-Key fehlt. Auf Render unter „Environment“ den Key <code>OPENAI_API_KEY</code> hinzufügen.
+      <div id=”ai-warning” class=”status err” style=”display:none”>
+        Gemini API-Key fehlt. Auf Render unter „Environment” den Key <code>GEMINI_API_KEY</code> hinzufügen.
       </div>
 
       <div id="subject-grid" class="grid cols-3"></div>
@@ -110,7 +110,7 @@
             </div>
             <div>
               <label class="field">Dateien hochladen (optional)</label>
-              <p class="muted" style="font-size:13px; margin:0 0 8px 0">Bilder oder PDFs — die KI analysiert den Inhalt und erstellt daraus die Hefterseite.</p>
+              <p class="muted" style="font-size:13px; margin:0 0 8px 0">Bilder oder PDFs — Gemini analysiert den Inhalt und erstellt daraus die Hefterseite.</p>
               <div id="file-drop" style="border:2px dashed var(--border); border-radius:12px; padding:24px; text-align:center; cursor:pointer; transition:border-color 0.2s">
                 <p style="margin:0; font-size:15px; color:var(--muted)">Dateien hierher ziehen oder antippen</p>
                 <p style="margin:4px 0 0; font-size:12px; color:var(--muted)">Bilder (PNG, JPG) und PDFs</p>
