@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .routers import handwriting, hefter, projects
+from .routers import handwriting, projects
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,7 +42,6 @@ async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
 
 
 app.include_router(handwriting.router, prefix="/api/handwriting", tags=["handwriting"])
-app.include_router(hefter.router, prefix="/api/hefter", tags=["hefter"])
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 
 
@@ -80,7 +79,7 @@ if _FRONTEND.exists():
 
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_FRONTEND / "dashboard.html", headers=_NO_CACHE)
+        return FileResponse(_FRONTEND / "handwriting.html", headers=_NO_CACHE)
 
     @app.get("/{page}.html")
     def page(page: str) -> FileResponse:

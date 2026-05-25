@@ -91,39 +91,6 @@ var API = (function () {
       return request(url, { method: "POST", body: body });
     },
 
-    // Hefter v2: Subjects + AI pages
-    hefterStatus: function () { return request("/api/hefter/status"); },
-    listSubjects: function () { return request("/api/hefter/subjects"); },
-    createSubject: function (data) {
-      return request("/api/hefter/subjects", { method: "POST", body: data });
-    },
-    getSubject: function (id) { return request("/api/hefter/subjects/" + id); },
-    updateSubject: function (id, data) {
-      return request("/api/hefter/subjects/" + id, { method: "PATCH", body: data });
-    },
-    deleteSubject: function (id) {
-      return request("/api/hefter/subjects/" + id, { method: "DELETE" });
-    },
-    createHefterPage: function (subjectId, content, title, files) {
-      var fd = new FormData();
-      fd.append("content", content || "");
-      fd.append("title", title || "");
-      if (files && files.length) {
-        for (var i = 0; i < files.length; i++) {
-          fd.append("files", files[i]);
-        }
-      }
-      return request("/api/hefter/subjects/" + subjectId + "/pages",
-        { method: "POST", form: fd });
-    },
-    deleteHefterPage: function (subjectId, pageId) {
-      return request("/api/hefter/subjects/" + subjectId + "/pages/" + pageId,
-        { method: "DELETE" });
-    },
-    subjectPdfUrl: function (subjectId) {
-      return "/api/hefter/subjects/" + subjectId + "/export/pdf";
-    },
-
     listProjects: function () { return request("/api/projects/"); },
     deleteProject: function (id) { return request("/api/projects/" + id, { method: "DELETE" }); }
   };

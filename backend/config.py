@@ -17,9 +17,8 @@ PROJECTS_DIR = STORAGE_DIR / "projects"
 EXPORTS_DIR = STORAGE_DIR / "exports"
 UPLOADS_DIR = STORAGE_DIR / "uploads"
 TEMPLATES_DIR = STORAGE_DIR / "templates"
-SUBJECTS_DIR = STORAGE_DIR / "subjects"
 
-for _d in (PROFILES_DIR, PROJECTS_DIR, EXPORTS_DIR, UPLOADS_DIR, TEMPLATES_DIR, SUBJECTS_DIR):
+for _d in (PROFILES_DIR, PROJECTS_DIR, EXPORTS_DIR, UPLOADS_DIR, TEMPLATES_DIR):
     _d.mkdir(parents=True, exist_ok=True)
 
 # Page layout defaults (A4 @ 300 dpi).
@@ -43,9 +42,5 @@ DEFAULT_GLYPH_HEIGHT_MM = 5.5
 SUPPORTED_SHEET_TYPES = ("liniert", "kariert", "blanko")
 SUPPORTED_EXPORT_FORMATS = ("pdf", "png", "jpg")
 
-# Optional AI hook for hefter structuring.  Disabled by default so the app
-# works fully offline.
-AI_ENABLED = os.environ.get("HEFTERPRO_AI", "0") == "1"
-
-# Google Gemini integration for image analysis.
+# Google Gemini integration for image analysis (KI-Modus).
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBWTaAeD9f9jhIMQuYvASEJu4syCv2WVd8")
