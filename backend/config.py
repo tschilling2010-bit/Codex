@@ -43,4 +43,4 @@ SUPPORTED_SHEET_TYPES = ("liniert", "kariert", "blanko")
 SUPPORTED_EXPORT_FORMATS = ("pdf", "png", "jpg")
 
 # Google Gemini integration for image analysis (KI-Modus).
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBWTaAeD9f9jhIMQuYvASEJu4syCv2WVd8")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
