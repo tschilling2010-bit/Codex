@@ -949,6 +949,10 @@
       });
     }
 
+    // Custom prompt → re-check analyse button as user types
+    var promptEl = getEl("ki-custom-prompt");
+    if (promptEl) promptEl.addEventListener("input", updateKiAnalyzeBtn);
+
     // Text-input tile → open modal
     on(getEl("btn-ki-text"), "click", openKiTextModal);
     on(getEl("btn-ki-text-cancel"), "click", closeKiTextModal);
@@ -1029,7 +1033,7 @@
   }
 
   function onKiAnalyze() {
-    if (!state.kiFiles.length) return;
+    if (!state.kiFiles.length && !state.kiTextInput.length) return;
     var btn = getEl("btn-ki-analyze");
     var reset = showSpinner(btn, "Analysiere…");
     var statusEl = getEl("ki-status");

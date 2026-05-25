@@ -209,6 +209,7 @@ input[type="color"] {
   border: 1px solid var(--border);
   flex: 1;
 }
+.preview-wrap:has(.empty-state-nice) { align-content: center; justify-items: center; }
 
 .empty-state {
   color: var(--text-muted); font-size: 14px; padding: 48px;
@@ -364,7 +365,7 @@ input[type="color"] {
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: var(--shadow-sm);
 }
-.editor-card { display: flex; flex-direction: column; gap: 16px; }
+.editor-card { display: flex; flex-direction: column; gap: 16px; align-self: start; }
 .preview-card { min-height: 400px; display: flex; flex-direction: column; }
 
 .editor-actions {
