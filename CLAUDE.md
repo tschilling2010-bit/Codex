@@ -51,15 +51,20 @@ frontend/
 
 ## Development
 
-- Feature branch: `claude/create-hefterpro-app-gBiYe`
-- Always merge to `main` and push for Render deployment
+- Active dev branch: `claude/hefter-pro-development-tzBzb`
+- **After every change: merge dev branch → `main` → push `main`.** Render.com deploys automatically from `main`. Never leave changes only on the dev branch.
+- Workflow: develop on dev branch → commit → `git checkout main && git merge <dev-branch> --no-edit && git push origin main` → switch back to dev branch
 - Cache bust: increment `?v=N` on all asset refs in `handwriting.html` when changing CSS/JS
 - Server: `uvicorn backend.main:app --reload`
 
-## Recent State (May 2025)
+## Current State (May 2026)
 
 - All core features working: render, highlight (marker + text coloring), export (PDF/PNG), profiles, template pairs
+- KI-Modus: Gemini ◆ toggle in editor (top-right of editor-actions row), stored in localStorage
+- Rainbow nav line + purple theme when KI-Modus active (CSS-only, `body.ai-mode`)
+- Gemini 1.5 Flash integration via httpx REST API (free tier, 1500 req/day) — config.py GEMINI_API_KEY
+- Hefter subject-management system removed (hefter.js/py/html cleaned up)
+- Template variant creation instant (metadata only); PNGs rendered on-demand at PDF download
 - Double-tap to delete highlight colors (iOS compatible)
 - Export filename dialog before download
-- Performance optimized: module-level glyph cache, single alpha pipeline, cached sheet backgrounds
 - UptimeRobot configured to keep Render instance awake
