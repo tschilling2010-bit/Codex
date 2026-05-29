@@ -44,6 +44,3 @@ SUPPORTED_EXPORT_FORMATS = ("pdf", "png", "jpg")
 
 # Google Gemini integration for image analysis (KI-Modus).
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-
-# OpenAI GPT-4o-mini (preferred when set; Gemini used as fallback).
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")

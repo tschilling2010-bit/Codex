@@ -27,9 +27,6 @@ from ..models.schemas import (
     RenderResponse,
 )
 from ..services import export, fonts, projects, template_service
-from ..services import gemini_service, openai_service
-from ..services.gemini_service import GeminiError
-from ..services.openai_service import OpenAIError
 from ..services.rendering import RenderOptions, apply_highlights, render_text
 
 log = logging.getLogger(__name__)
@@ -472,46 +469,3 @@ def download_export_file(filename: str):
 # ---------------------------------------------------------------------------
 # KI-Modus
 # ---------------------------------------------------------------------------
-
-
-@router.post("/ki/analyze")
-async def ki_analyze(
-    files: Optional[List[UploadFile]] = File(None),
-    mode: str = Form("transcribe"),
-    prompt: Optional[str] = Form(None),
-    text_content: Optional[str] = Form(None),
-) -> dict:
-    """Analysiert Bilder/PDFs/Text mit Gemini und gibt verarbeiteten Text zurück."""
-    if files is None:
-        files = []
-    if mode not in ("transcribe", "summary", "prompt"):
-        raise HTTPException(status_code=400, detail="Unbekannter Modus.")
-    if len(files) > 5:
-        raise HTTPException(status_code=400, detail="Maximal 5 Dateien gleichzeitig.")
-    # Prompt mode with only a custom prompt is valid (the prompt IS the task)
-    prompt_only_ok = mode == "prompt" and (prompt or "").strip()
-    if not files and not (text_content or "").strip() and not prompt_only_ok:
-        raise HTTPException(status_code=400, detail="Keine Inhalte übergeben.")
-
-    file_bytes_list: List[bytes] = []
-    filenames: List[str] = []
-    for f in files:
-        data = await f.read()
-        if len(data) > 10 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail=f"{f.filename}: Datei zu groß (max. 10 MB).")
-        file_bytes_list.append(data)
-        filenames.append(f.filename or "datei")
-
-    tc = (text_content or "").strip() or None
-    try:
-        if config.OPENAI_API_KEY:
-            result = openai_service.analyze(file_bytes_list, filenames, mode, prompt, tc)
-        else:
-            result = gemini_service.analyze(file_bytes_list, filenames, mode, prompt, tc)
-    except (GeminiError, OpenAIError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-    except Exception as exc:
-        log.exception("KI-Analyse fehlgeschlagen")
-        raise HTTPException(status_code=500, detail=f"KI-Fehler: {exc}")
-
-    return {"text": result["text"], "highlight_terms": result["highlight_terms"]}

@@ -161,7 +161,10 @@ def analyze(
         has_content = True
 
     if not has_content:
-        raise GeminiError("Keine Inhalte übergeben.")
+        if mode == "prompt" and (custom_prompt or "").strip():
+            pass  # Prompt selbst ist die Aufgabe — kein weiterer Inhalt nötig
+        else:
+            raise GeminiError("Keine Inhalte übergeben.")
 
     # --- Modus-Prompt ---
     if mode == "prompt":
