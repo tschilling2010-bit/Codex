@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>HefterPro &mdash; Handschrift</title>
   <link rel="icon" href="/assets/favicon.png" type="image/png" />
-  <link rel="stylesheet" href="/css/styles.css?v=44" />
+  <link rel="stylesheet" href="/css/styles.css?v=45" />
 </head>
 <body>
 
@@ -163,6 +163,19 @@
         <button class="btn btn-soft btn-sm" id="btn-variant-add" type="button" style="margin-top:8px">+ Variante</button>
       </div>
 
+      <!-- Font download -->
+      <div class="panel-section">
+        <div class="panel-label">Schriftart herunterladen</div>
+        <p class="muted" style="font-size:12px;margin:0 0 10px">
+          Handschrift als .ttf-Font f&uuml;r iPad, iPhone &amp; Mac exportieren.<br>
+          Auf iPad: Datei &ouml;ffnen &rarr; &bdquo;Profil installieren&ldquo; in Einstellungen.
+        </p>
+        <button class="btn btn-soft btn-sm" id="btn-font-download" type="button">
+          Als Font herunterladen (.ttf)
+        </button>
+        <div id="font-download-status" style="font-size:12px;margin-top:6px;display:none"></div>
+      </div>
+
       <!-- Danger zone -->
       <div class="panel-section" style="margin-top:auto;padding-top:20px;border-top:1px solid var(--border)">
         <button class="btn btn-ghost btn-sm" id="btn-delete" type="button" style="color:var(--err);width:100%">Schrift l&ouml;schen</button>
@@ -182,9 +195,9 @@
     </div>
   </div>
 
-  <script src="/js/common.js?v=44"></script>
-  <script src="/js/api.js?v=44"></script>
-  <script src="/js/persist.js?v=44"></script>
-  <script src="/js/handwriting.js?v=44"></script>
+  <script src="/js/common.js?v=45"></script>
+  <script src="/js/api.js?v=45"></script>
+  <script src="/js/persist.js?v=45"></script>
+  <script src="/js/handwriting.js?v=45"></script>
 </body>
 </html>

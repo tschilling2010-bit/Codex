@@ -467,5 +467,34 @@ def download_export_file(filename: str):
 
 
 # ---------------------------------------------------------------------------
+# Font export
+# ---------------------------------------------------------------------------
+
+import re as _re
+
+
+@router.get("/profile/{profile_id}/font")
+def download_font(profile_id: str):
+    """Build and return a .ttf font file from the profile's handwritten glyphs."""
+    from ..services import font_export
+
+    meta = fonts.get_profile(profile_id)
+    if meta is None:
+        raise HTTPException(status_code=404, detail="Profil nicht gefunden.")
+    try:
+        font_bytes = font_export.build_font(profile_id, meta.get("name", profile_id))
+    except (ValueError, RuntimeError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    safe_name = _re.sub(r"[^\w\-]", "_", meta.get("name", profile_id))
+    filename = f"{safe_name}.ttf"
+    return Response(
+        content=font_bytes,
+        media_type="font/ttf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ---------------------------------------------------------------------------
 # KI-Modus
 # ---------------------------------------------------------------------------

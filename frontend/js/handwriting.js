@@ -905,6 +905,61 @@
   // ---- Utils ----
   function fmtScale(v) { return Number(v).toFixed(2).replace(/0$/, "") + "×"; }
 
+  // ---- Font download ----
+
+  function initFontDownload() {
+    var btn = getEl("btn-font-download");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      if (!state.activeId) {
+        var s = getEl("font-download-status");
+        if (s) { s.textContent = "Bitte zuerst eine Schrift auswählen."; s.style.display = ""; s.style.color = "var(--err)"; }
+        return;
+      }
+      if (!state.profile || state.profile.glyph_count === 0) {
+        var s2 = getEl("font-download-status");
+        if (s2) { s2.textContent = "Keine Glyphen vorhanden. Bitte zuerst Vorlagen hochladen."; s2.style.display = ""; s2.style.color = "var(--err)"; }
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = "Wird erstellt…";
+      var s3 = getEl("font-download-status");
+      if (s3) { s3.textContent = "Font wird generiert…"; s3.style.display = ""; s3.style.color = ""; }
+
+      fetch("/api/handwriting/profile/" + state.activeId + "/font")
+        .then(function (res) {
+          if (!res.ok) {
+            return res.json().catch(function () { return {}; }).then(function (data) {
+              throw new Error(data.detail || "Server-Fehler (" + res.status + ")");
+            });
+          }
+          return res.blob();
+        })
+        .then(function (blob) {
+          var name = (state.profile && state.profile.name) || "handschrift";
+          var blobUrl = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = blobUrl;
+          a.download = name + ".ttf";
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 30000);
+          var s4 = getEl("font-download-status");
+          if (s4) { s4.textContent = "Download gestartet."; s4.style.color = "var(--ok)"; }
+        })
+        .catch(function (err) {
+          var s5 = getEl("font-download-status");
+          if (s5) { s5.textContent = "Fehler: " + err.message; s5.style.color = "var(--err)"; }
+        })
+        ["finally"](function () {
+          btn.disabled = false;
+          btn.textContent = "Als Font herunterladen (.ttf)";
+        });
+    });
+  }
+
   // ---- KI-Toggle (visual theme only) ----
 
   function initKiToggle() {
@@ -921,8 +976,9 @@
     }
   }
 
-  // Initialize KI toggle on load
+  // Initialize on load
   document.addEventListener("DOMContentLoaded", function () {
+    initFontDownload();
     initKiToggle();
   });
 
