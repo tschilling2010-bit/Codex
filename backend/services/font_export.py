@@ -106,9 +106,19 @@ def build_font(profile_id: str, profile_name: str) -> bytes:
     # ASCII-only family name for maximum cross-app compatibility
     safe_name = "".join(
         c for c in profile_name if c.isascii() and (c.isalnum() or c in " -_")
-    ).strip() or "HefterPro Handschrift"
+    ).strip() or "HefterProHandschrift"
 
-    fb.setupNameTable({"familyName": safe_name, "styleName": "Regular"})
+    # PostScript name: no spaces, no special chars, max 63 chars, format FamilyName-Style
+    ps_name = "".join(
+        c for c in safe_name if c.isalnum() or c in "-_"
+    ) or "HefterProHandschrift"
+    ps_name = (ps_name[:59] + "-Reg") if len(ps_name) > 59 else (ps_name + "-Regular")
+
+    fb.setupNameTable({
+        "familyName": safe_name,
+        "styleName": "Regular",
+        "psName": ps_name,
+    })
     fb.setupOS2(
         sTypoAscender=ascent,
         sTypoDescender=descent,
