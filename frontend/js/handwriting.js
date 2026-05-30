@@ -151,14 +151,19 @@
     if (pairs.length >= MAX_VARIANTS) return Promise.resolve();
     var used = {};
     pairs.forEach(function (p) { used[p.index] = true; });
-    var promises = [];
+    var missing = [];
     for (var i = 0; i < MAX_VARIANTS; i++) {
-      if (!used[i]) promises.push(API.createPair(state.activeId, i));
+      if (!used[i]) missing.push(i);
     }
-    if (promises.length === 0) return Promise.resolve();
-    return Promise.all(promises)
+    if (missing.length === 0) return Promise.resolve();
+    // Sequential (not parallel) to avoid meta.json read/write race condition
+    var chain = Promise.resolve();
+    missing.forEach(function (idx) {
+      chain = chain.then(function () { return API.createPair(state.activeId, idx); });
+    });
+    return chain
       .then(function () { return API.getProfile(state.activeId); })
-      .then(function (p) { state.profile = p; });
+      .then(function (p) { state.profile = p; renderVariants(); });
   }
 
   // ---- Settings panel ----

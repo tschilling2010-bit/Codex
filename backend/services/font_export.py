@@ -34,8 +34,8 @@ def build_font(profile_id: str, profile_name: str) -> bytes:
     if not glyph_dir.exists():
         raise ValueError("Profil nicht gefunden.")
 
-    # --- Load glyph PNGs ---
-    char_data: Dict[str, Tuple[int, int, bytes]] = {}  # char -> (w, h, png_bytes)
+    # --- Load glyph PNGs (pass 1: read images) ---
+    raw_images: Dict[str, Image.Image] = {}  # char -> PIL image
 
     for hex_dir in sorted(glyph_dir.iterdir()):
         if not hex_dir.is_dir():
@@ -51,14 +51,11 @@ def build_font(profile_id: str, profile_name: str) -> bytes:
         if not pngs:
             continue
         try:
-            img = Image.open(pngs[0]).convert("RGBA")
-            buf = io.BytesIO()
-            img.save(buf, "PNG")
-            char_data[char] = (img.width, img.height, buf.getvalue())
+            raw_images[char] = Image.open(pngs[0]).convert("RGBA")
         except Exception as exc:
             log.warning("Glyph %s konnte nicht geladen werden: %s", hex_dir.name, exc)
 
-    if not char_data:
+    if not raw_images:
         raise ValueError(
             "Keine Glyphen im Profil. Bitte zuerst Vorlagen hochladen und einlernen."
         )
@@ -66,9 +63,22 @@ def build_font(profile_id: str, profile_name: str) -> bytes:
     # --- Font metrics ---
     UPM = 2048
 
-    heights = sorted(h for (_, h, _) in char_data.values())
-    ref_height = max(heights[len(heights) // 2], 1)  # median pixel height
+    # Use median height of all glyphs as reference (robustly ignores outliers)
+    all_heights = sorted(img.height for img in raw_images.values())
+    ref_height = max(all_heights[len(all_heights) // 2], 1)
     scale = UPM / ref_height  # pixel → font units
+
+    # --- Normalize glyph heights (pass 2) ---
+    # All images are resized to ref_height so special chars (ä, ö, ü) don't
+    # appear larger than regular letters in the font.
+    char_data: Dict[str, Tuple[int, int, bytes]] = {}
+    for char, img in raw_images.items():
+        if img.height != ref_height:
+            new_w = max(1, round(img.width * ref_height / img.height))
+            img = img.resize((new_w, ref_height), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, "PNG")
+        char_data[char] = (img.width, img.height, buf.getvalue())
 
     ascent = UPM
     descent = -int(UPM * 0.25)
