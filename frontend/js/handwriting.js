@@ -142,8 +142,8 @@
   }
 
   function clearPreview() {
-    var el = getEl(“preview”);
-    if (el) el.innerHTML = '<div class=”empty-state-nice”><svg width=”36” height=”36” viewBox=”0 0 24 24” fill=”none” stroke=”currentColor” stroke-width=”1.2” stroke-linecap=”round” stroke-linejoin=”round” style=”opacity:.4”><path d=”M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z”/></svg><p>Text eingeben und „Rendern” klicken.</p></div>';
+    var el = getEl("preview");
+    if (el) el.innerHTML = '<div class="empty-state-nice"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.4"><path d="M12 2l2 6.5L21 11l-7 2.5L12 20l-2-6.5L3 11l7-2.5L12 2z"/></svg><p>Text eingeben und &bdquo;Rendern&ldquo; klicken.</p></div>';
   }
 
   function ensureAllVariants() {
